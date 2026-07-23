@@ -1,0 +1,185 @@
+{
+  "$schema": "https://example.invalid/stillgood/benchmark-profile.schema.json",
+  "profileVersion": "1.0.0-experimental",
+  "fixtureVersion": "1.0.0",
+  "status": "experimental",
+  "categoryWeights": {
+    "responsiveness": 0.30,
+    "documents": 0.20,
+    "multitasking": 0.25,
+    "smoothness": 0.10,
+    "video": 0.10,
+    "browserStorage": 0.05
+  },
+  "gradeBands": [
+    { "grade": "A", "label": "Comfortable", "min": 85 },
+    { "grade": "B", "label": "Useful", "min": 70 },
+    { "grade": "C", "label": "Light-duty", "min": 50 },
+    { "grade": "D", "label": "Single-purpose", "min": 30 },
+    { "grade": "E", "label": "Struggling", "min": 0 }
+  ],
+  "normalizers": {
+    "interactionP95Ms": {
+      "direction": "lowerIsBetter",
+      "points": [
+        { "value": 100, "score": 100 },
+        { "value": 200, "score": 85 },
+        { "value": 350, "score": 65 },
+        { "value": 500, "score": 40 },
+        { "value": 1000, "score": 15 },
+        { "value": 2000, "score": 0 }
+      ]
+    },
+    "interactionP75Ms": {
+      "direction": "lowerIsBetter",
+      "points": [
+        { "value": 75, "score": 100 },
+        { "value": 150, "score": 85 },
+        { "value": 250, "score": 65 },
+        { "value": 400, "score": 40 },
+        { "value": 800, "score": 10 },
+        { "value": 1500, "score": 0 }
+      ]
+    },
+    "blockedTimeRatio": {
+      "direction": "lowerIsBetter",
+      "points": [
+        { "value": 0.01, "score": 100 },
+        { "value": 0.03, "score": 85 },
+        { "value": 0.08, "score": 65 },
+        { "value": 0.15, "score": 40 },
+        { "value": 0.35, "score": 0 }
+      ]
+    },
+    "lateFrameRatio": {
+      "direction": "lowerIsBetter",
+      "points": [
+        { "value": 0.01, "score": 100 },
+        { "value": 0.03, "score": 85 },
+        { "value": 0.05, "score": 65 },
+        { "value": 0.10, "score": 40 },
+        { "value": 0.25, "score": 0 }
+      ]
+    },
+    "videoDroppedFrameRatio": {
+      "direction": "lowerIsBetter",
+      "points": [
+        { "value": 0.005, "score": 100 },
+        { "value": 0.01, "score": 90 },
+        { "value": 0.03, "score": 70 },
+        { "value": 0.05, "score": 50 },
+        { "value": 0.10, "score": 25 },
+        { "value": 0.25, "score": 0 }
+      ]
+    },
+    "recoveryMs": {
+      "direction": "lowerIsBetter",
+      "points": [
+        { "value": 300, "score": 100 },
+        { "value": 1000, "score": 85 },
+        { "value": 3000, "score": 65 },
+        { "value": 5000, "score": 40 },
+        { "value": 10000, "score": 15 },
+        { "value": 20000, "score": 0 }
+      ]
+    }
+  },
+  "categoryMetricWeights": {
+    "responsiveness": {
+      "interactionP95Ms": 0.60,
+      "interactionP75Ms": 0.20,
+      "blockedTimeRatio": 0.15,
+      "taskIntegrity": 0.05
+    },
+    "documents": {
+      "openRender": 0.30,
+      "search": 0.25,
+      "tableOperation": 0.20,
+      "editingInteraction": 0.15,
+      "saveReopen": 0.10
+    },
+    "multitasking": {
+      "pressureInteraction": 0.45,
+      "baselineDegradation": 0.20,
+      "recovery": 0.15,
+      "lateFrames": 0.10,
+      "taskIntegrity": 0.10
+    },
+    "smoothness": {
+      "lateFrames": 0.60,
+      "frameP95Ratio": 0.25,
+      "blockingEvidence": 0.15
+    },
+    "video": {
+      "droppedFrames": 0.60,
+      "stalls": 0.15,
+      "seekRecovery": 0.15,
+      "cachedStart": 0.10
+    },
+    "browserStorage": {
+      "writeCommitP95": 0.50,
+      "writeThroughput": 0.20,
+      "randomRead": 0.20,
+      "cleanupIntegrity": 0.10
+    }
+  },
+  "videoTierModifiers": {
+    "1080p-comfortable": 1.0,
+    "720p-comfortable": 0.85,
+    "720p-marginal": 0.65,
+    "below-720p": 0.40
+  },
+  "gateRules": {
+    "failedCoreCategoryGrade": "E",
+    "coreCategoryBelow": 25,
+    "coreCategoryGradeCap": "D",
+    "multitaskingOneTaskThreshold": 40,
+    "skippedCategoryPreventsHighConfidence": true,
+    "storageMaximumGradeBandImpact": 1
+  },
+  "confidence": {
+    "highMaxVariationRatio": 0.15,
+    "mediumMaxVariationRatio": 0.30,
+    "minimumValidInteractions": 10,
+    "quickRounds": 2,
+    "fullRounds": 3
+  },
+  "safety": {
+    "pressureTargetMs": 8000,
+    "pressureHardStopMs": 15000,
+    "emergencyHeartbeatMs": 2000,
+    "focusLossGraceMs": 1000,
+    "maxViewportAreaChangeRatio": 0.15,
+    "storageDefaultMiB": 16,
+    "storageMinimumMiB": 8
+  },
+  "roleRules": {
+    "webEmailReady": {
+      "responsiveness": 60,
+      "documents": 45,
+      "multitasking": 40
+    },
+    "officeReady": {
+      "responsiveness": 60,
+      "documents": 60,
+      "multitasking": 50,
+      "requiresSaveIntegrity": true
+    },
+    "mediaReady": {
+      "video": 60,
+      "smoothness": 50,
+      "maxWarmStallMs": 1000
+    },
+    "multitaskingReady": {
+      "responsiveness": 65,
+      "documents": 60,
+      "multitasking": 65,
+      "maxRecoveryMs": 3000
+    },
+    "thinClientReady": {
+      "responsiveness": 50,
+      "multitasking": 35,
+      "smoothnessOrSkipped": 40
+    }
+  }
+}
