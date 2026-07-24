@@ -743,8 +743,24 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   .result-buttons button { flex: 1; }
   .result-at-a-glance article {
     border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
+  border-bottom: 1px solid var(--line);
+}
+.integrity-note {
+  margin: 18px 0 0;
+  padding: 18px 22px;
+  border: 1px solid #d7c99d;
+  border-radius: 10px;
+  background: #fff8df;
+}
+.integrity-note strong {
+  font-size: 12px;
+}
+.integrity-note p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
   .result-at-a-glance article:last-child { border-bottom: 0; }
 }
 

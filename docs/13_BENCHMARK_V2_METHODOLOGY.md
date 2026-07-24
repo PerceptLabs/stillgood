@@ -45,6 +45,13 @@ a test-count problem.
    processors, display cadence, run duration, profile version, interruptions,
    and raw samples. Power source is deliberately not requested in the primary
    flow; exported results mark it as unreported.
+10. **Require evidence before scoring.** A graphics or video tier is invalid
+    when it cannot produce a credible frame count. Invalid tiers are excluded
+    from capability recommendations, lower confidence, and prevent an A+
+    result rather than being silently treated as zero dropped frames.
+11. **Identify mobile context.** Mobile-browser runs remain useful, but the
+    result is labeled as mobile and is not presented as a direct computer
+    classification.
 
 ## Test structure
 

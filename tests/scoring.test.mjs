@@ -71,20 +71,21 @@ function fullMetrics(coreValues) {
     documentTiers: latencyTiers(coreValues),
     multitaskTiers: latencyTiers(coreValues.slice(1)),
     graphicsTiers: [
-      { id: "1", label: "Light", onTimeRatio: 1, longFrameRatio: 0 },
-      { id: "2", label: "Medium", onTimeRatio: 0.99, longFrameRatio: 0 },
-      { id: "3", label: "Busy", onTimeRatio: 0.97, longFrameRatio: 0.01 },
-      { id: "4", label: "Dense", onTimeRatio: 0.9, longFrameRatio: 0.05 },
+      { id: "1", label: "Light", onTimeRatio: 1, longFrameRatio: 0, frameCount: 100 },
+      { id: "2", label: "Medium", onTimeRatio: 0.99, longFrameRatio: 0, frameCount: 100 },
+      { id: "3", label: "Busy", onTimeRatio: 0.97, longFrameRatio: 0.01, frameCount: 100 },
+      { id: "4", label: "Dense", onTimeRatio: 0.9, longFrameRatio: 0.05, frameCount: 100 },
     ],
     videoTiers: [
-      { id: "480p", label: "480p", completed: true, droppedRatio: 0, stalls: 0 },
-      { id: "720p", label: "720p", completed: true, droppedRatio: 0, stalls: 0 },
+      { id: "480p", label: "480p", completed: true, droppedRatio: 0, stalls: 0, totalFrames: 96 },
+      { id: "720p", label: "720p", completed: true, droppedRatio: 0, stalls: 0, totalFrames: 126 },
       {
         id: "1080p",
         label: "1080p",
         completed: true,
         droppedRatio: 0.03,
         stalls: 1,
+        totalFrames: 126,
       },
     ],
     storageTiers: [
@@ -138,4 +139,48 @@ test("only broadly fast and stable hardware reaches the ceiling", () => {
   );
   assert.equal(result.ceilingReached, false);
   assert.ok(result.score >= 84);
+});
+
+test("a zero-frame video tier is invalid and cannot earn a recommendation", () => {
+  const metrics = fullMetrics([
+    [40, 41, 42],
+    [45, 46, 47],
+    [50, 51, 52],
+    [55, 56, 57],
+    [60, 61, 62],
+  ]);
+  metrics.videoTiers[2] = {
+    id: "1080p",
+    label: "1080p",
+    completed: true,
+    droppedRatio: 0,
+    stalls: 0,
+    totalFrames: 0,
+  };
+  const result = summarizeThoroughRun(metrics);
+  assert.equal(result.video.tiers[2].status, "invalid");
+  assert.equal(result.video.highestUsable, "720p");
+  assert.ok(!result.roles.includes("Video up to 1080p"));
+  assert.equal(result.confidence, "Medium");
+  assert.ok(result.score <= 91);
+  assert.ok(result.integrityNotes.some((note) => note.includes("valid frame count")));
+});
+
+test("an unavailable video module lowers confidence without erasing core results", () => {
+  const metrics = fullMetrics([
+    [80, 82, 84],
+    [120, 125, 130],
+    [170, 180, 190],
+    [300, 320, 340],
+    [700, 760, 820],
+  ]);
+  metrics.videoTiers = metrics.videoTiers.map((tier) => ({
+    ...tier,
+    totalFrames: 0,
+  }));
+  const result = summarizeThoroughRun(metrics);
+  assert.equal(result.video.available, false);
+  assert.equal(result.confidence, "Low");
+  assert.ok(result.score >= 68);
+  assert.ok(!result.roles.some((role) => role.startsWith("Video up to")));
 });

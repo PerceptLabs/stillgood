@@ -5,6 +5,7 @@ import {
   median,
   summarizeThoroughRun,
 } from "@/lib/scoring.mjs";
+import { classifyFormFactor } from "@/lib/context.mjs";
 
 type Phase = "home" | "prepare" | "run" | "result";
 type StageId =
@@ -34,6 +35,7 @@ type GraphicsTierResult = {
   longFrameRatio: number;
   worstFrameMs: number;
   frameCount: number;
+  valid?: boolean;
 };
 type VideoTierResult = {
   id: string;
@@ -44,6 +46,9 @@ type VideoTierResult = {
   stalls: number;
   completed: boolean;
   totalFrames: number;
+  valid: boolean;
+  measurementSource: "playback-quality" | "frame-callback" | "unavailable";
+  mediaAdvancedMs: number;
 };
 type StorageTierResult = {
   id: string;
@@ -68,6 +73,8 @@ type LatencyCategory = {
 };
 type SimpleCategory = {
   score: number;
+  available?: boolean;
+  invalidTierCount?: number;
   highestComfortable?: string;
   highestUsable?: string;
   tiers: Array<{ id: string; label: string; status: string }>;
@@ -88,8 +95,10 @@ type ThoroughResult = {
   longTaskCount: number;
   longAnimationFrameCount: number;
   roles: string[];
+  integrityNotes: string[];
   browser: string;
   platform: string;
+  formFactor: "mobile" | "computer" | "unknown";
   powerSource: "not-reported";
   logicalProcessors: number | null;
   cadenceMs: number;
@@ -196,6 +205,17 @@ function browserLabel() {
     return `Chromium ${ua.split("Chrome/")[1].split(" ")[0]}`;
   if (ua.includes("Safari/")) return "Safari";
   return "Current browser";
+}
+
+function detectFormFactor(): "mobile" | "computer" | "unknown" {
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+  return classifyFormFactor({
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    mobileHint: uaData?.mobile,
+  });
 }
 
 function deterministicJourney(seed: number, size: number, documentMode: boolean) {
@@ -342,6 +362,10 @@ export function StillGoodApp() {
       if (cancelledRef.current) break;
       setStatus(`${tier.label} workload · warm-up`);
       await measureJourney(stageId, tier, 1000 + tierIndex * 100);
+      if (tierIndex === 0) {
+        await sleep(90);
+        await measureJourney(stageId, tier, 1050 + tierIndex * 100);
+      }
       const samples: TimedSample[] = [];
       setStatus(`${tier.label} workload · 3 measured runs`);
       for (let repetition = 0; repetition < 3; repetition += 1) {
@@ -406,6 +430,7 @@ export function StillGoodApp() {
         longFrameRatio: 1,
         worstFrameMs: 999,
         frameCount: 0,
+        valid: false,
       };
     }
 
@@ -448,6 +473,7 @@ export function StillGoodApp() {
       longFrameRatio: intervals.length ? long / intervals.length : 1,
       worstFrameMs: Math.max(...intervals, 0),
       frameCount: intervals.length,
+      valid: true,
     };
   }
 
@@ -462,6 +488,9 @@ export function StillGoodApp() {
         stalls: 1,
         completed: false,
         totalFrames: 0,
+        valid: false,
+        measurementSource: "unavailable",
+        mediaAdvancedMs: 0,
       };
 
     video.pause();
@@ -483,40 +512,89 @@ export function StillGoodApp() {
         stalls: 1,
         completed: false,
         totalFrames: 0,
+        valid: false,
+        measurementSource: "unavailable",
+        mediaAdvancedMs: 0,
       };
 
     let stalls = 0;
+    let playbackStarted = false;
     const onWaiting = () => {
-      stalls += 1;
+      if (playbackStarted) stalls += 1;
+    };
+    const onPlaying = () => {
+      playbackStarted = true;
     };
     video.addEventListener("waiting", onWaiting);
+    video.addEventListener("playing", onPlaying);
     const before = video.getVideoPlaybackQuality?.();
+    let callbackFrames = 0;
+    let frameCallbackId: number | null = null;
+    const countFrame = () => {
+      callbackFrames += 1;
+      frameCallbackId = video.requestVideoFrameCallback(countFrame);
+    };
+    if (typeof video.requestVideoFrameCallback === "function")
+      frameCallbackId = video.requestVideoFrameCallback(countFrame);
     let completed = false;
+    let mediaAdvancedMs = 0;
     try {
       video.currentTime = 0;
       video.muted = true;
       await video.play();
+      const mediaStart = video.currentTime;
       await sleep(tier.durationMs);
-      completed = !video.paused && video.readyState >= 2;
+      mediaAdvancedMs = Math.max(0, (video.currentTime - mediaStart) * 1000);
+      const availableMediaMs = Number.isFinite(video.duration)
+        ? Math.max(250, Math.min(tier.durationMs, video.duration * 1000 - 100))
+        : tier.durationMs;
+      completed =
+        video.readyState >= 2 && mediaAdvancedMs >= availableMediaMs * 0.75;
     } catch {
       completed = false;
     }
     video.pause();
     video.removeEventListener("waiting", onWaiting);
+    video.removeEventListener("playing", onPlaying);
+    if (
+      frameCallbackId != null &&
+      typeof video.cancelVideoFrameCallback === "function"
+    )
+      video.cancelVideoFrameCallback(frameCallbackId);
     const after = video.getVideoPlaybackQuality?.();
-    const totalFrames =
+    const qualityFrames =
       before && after ? after.totalVideoFrames - before.totalVideoFrames : 0;
     const dropped =
       before && after ? after.droppedVideoFrames - before.droppedVideoFrames : 0;
+    const totalFrames = qualityFrames > 0 ? qualityFrames : callbackFrames;
+    const measurementSource =
+      qualityFrames > 0
+        ? "playback-quality"
+        : callbackFrames > 0
+          ? "frame-callback"
+          : "unavailable";
+    const minimumObservedFrames = Math.max(
+      12,
+      Math.floor((mediaAdvancedMs / 1000) * 8),
+    );
+    const valid = completed && totalFrames >= minimumObservedFrames;
     return {
       id: tier.id,
       label: tier.label,
       width: tier.width,
       height: tier.height,
-      droppedRatio: totalFrames > 0 ? dropped / totalFrames : completed ? 0 : 1,
+      droppedRatio:
+        qualityFrames > 0
+          ? dropped / qualityFrames
+          : callbackFrames > 0
+            ? 0
+            : 1,
       stalls,
       completed,
       totalFrames,
+      valid,
+      measurementSource,
+      mediaAdvancedMs,
     };
   }
 
@@ -598,10 +676,10 @@ export function StillGoodApp() {
       await nextPaint();
       const graphicsTiers: GraphicsTierResult[] = [];
       const graphicsLevels = [
-        ["light", "Light", 80],
-        ["medium", "Medium", 260],
-        ["busy", "Busy", 700],
-        ["dense", "Dense", 1500],
+        ["light", "Light", 240],
+        ["medium", "Medium", 1200],
+        ["busy", "Busy", 4200],
+        ["dense", "Dense", 12000],
       ] as const;
       for (let index = 0; index < graphicsLevels.length; index += 1) {
         const [id, label, complexity] = graphicsLevels[index];
@@ -621,7 +699,7 @@ export function StillGoodApp() {
         measuredVideoTiers.push(measured);
         setProgress(60 + ((index + 1) / videoTiers.length) * 13);
         if (
-          !measured.completed ||
+          !measured.valid ||
           measured.droppedRatio > 0.15 ||
           measured.stalls > 2
         ) {
@@ -636,6 +714,9 @@ export function StillGoodApp() {
               stalls: 1,
               completed: false,
               totalFrames: 0,
+              valid: false,
+              measurementSource: "unavailable",
+              mediaAdvancedMs: 0,
             });
           }
           break;
@@ -747,6 +828,7 @@ export function StillGoodApp() {
         stable = lag < 20 ? stable + 1 : 0;
       }
       const recoveryMs = performance.now() - recoveryStart;
+      const formFactor = detectFormFactor();
       const summary = summarizeThoroughRun({
         everydayTiers,
         documentTiers,
@@ -764,12 +846,13 @@ export function StillGoodApp() {
         ...summary,
         browser: browserLabel(),
         platform: navigator.platform || "Platform not reported",
+        formFactor,
         powerSource: "not-reported",
         logicalProcessors: navigator.hardwareConcurrency || null,
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "2.0.0-experimental-thorough",
+        profileVersion: "2.1.0-experimental-thorough",
         raw: {
           everydayTiers,
           documentTiers,
@@ -957,15 +1040,21 @@ export function StillGoodApp() {
     ["Multitasking", result.multitasking],
   ];
   const verdict =
-    result.grade === "A+"
-      ? "Fast enough to feel modern in this browser."
-      : result.grade === "A"
-        ? "Comfortable for everyday browser-based computing."
-        : result.grade.startsWith("B")
-          ? "A genuinely useful second-life computer."
-          : result.grade.startsWith("C")
-            ? "Useful for focused, lighter work."
-            : "Best assigned one simple job at a time.";
+    result.formFactor === "mobile"
+      ? result.grade === "A+"
+        ? "Excellent browser performance on this mobile device."
+        : result.grade === "A"
+          ? "Strong browser performance on this mobile device."
+          : "This mobile result shows where browser performance begins to slow."
+      : result.grade === "A+"
+        ? "Fast enough to feel modern in this browser."
+        : result.grade === "A"
+          ? "Comfortable for everyday browser-based computing."
+          : result.grade.startsWith("B")
+            ? "A genuinely useful second-life computer."
+            : result.grade.startsWith("C")
+              ? "Useful for focused, lighter work."
+              : "Best assigned one simple job at a time.";
 
   return (
     <main className="result-page">
@@ -984,7 +1073,7 @@ export function StillGoodApp() {
           <p className="kicker">
             {result.ceilingReached
               ? "Above the current test ceiling"
-              : `${result.label} · ${result.score}/100`}
+              : `${result.formFactor === "mobile" ? "Mobile result · " : ""}${result.label} · ${result.score}/100`}
           </p>
           <h1>{verdict}</h1>
           <p>
@@ -1005,7 +1094,11 @@ export function StillGoodApp() {
         </article>
         <article>
           <span>Video</span>
-          <strong>{result.video.highestUsable ?? "None"}</strong>
+          <strong>
+            {result.video.available === false
+              ? "Not verified"
+              : result.video.highestUsable ?? "None"}
+          </strong>
         </article>
       </section>
       <details className="result-breakdown">
@@ -1047,6 +1140,14 @@ export function StillGoodApp() {
           </button>
         </div>
       </section>
+      {result.integrityNotes.length > 0 && (
+        <aside className="integrity-note">
+          <strong>Measurement note</strong>
+          {result.integrityNotes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </aside>
+      )}
       <details className="result-details">
         <summary>Workload levels and measurements</summary>
         <div className="tier-detail-grid">
@@ -1065,7 +1166,7 @@ export function StillGoodApp() {
           ))}
         </div>
         <p>
-          {result.browser} · {result.platform} ·{" "}
+          {result.browser} · {result.platform} · {result.formFactor} ·{" "}
           {result.logicalProcessors ?? "unknown"} logical processors · power
           source not requested
         </p>
