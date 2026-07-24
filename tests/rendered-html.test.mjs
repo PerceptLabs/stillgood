@@ -32,9 +32,9 @@ test("server-renders the StillGood product shell", async () => {
     html,
     /<title>StillGood — What can this computer still do\?(?: · StillGood)?<\/title>/i,
   );
-  assert.match(html, /What can this computer/);
-  assert.match(html, /Run automated Quick Check/);
-  assert.match(html, /No mystery score/);
-  assert.match(html, /What this measures/);
+  assert.match(html, /Is this computer still good/);
+  assert.match(html, /Start the test/);
+  assert.match(html, /About 30 seconds/);
+  assert.match(html, /Everyday use/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });

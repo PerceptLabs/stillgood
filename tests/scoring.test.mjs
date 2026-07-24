@@ -5,7 +5,7 @@ import {
   latencyPoints,
   normalizeLower,
   percentile,
-  summarizePrototypeRun,
+  summarizeFastRun,
 } from "../lib/scoring.mjs";
 
 test("percentile keeps high-delay samples visible", () => {
@@ -29,18 +29,43 @@ test("grade boundaries match the experimental profile", () => {
 });
 
 test("capability summary reports practical workload limits", () => {
-  const result = summarizePrototypeRun({
+  const result = summarizeFastRun({
     actionDurations: [80, 85, 90, 92, 95, 100, 110, 115],
     pressureDurations: [160, 170, 180, 190, 195, 200],
+    workDurations: [20, 22, 24, 25, 28, 30],
     frameIntervals: Array.from({ length: 120 }, () => 16.67),
     cadenceMs: 16.67,
     recoveryMs: 500,
+    videoDroppedRatio: 0.004,
+    videoStalls: 0,
+    storageWriteMs: 180,
+    storageReadMs: 30,
     longTaskCount: 0,
-    longTaskTotalMs: 0,
+    highestTierCompleted: "moderate",
   });
 
-  assert.equal(result.comfortableWorkload, "Moderate web multitasking");
-  assert.equal(result.usableWorkload, "Moderate web multitasking");
-  assert.ok(result.roles.includes("Web & email ready"));
+  assert.equal(result.comfortableWorkload, "Everyday work and light multitasking");
+  assert.equal(result.usableWorkload, "Moderate browser multitasking");
+  assert.ok(result.roles.includes("Web and email"));
   assert.ok(result.score >= 70);
+});
+
+test("fast hardware is described as above the test ceiling", () => {
+  const result = summarizeFastRun({
+    actionDurations: [35, 38, 40, 42],
+    pressureDurations: [55, 60, 64, 68],
+    workDurations: [8, 9, 10, 11],
+    frameIntervals: Array.from({ length: 120 }, () => 16.67),
+    cadenceMs: 16.67,
+    recoveryMs: 250,
+    videoDroppedRatio: 0,
+    videoStalls: 0,
+    storageWriteMs: 70,
+    storageReadMs: 12,
+    longTaskCount: 0,
+    highestTierCompleted: "heavy",
+  });
+
+  assert.equal(result.ceilingReached, true);
+  assert.ok(result.score <= 97);
 });

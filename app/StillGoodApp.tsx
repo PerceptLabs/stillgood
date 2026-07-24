@@ -1,106 +1,71 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { summarizePrototypeRun } from "@/lib/scoring.mjs";
+import { useRef, useState } from "react";
+import { summarizeFastRun } from "@/lib/scoring.mjs";
 
-type AppPhase = "landing" | "preparing" | "running" | "result";
-type Scene = "inbox" | "documents" | "browsing" | "multitasking";
-type Message = { sender: string; subject: string; time: string };
-type ActionSample = {
-  scene: Scene;
-  action: string;
+type AppPhase = "home" | "prepare" | "run" | "result";
+type StageId = "everyday" | "documents" | "media" | "multitasking" | "storage";
+type Tier = "baseline" | "light" | "moderate" | "heavy";
+type Sample = {
+  stage: StageId;
+  tier: Tier;
   durationMs: number;
+  workMs: number;
   underPressure: boolean;
 };
-type PrototypeResult = ReturnType<typeof summarizePrototypeRun> & {
-  samples: ActionSample[];
+type FastResult = ReturnType<typeof summarizeFastRun> & {
   browser: string;
   platform: string;
   startedAt: string;
+  samples: Sample[];
+  elapsedMs: number;
   profileVersion: string;
 };
 
-const scenePlan: Array<{
-  id: Scene;
-  eyebrow: string;
+const stages: Array<{
+  id: StageId;
+  name: string;
   title: string;
-  actions: string[];
+  detail: string;
 }> = [
   {
-    id: "inbox",
-    eyebrow: "Everyday response",
-    title: "Working through a practice inbox",
-    actions: [
-      "Opening a conversation",
-      "Searching 400 messages",
-      "Sorting by sender",
-      "Expanding a thread",
-      "Applying a label",
-      "Drafting a reply",
-      "Switching folders",
-    ],
+    id: "everyday",
+    name: "Everyday use",
+    title: "Testing everyday responsiveness",
+    detail: "Opening, searching, sorting, and updating an inbox-style app.",
   },
   {
     id: "documents",
-    eyebrow: "Documents & tables",
-    title: "Editing a community device log",
-    actions: [
-      "Opening the document",
-      "Finding a section",
-      "Searching for battery inspection",
-      "Sorting 500 inventory rows",
-      "Editing a paragraph",
-      "Recalculating the table",
-      "Saving and reopening the draft",
-    ],
+    name: "Documents",
+    title: "Testing documents and search",
+    detail: "Editing text, sorting a table, searching, and redrawing content.",
   },
   {
-    id: "browsing",
-    eyebrow: "Local browsing workload",
-    title: "Moving through everyday web pages",
-    actions: [
-      "Opening an article",
-      "Filtering product cards",
-      "Expanding an image",
-      "Scrolling a comment thread",
-      "Updating a dashboard",
-      "Switching page panels",
-      "Rendering search results",
-    ],
+    id: "media",
+    name: "Motion & video",
+    title: "Testing motion and video",
+    detail: "Checking frame pacing and playing a cached local video.",
   },
   {
     id: "multitasking",
-    eyebrow: "Multitasking & recovery",
-    title: "Overlapping foreground and background work",
-    actions: [
-      "Starting light background work",
-      "Searching while work continues",
-      "Switching active panels",
-      "Updating document content",
-      "Rendering an image grid",
-      "Checking foreground response",
-      "Stopping pressure and recovering",
-    ],
+    name: "Multitasking",
+    title: "Testing work under pressure",
+    detail: "Repeating foreground work while bounded background tasks run.",
+  },
+  {
+    id: "storage",
+    name: "Storage & recovery",
+    title: "Testing browser storage and recovery",
+    detail: "Saving temporary local data, reading it back, and cleaning up.",
   },
 ];
 
-const messages: Message[] = Array.from({ length: 10 }, (_, index) => ({
-  sender: [
-    "River Street Library",
-    "Mara Chen",
-    "Repair Fair",
-    "Device Intake",
-    "Northside Workshop",
-  ][index % 5],
-  subject: [
-    "Laptop pickup schedule",
-    "Battery inspection notes",
-    "Saturday volunteer list",
-    "New donation received",
-    "Parts inventory update",
-  ][index % 5],
-  time: `${9 + (index % 3)}:${index % 2 ? "45" : "20"}`,
-}));
+const tierSizes: Array<{ tier: Tier; size: number }> = [
+  { tier: "baseline", size: 900 },
+  { tier: "light", size: 2800 },
+  { tier: "moderate", size: 8500 },
+  { tier: "heavy", size: 24000 },
+];
 
 const sleep = (ms: number) =>
   new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -110,16 +75,21 @@ const nextPaint = () =>
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   });
 
-function deterministicMainThreadWork(seed: number, intensity: number) {
-  const records = Array.from({ length: 220 * intensity }, (_, index) => ({
-    id: index,
-    score: (index * 9301 + seed * 49297) % 233280,
-    text: `device-${(seed + index).toString(36)} inspection ready`,
-  }));
-  records.sort((a, b) => a.score - b.score);
-  return records
-    .filter((record) => record.score % 3 === 0 || record.text.includes("repair"))
-    .reduce((sum, record) => sum + record.score, 0);
+function deterministicWork(seed: number, size: number) {
+  let value = seed >>> 0;
+  const rows = Array.from({ length: size }, (_, index) => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return {
+      id: index,
+      score: value % 100000,
+      label: `device-${value.toString(36)} battery inspection`,
+    };
+  });
+  rows.sort((a, b) => a.score - b.score || a.id - b.id);
+  const filtered = rows.filter(
+    (row) => row.score % 3 === 0 || row.label.includes("repair"),
+  );
+  return filtered.reduce((checksum, row) => checksum ^ row.score, 0);
 }
 
 function browserLabel() {
@@ -134,59 +104,133 @@ function browserLabel() {
   return "Current browser";
 }
 
-function IconMark({ kind }: { kind: "web" | "doc" | "remote" | "multi" }) {
-  return <span className={`role-icon role-icon--${kind}`} aria-hidden="true" />;
+async function runStorage(): Promise<{ writeMs: number; readMs: number }> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("stillgood-fast-check", 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains("blocks"))
+        database.createObjectStore("blocks");
+    };
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      const block = new Uint8Array(256 * 1024);
+      for (let index = 0; index < block.length; index += 4096)
+        block[index] = index % 251;
+
+      const writeStart = performance.now();
+      const write = database.transaction("blocks", "readwrite");
+      const store = write.objectStore("blocks");
+      for (let index = 0; index < 24; index += 1)
+        store.put(block, `block-${index}`);
+
+      write.onerror = () => {
+        database.close();
+        reject(write.error);
+      };
+      write.oncomplete = () => {
+        const writeMs = performance.now() - writeStart;
+        const readStart = performance.now();
+        const read = database.transaction("blocks", "readonly");
+        const readStore = read.objectStore("blocks");
+        for (let index = 0; index < 8; index += 1)
+          readStore.get(`block-${index * 3}`);
+
+        read.onerror = () => {
+          database.close();
+          reject(read.error);
+        };
+        read.oncomplete = () => {
+          const readMs = performance.now() - readStart;
+          database.close();
+          const deletion = indexedDB.deleteDatabase("stillgood-fast-check");
+          deletion.onsuccess = () => resolve({ writeMs, readMs });
+          deletion.onerror = () => resolve({ writeMs, readMs });
+        };
+      };
+    };
+  });
 }
 
 export function StillGoodApp() {
-  const [phase, setPhase] = useState<AppPhase>("landing");
-  const [scene, setScene] = useState<Scene>("inbox");
-  const [sceneIndex, setSceneIndex] = useState(0);
-  const [actionIndex, setActionIndex] = useState(0);
+  const [phase, setPhase] = useState<AppPhase>("home");
+  const [stageIndex, setStageIndex] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [statusLine, setStatusLine] = useState("");
-  const [result, setResult] = useState<PrototypeResult | null>(null);
+  const [status, setStatus] = useState("");
+  const [visualTick, setVisualTick] = useState(0);
+  const [result, setResult] = useState<FastResult | null>(null);
   const [notice, setNotice] = useState("");
   const cancelledRef = useRef(false);
   const workersRef = useRef<Worker[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const currentScene = scenePlan[sceneIndex] ?? scenePlan[0];
-  const activeMessages = useMemo(() => {
-    const shift = actionIndex % messages.length;
-    return [...messages.slice(shift), ...messages.slice(0, shift)];
-  }, [actionIndex]);
+  const stage = stages[stageIndex] ?? stages[0];
 
-  function stopTest() {
+  function stop() {
     cancelledRef.current = true;
     workersRef.current.forEach((worker) => {
       worker.postMessage({ type: "cancel" });
       worker.terminate();
     });
     workersRef.current = [];
-    setPhase("landing");
-    setNotice("Test stopped safely. No result was saved.");
+    videoRef.current?.pause();
+    setPhase("home");
+    setNotice("Test stopped safely. Nothing was saved.");
   }
 
-  async function beginTest() {
+  async function measureAction(
+    stageId: StageId,
+    tier: Tier,
+    size: number,
+    seed: number,
+    underPressure: boolean,
+  ): Promise<Sample> {
+    const start = performance.now();
+    const workStart = performance.now();
+    deterministicWork(seed, size);
+    const workMs = performance.now() - workStart;
+    setVisualTick((value) => value + 1);
+    await nextPaint();
+    return {
+      stage: stageId,
+      tier,
+      durationMs: performance.now() - start,
+      workMs,
+      underPressure,
+    };
+  }
+
+  async function begin() {
     cancelledRef.current = false;
     setNotice("");
     setResult(null);
-    setPhase("preparing");
-    setStatusLine("Checking browser timing and preparing local fixtures");
+    setProgress(0);
+    setPhase("prepare");
+    setStatus("Loading the five local checks");
     const startedAt = new Date().toISOString();
+    const testStart = performance.now();
 
-    await sleep(500);
-    if (cancelledRef.current) return;
+    try {
+      await fetch("/benchmark-assets/flower.mp4", { cache: "force-cache" }).then(
+        (response) => {
+          if (!response.ok) throw new Error("Video fixture unavailable");
+          return response.arrayBuffer();
+        },
+      );
+    } catch {
+      // Video can degrade gracefully; its result will be unavailable.
+    }
 
     const frameIntervals: number[] = [];
-    let previousFrame = 0;
     let collectingFrames = true;
-    const collectFrame = (timestamp: number) => {
+    let previousFrame = 0;
+    const frameLoop = (timestamp: number) => {
       if (previousFrame) frameIntervals.push(timestamp - previousFrame);
       previousFrame = timestamp;
-      if (collectingFrames) requestAnimationFrame(collectFrame);
+      if (collectingFrames) requestAnimationFrame(frameLoop);
     };
-    requestAnimationFrame(collectFrame);
+    requestAnimationFrame(frameLoop);
 
     const longTasks: number[] = [];
     let observer: PerformanceObserver | null = null;
@@ -199,80 +243,146 @@ export function StillGoodApp() {
       observer = null;
     }
 
-    await sleep(650);
-    const calibrationFrames = frameIntervals.slice(0, 40).sort((a, b) => a - b);
-    const cadenceMs =
-      calibrationFrames[Math.floor(calibrationFrames.length / 2)] || 16.67;
-    setStatusLine("Warm-up complete. The measured run is starting");
-    await sleep(450);
+    setStatus("Measuring this display and warming up");
+    deterministicWork(7, 1200);
+    await sleep(850);
+    if (cancelledRef.current) return;
+    const calibration = frameIntervals.slice(0, 45).sort((a, b) => a - b);
+    const cadenceMs = calibration[Math.floor(calibration.length / 2)] || 16.67;
 
-    const samples: ActionSample[] = [];
-    setPhase("running");
+    const samples: Sample[] = [];
+    setPhase("run");
 
-    for (let stageIndex = 0; stageIndex < scenePlan.length; stageIndex += 1) {
-      if (cancelledRef.current) return;
-      const stage = scenePlan[stageIndex];
-      setSceneIndex(stageIndex);
-      setScene(stage.id);
-      setActionIndex(0);
-
-      if (stage.id === "multitasking") {
-        const workerCount = Math.max(
-          1,
-          Math.min(2, (navigator.hardwareConcurrency || 2) - 1),
-        );
-        workersRef.current = Array.from({ length: workerCount }, (_, index) => {
-          const worker = new Worker("/benchmark-worker.js");
-          worker.postMessage({
-            type: "start",
-            seed: 900 + index,
-            workUnits: 3,
-            durationMs: 5800,
-          });
-          return worker;
-        });
-      }
-
-      for (let index = 0; index < stage.actions.length; index += 1) {
+    setStageIndex(0);
+    setStatus("Ramping from a simple inbox to a busy one");
+    for (let index = 0; index < tierSizes.length; index += 1) {
+      const item = tierSizes[index];
+      for (let repeat = 0; repeat < 2; repeat += 1) {
         if (cancelledRef.current) return;
-        const action = stage.actions[index];
-        setActionIndex(index);
-        setStatusLine(action);
-        const actionStart = performance.now();
-        deterministicMainThreadWork(
-          stageIndex * 17 + index,
-          stage.id === "multitasking" ? 4 : 2,
+        samples.push(
+          await measureAction(
+            "everyday",
+            item.tier,
+            item.size,
+            index * 11 + repeat,
+            false,
+          ),
         );
-        setProgress(
-          ((stageIndex * stage.actions.length + index + 0.35) /
-            (scenePlan.length * stage.actions.length)) *
-            100,
-        );
-        await nextPaint();
-        samples.push({
-          scene: stage.id,
-          action,
-          durationMs: performance.now() - actionStart,
-          underPressure: stage.id === "multitasking" && index < 6,
-        });
-        setProgress(
-          ((stageIndex * stage.actions.length + index + 1) /
-            (scenePlan.length * stage.actions.length)) *
-            100,
-        );
-        await sleep(170);
-      }
-
-      if (stage.id === "multitasking") {
-        workersRef.current.forEach((worker) => {
-          worker.postMessage({ type: "cancel" });
-          worker.terminate();
-        });
-        workersRef.current = [];
+        setProgress(5 + index * 4 + repeat * 2);
+        await sleep(180);
       }
     }
 
-    setStatusLine("Measuring recovery");
+    setStageIndex(1);
+    setStatus("Searching, editing, and sorting a larger document");
+    for (let index = 0; index < 6; index += 1) {
+      if (cancelledRef.current) return;
+      const item = tierSizes[Math.min(3, Math.floor(index / 2) + 1)];
+      samples.push(
+        await measureAction(
+          "documents",
+          item.tier,
+          item.size + index * 700,
+          70 + index,
+          false,
+        ),
+      );
+      setProgress(24 + index * 3);
+      await sleep(220);
+    }
+
+    setStageIndex(2);
+    setStatus("Checking animation cadence");
+    const mediaFrameStart = frameIntervals.length;
+    for (let index = 0; index < 18; index += 1) {
+      if (cancelledRef.current) return;
+      setVisualTick((value) => value + 1);
+      setProgress(42 + index * 0.55);
+      await sleep(150);
+    }
+
+    let videoDroppedRatio: number | null = null;
+    let videoStalls = 0;
+    setStatus("Playing cached video");
+    await nextPaint();
+    const video = videoRef.current;
+    if (video) {
+      const onWaiting = () => {
+        videoStalls += 1;
+      };
+      video.addEventListener("waiting", onWaiting);
+      try {
+        video.currentTime = 0;
+        video.muted = true;
+        const before = video.getVideoPlaybackQuality?.();
+        await video.play();
+        await sleep(6200);
+        video.pause();
+        const after = video.getVideoPlaybackQuality?.();
+        if (before && after) {
+          const total = after.totalVideoFrames - before.totalVideoFrames;
+          const dropped = after.droppedVideoFrames - before.droppedVideoFrames;
+          videoDroppedRatio = total > 0 ? dropped / total : null;
+        }
+      } catch {
+        videoDroppedRatio = null;
+      } finally {
+        video.removeEventListener("waiting", onWaiting);
+      }
+    }
+    setProgress(62);
+
+    setStageIndex(3);
+    setStatus("Keeping foreground work responsive during background work");
+    const workerCount = Math.max(
+      1,
+      Math.min(4, (navigator.hardwareConcurrency || 2) - 1),
+    );
+    workersRef.current = Array.from({ length: workerCount }, (_, index) => {
+      const worker = new Worker("/benchmark-worker.js");
+      worker.postMessage({
+        type: "start",
+        seed: 400 + index,
+        workUnits: 8,
+        durationMs: 8000,
+      });
+      return worker;
+    });
+    for (let index = 0; index < 8; index += 1) {
+      if (cancelledRef.current) return;
+      const item = tierSizes[Math.min(3, Math.floor(index / 2))];
+      samples.push(
+        await measureAction(
+          "multitasking",
+          item.tier,
+          item.size,
+          120 + index,
+          true,
+        ),
+      );
+      setProgress(64 + index * 3);
+      await sleep(520);
+    }
+    workersRef.current.forEach((worker) => {
+      worker.postMessage({ type: "cancel" });
+      worker.terminate();
+    });
+    workersRef.current = [];
+
+    setStageIndex(4);
+    setStatus("Saving and reading a temporary 6 MB dataset");
+    let storageWriteMs = 6000;
+    let storageReadMs = 6000;
+    try {
+      const storage = await runStorage();
+      storageWriteMs = storage.writeMs;
+      storageReadMs = storage.readMs;
+    } catch {
+      // Unsupported or blocked storage remains a clear low-confidence result.
+    }
+    setProgress(93);
+
+    setStatus("Checking how quickly normal response returns");
     const recoveryStart = performance.now();
     let stableProbes = 0;
     while (stableProbes < 5 && performance.now() - recoveryStart < 5000) {
@@ -285,29 +395,36 @@ export function StillGoodApp() {
 
     collectingFrames = false;
     observer?.disconnect();
+    const mediaFrames = frameIntervals.slice(mediaFrameStart);
+    const actionDurations = samples
+      .filter((sample) => !sample.underPressure)
+      .map((sample) => sample.durationMs);
     const pressureDurations = samples
       .filter((sample) => sample.underPressure)
       .map((sample) => sample.durationMs);
-    const baselineDurations = samples
-      .filter((sample) => !sample.underPressure)
-      .map((sample) => sample.durationMs);
-    const summary = summarizePrototypeRun({
-      actionDurations: baselineDurations,
+    const summary = summarizeFastRun({
+      actionDurations,
       pressureDurations,
-      frameIntervals,
+      workDurations: samples.map((sample) => sample.workMs),
+      frameIntervals: mediaFrames,
       cadenceMs,
       recoveryMs,
+      videoDroppedRatio,
+      videoStalls,
+      storageWriteMs,
+      storageReadMs,
       longTaskCount: longTasks.length,
-      longTaskTotalMs: longTasks.reduce((sum, duration) => sum + duration, 0),
+      highestTierCompleted: "heavy",
     });
 
     setResult({
       ...summary,
-      samples,
       browser: browserLabel(),
       platform: navigator.platform || "Platform not reported",
       startedAt,
-      profileVersion: "1.0.0-experimental / prototype slice",
+      samples,
+      elapsedMs: performance.now() - testStart,
+      profileVersion: "1.1.0-experimental-fast-check",
     });
     setProgress(100);
     setPhase("result");
@@ -315,474 +432,354 @@ export function StillGoodApp() {
 
   function downloadResult() {
     if (!result) return;
-    const payload = {
-      schemaVersion: "stillgood-prototype-result.v1",
-      context: {
-        browser: result.browser,
-        platform: result.platform,
-        startedAt: result.startedAt,
-        profileVersion: result.profileVersion,
-      },
-      result,
-      disclosure:
-        "This result describes browser-observed behavior, not a system-wide hardware diagnosis.",
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          {
+            schemaVersion: "stillgood-fast-result.v1",
+            result,
+            disclosure:
+              "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
+          },
+          null,
+          2,
+        ),
+      ],
+      { type: "application/json" },
+    );
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `stillgood-result-${Date.now()}.json`;
+    link.download = `stillgood-fast-check-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
 
-  if (phase === "landing") {
+  if (phase === "home") {
     return (
-      <main className="site-shell">
-        <header className="topbar">
-          <a className="brand" href="#" aria-label="StillGood home">
-            <span className="brand-mark" aria-hidden="true">S</span>
-            <span>StillGood</span>
+      <main className="simple-shell">
+        <header className="simple-header">
+          <a className="simple-brand" href="#" aria-label="StillGood home">
+            <span>S</span> StillGood
           </a>
-          <nav aria-label="Site links">
-            <a href="#method">How it works</a>
-            <a href="#limits">What it measures</a>
-          </nav>
-          <span className="status-pill">Experimental preview</span>
+          <span className="experimental-label">Experimental</span>
         </header>
 
-        {notice && <div className="notice" role="status">{notice}</div>}
+        {notice && <p className="simple-notice" role="status">{notice}</p>}
 
-        <section className="hero">
-          <div className="hero-copy">
-            <p className="eyebrow">A practical checkup for older computers</p>
-            <h1>What can this computer <em>still do?</em></h1>
-            <p className="hero-lede">
-              One automated test recreates everyday web work, measures where
-              responsiveness begins to break down, and gives you a useful answer.
-            </p>
-            <div className="hero-actions">
-              <button className="primary-button" onClick={beginTest}>
-                Run automated Quick Check
-                <span aria-hidden="true">→</span>
-              </button>
-              <span className="duration-note">
-                <strong>Prototype slice</strong>
-                About 20 seconds
-              </span>
-            </div>
-            <p className="run-note">
-              Keep this tab visible and avoid using the computer until the run finishes.
-            </p>
-          </div>
-
-          <div className="hero-card" aria-label="Example StillGood capability report">
-            <div className="hero-card-topline">
-              <span>Example result</span>
-              <span className="confidence-dot">High confidence</span>
-            </div>
-            <div className="example-grade">
-              <span className="grade-letter">B</span>
-              <div>
-                <strong>Useful secondary computer</strong>
-                <p>Comfortable for everyday basics</p>
-              </div>
-            </div>
-            <div className="example-meter" aria-hidden="true">
-              <span style={{ width: "74%" }} />
-            </div>
-            <div className="example-rows">
-              <div><span>Everyday response</span><strong>Comfortable</strong></div>
-              <div><span>Light multitasking</span><strong>Usable</strong></div>
-              <div><span>Heavy web apps</span><strong>One at a time</strong></div>
-            </div>
-            <p className="example-foot">Plain language first. Measured data underneath.</p>
-          </div>
+        <section className="simple-hero">
+          <p className="kicker">A fast check for older computers</p>
+          <h1>Is this computer still good?</h1>
+          <p className="simple-lede">
+            One automatic test. About 30 seconds. A clear answer about browsing,
+            documents, video, and multitasking.
+          </p>
+          <button className="start-button" onClick={begin}>
+            Start the test <span aria-hidden="true">→</span>
+          </button>
+          <p className="quiet-instruction">
+            Keep this tab visible and leave the computer alone until it finishes.
+          </p>
         </section>
 
-        <section className="trust-row" aria-label="StillGood principles">
-          <span><i aria-hidden="true" /> No account</span>
-          <span><i aria-hidden="true" /> Local workloads</span>
-          <span><i aria-hidden="true" /> Open methodology</span>
-          <span><i aria-hidden="true" /> No mystery score</span>
-        </section>
-
-        <section className="method-section" id="method">
-          <div>
-            <p className="eyebrow">A benchmark with a point of view</p>
-            <h2>Built around usefulness,<br />not bragging rights.</h2>
-          </div>
-          <div className="method-grid">
-            <article>
-              <span className="step-number">01</span>
-              <h3>Recreates real work</h3>
-              <p>Visible inbox, document, browsing, and overlapping-work simulations run automatically.</p>
+        <section className="five-checks" aria-label="The five checks">
+          {stages.map((item, index) => (
+            <article key={item.id}>
+              <span>{index + 1}</span>
+              <strong>{item.name}</strong>
+              <p>{item.detail}</p>
             </article>
-            <article>
-              <span className="step-number">02</span>
-              <h3>Finds the comfort limit</h3>
-              <p>Work ramps carefully and stops before an old device is pointlessly overwhelmed.</p>
-            </article>
-            <article>
-              <span className="step-number">03</span>
-              <h3>Explains the result</h3>
-              <p>See what is comfortable, what is usable, and what should be kept to one task at a time.</p>
-            </article>
-          </div>
+          ))}
         </section>
 
-        <section className="limits-section" id="limits">
-          <div className="limit-card limit-card--measure">
-            <p className="eyebrow">Inside the browser</p>
-            <h3>What this measures</h3>
-            <p>Visible response delay, frame pacing, foreground response under pressure, long tasks, and recovery.</p>
-          </div>
-          <div className="limit-card limit-card--cannot">
-            <p className="eyebrow">Honest boundaries</p>
-            <h3>What it cannot see</h3>
-            <p>Battery health, system temperature, total RAM pressure, boot speed, or every desktop application.</p>
-          </div>
+        <section className="plain-boundary">
+          <strong>What you get</strong>
+          <p>
+            Comfortable, usable, or limited for each area—plus the highest
+            workload this browser handled well.
+          </p>
+          <strong>What it cannot see</strong>
+          <p>
+            Battery health, temperature, boot time, or performance in every
+            desktop application.
+          </p>
         </section>
 
-        <footer>
-          <span>StillGood · Experimental benchmark profile</span>
-          <span>Respect old hardware. Measure what matters.</span>
+        <footer className="simple-footer">
+          <span>No account · local test files · open method</span>
+          <span>Results describe this computer and browser together.</span>
         </footer>
       </main>
     );
   }
 
-  if (phase === "preparing") {
+  if (phase === "prepare") {
     return (
-      <main className="test-shell test-shell--prepare">
-        <div className="test-brand"><span className="brand-mark">S</span> StillGood</div>
-        <section className="prepare-card">
-          <div className="prepare-rings" aria-hidden="true"><span /><span /><span /></div>
-          <p className="eyebrow">Preparing the Quick Check</p>
-          <h1>Establishing a fair baseline</h1>
-          <p>{statusLine}…</p>
-          <div className="prepare-list">
-            <span>Local fixtures ready</span>
-            <span>Browser capabilities checked</span>
-            <span>Display cadence measuring</span>
-          </div>
-          <button className="text-button" onClick={stopTest}>Stop test</button>
+      <main className="run-shell">
+        <header className="run-header">
+          <span className="simple-brand"><i>S</i> StillGood</span>
+          <button onClick={stop}>Stop</button>
+        </header>
+        <section className="prepare-view">
+          <div className="pulse-mark" aria-hidden="true" />
+          <p className="kicker">Getting ready</p>
+          <h1>{status}</h1>
+          <p>Downloads and warm-up are not included in the score.</p>
         </section>
       </main>
     );
   }
 
-  if (phase === "running") {
+  if (phase === "run") {
     return (
-      <main className="test-shell">
-        <header className="test-header">
-          <div className="test-brand"><span className="brand-mark">S</span> StillGood</div>
-          <div className="test-progress-label">
-            <span>Automated Quick Check</span>
-            <strong>{Math.round(progress)}%</strong>
-          </div>
-          <button className="stop-button" onClick={stopTest}>Stop test</button>
+      <main className="run-shell">
+        <header className="run-header">
+          <span className="simple-brand"><i>S</i> StillGood</span>
+          <span>{Math.round(progress)}%</span>
+          <button onClick={stop}>Stop</button>
         </header>
-        <div className="progress-track" aria-label={`Test progress ${Math.round(progress)} percent`}>
-          <span style={{ width: `${progress}%` }} />
-        </div>
+        <div className="thin-progress"><span style={{ width: `${progress}%` }} /></div>
 
-        <section className="run-layout">
-          <div className="run-copy">
-            <p className="eyebrow">{currentScene.eyebrow}</p>
-            <h1>{currentScene.title}</h1>
-            <p className="active-action"><span aria-hidden="true" />{statusLine}</p>
-            <p className="run-guidance">
-              StillGood is performing the actions. Leave this tab visible until the result appears.
-            </p>
-            <ol className="stage-list">
-              {scenePlan.map((item, index) => (
-                <li
-                  key={item.id}
-                  className={
-                    index < sceneIndex ? "complete" : index === sceneIndex ? "active" : ""
-                  }
-                >
-                  <span>{index < sceneIndex ? "✓" : index + 1}</span>
-                  {item.eyebrow}
-                </li>
-              ))}
-            </ol>
+        <section className="run-main">
+          <div
+            className="progress-orbit"
+            style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}
+            aria-label={`${Math.round(progress)} percent complete`}
+          >
+            <strong>{stageIndex + 1}</strong>
+            <span>of 5</span>
           </div>
-
-          <div className="workload-window" aria-live="polite">
-            <div className="window-bar">
-              <span className="window-dots" aria-hidden="true"><i /><i /><i /></span>
-              <span>{currentScene.eyebrow}</span>
-              <span>Local fixture</span>
-            </div>
-            <WorkloadScene
-              scene={scene}
-              actionIndex={actionIndex}
-              messages={activeMessages}
-            />
+          <div className="run-message">
+            <p className="kicker">{stage.name}</p>
+            <h1>{stage.title}</h1>
+            <p>{stage.detail}</p>
+            <div className="current-status"><i /> {status}</div>
           </div>
+          <BenchmarkVisual
+            stage={stage.id}
+            tick={visualTick}
+            videoRef={videoRef}
+          />
         </section>
+
+        <ol className="run-steps">
+          {stages.map((item, index) => (
+            <li
+              key={item.id}
+              className={
+                index < stageIndex ? "done" : index === stageIndex ? "active" : ""
+              }
+            >
+              <span>{index < stageIndex ? "✓" : index + 1}</span>
+              {item.name}
+            </li>
+          ))}
+        </ol>
       </main>
     );
   }
 
   if (!result) return null;
-
-  const verdict =
-    result.grade === "A"
-      ? "Comfortable for the tested everyday workload."
+  const verdict = result.ceilingReached
+    ? "This computer is above the current test ceiling."
+    : result.grade === "A"
+      ? "Comfortable for everyday use."
       : result.grade === "B"
-        ? "A useful secondary computer for everyday browser work."
+        ? "A useful everyday computer with modest limits."
         : result.grade === "C"
-          ? "Worthwhile for focused, light-duty browser work."
-          : "Best kept to one clear browser task at a time.";
+          ? "Good for focused, light-duty work."
+          : "Best used for one simple purpose at a time.";
+
+  const checks = [
+    {
+      name: "Everyday work",
+      score: result.responsivenessScore,
+      detail: `${Math.round(result.p95)} ms slower-moment response`,
+    },
+    {
+      name: "Documents",
+      score: Math.round(
+        (result.responsivenessScore + result.storageScore) / 2,
+      ),
+      detail: `${Math.round(result.storageWriteMs)} ms local save`,
+    },
+    {
+      name: "Motion & video",
+      score: Math.round(
+        (result.smoothnessScore + (result.videoScore ?? result.smoothnessScore)) /
+          2,
+      ),
+      detail:
+        result.videoDroppedRatio == null
+          ? "Video detail unavailable"
+          : `${(result.videoDroppedRatio * 100).toFixed(1)}% video frames dropped`,
+    },
+    {
+      name: "Multitasking",
+      score: result.multitaskingScore,
+      detail: `${Math.round(result.pressureP95)} ms response under pressure`,
+    },
+    {
+      name: "Recovery",
+      score: result.recoveryMs <= 1000 ? 90 : result.recoveryMs <= 3000 ? 65 : 35,
+      detail: `${Math.round(result.recoveryMs)} ms to settle`,
+    },
+  ];
 
   return (
-    <main className="result-shell">
-      <header className="topbar result-topbar">
-        <a className="brand" href="#" onClick={(event) => { event.preventDefault(); setPhase("landing"); }}>
-          <span className="brand-mark">S</span><span>StillGood</span>
-        </a>
-        <span className="status-pill">Experimental Quick Check</span>
+    <main className="result-page">
+      <header className="simple-header">
+        <button className="simple-brand brand-button" onClick={() => setPhase("home")}>
+          <span>S</span> StillGood
+        </button>
+        <span className="experimental-label">Fast Check</span>
       </header>
 
-      <section className="result-hero">
-        <div className="result-grade">{result.grade}</div>
-        <div className="result-verdict">
-          <p className="eyebrow">{result.label} · {result.score}/100 provisional</p>
+      <section className="clear-answer">
+        <div className="answer-grade">{result.grade}</div>
+        <div>
+          <p className="kicker">
+            {result.ceilingReached
+              ? "Above test ceiling"
+              : `${result.label} · ${result.score}/100`}
+          </p>
           <h1>{verdict}</h1>
           <p>
-            Comfortable workload: <strong>{result.comfortableWorkload}</strong>.
-            Highest usable workload: <strong>{result.usableWorkload}</strong>.
+            Comfortable: <strong>{result.comfortableWorkload}</strong>.
+            Usable: <strong>{result.usableWorkload}</strong>.
           </p>
         </div>
-        <div className="result-confidence">
-          <span>Run confidence</span>
-          <strong>Medium</strong>
-          <small>Prototype modules only</small>
-        </div>
       </section>
 
-      <section className="roles-section">
-        <p className="eyebrow">Good fit for</p>
-        <div className="role-grid">
-          {result.roles.length ? result.roles.map((role, index) => (
-            <article key={role}>
-              <IconMark kind={(["web", "doc", "remote", "multi"] as const)[index % 4]} />
-              <span>{role}</span>
-              <strong>Ready</strong>
-            </article>
-          )) : (
-            <article>
-              <IconMark kind="remote" />
-              <span>Focused browser tasks</span>
-              <strong>Use one at a time</strong>
-            </article>
-          )}
-        </div>
+      <section className="check-results">
+        {checks.map((check) => (
+          <article key={check.name}>
+            <div>
+              <strong>{check.name}</strong>
+              <span>{labelForScore(check.score)}</span>
+            </div>
+            <div className="result-bar" aria-hidden="true">
+              <span style={{ width: `${Math.max(4, check.score)}%` }} />
+            </div>
+            <p>{check.detail}</p>
+          </article>
+        ))}
       </section>
 
-      <section className="metrics-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Measured in this browser</p>
-            <h2>Useful numbers, with context.</h2>
+      <section className="fit-summary">
+        <div>
+          <p className="kicker">Good fit for</p>
+          <div className="role-pills">
+            {result.roles.length
+              ? result.roles.map((role) => <span key={role}>{role}</span>)
+              : <span>Simple focused tasks</span>}
           </div>
-          <p>This prototype scores responsiveness, visual pacing, pressure response, and recovery.</p>
         </div>
-        <div className="metrics-grid">
-          <MetricCard
-            label="Typical visible response"
-            value={`${Math.round(result.p75)} ms`}
-            status={result.p75 <= 200 ? "Comfortable" : result.p75 <= 500 ? "Usable" : "Frustrating"}
-            note="75th percentile across automated actions"
-          />
-          <MetricCard
-            label="Slower moments"
-            value={`${Math.round(result.p95)} ms`}
-            status={result.p95 <= 350 ? "Acceptable" : result.p95 <= 500 ? "Noticeable" : "Disruptive"}
-            note="95th percentile; freezes matter here"
-          />
-          <MetricCard
-            label="Response under pressure"
-            value={`${Math.round(result.pressureP95)} ms`}
-            status={result.pressureP95 <= 350 ? "Usable" : "Limited"}
-            note="Foreground work while workers were active"
-          />
-          <MetricCard
-            label="Frames delivered on time"
-            value={`${Math.round(result.onTimeFrameRatio * 100)}%`}
-            status={result.onTimeFrameRatio >= 0.9 ? "Mostly smooth" : "Visible hitches"}
-            note={`${result.longTaskCount} long main-thread task${result.longTaskCount === 1 ? "" : "s"} observed`}
-          />
-          <MetricCard
-            label="Recovery after pressure"
-            value={`${Math.round(result.recoveryMs)} ms`}
-            status={result.recoveryMs <= 1000 ? "Prompt" : result.recoveryMs <= 3000 ? "Usable" : "Slow"}
-            note="Time until five stable event-loop probes"
-          />
-          <MetricCard
-            label="Browser context"
-            value={result.browser}
-            status={result.platform}
-            note="Results describe this computer-and-browser combination"
-          />
+        <div className="result-buttons">
+          <button className="secondary-action" onClick={() => setPhase("home")}>
+            Test again
+          </button>
+          <button className="primary-action" onClick={downloadResult}>
+            Export details
+          </button>
         </div>
       </section>
 
-      <section className="result-actions">
-        <div>
-          <p className="eyebrow">What this result means</p>
-          <p>
-            This is a working automation-first vertical slice. Documents, video,
-            browser storage, offline repeat runs, and complete role gates come next.
-          </p>
-        </div>
-        <div className="action-buttons">
-          <button className="secondary-button" onClick={() => setPhase("landing")}>Run again</button>
-          <button className="primary-button" onClick={downloadResult}>Export measured data</button>
-        </div>
-      </section>
-
-      <details className="technical-details">
-        <summary>Technical details and measurement disclosure</summary>
-        <div>
-          <p>Profile: {result.profileVersion}</p>
-          <p>Started: {new Date(result.startedAt).toLocaleString()}</p>
-          <p>Actions measured: {result.samples.length}</p>
-          <p>
-            These measurements describe browser-observed presentation and event-loop behavior.
-            They do not diagnose CPU, RAM, storage hardware, thermals, or battery health.
-          </p>
-        </div>
+      <details className="result-details">
+        <summary>Technical details</summary>
+        <p>{result.browser} · {result.platform}</p>
+        <p>
+          {result.samples.length} timed foreground samples ·
+          {" "}{(result.elapsedMs / 1000).toFixed(1)} seconds total ·
+          {" "}{result.longTaskCount} long tasks
+        </p>
+        <p>
+          This result measures browser-observed behavior. It does not diagnose
+          CPU, RAM, temperature, battery health, or the physical drive.
+        </p>
       </details>
     </main>
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  status,
-  note,
-}: {
-  label: string;
-  value: string;
-  status: string;
-  note: string;
-}) {
-  return (
-    <article className="metric-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <em>{status}</em>
-      <p>{note}</p>
-    </article>
-  );
+function labelForScore(score: number) {
+  if (score >= 85) return "Comfortable";
+  if (score >= 65) return "Usable";
+  if (score >= 40) return "Limited";
+  return "Struggling";
 }
 
-function WorkloadScene({
-  scene,
-  actionIndex,
-  messages: sceneMessages,
+function BenchmarkVisual({
+  stage,
+  tick,
+  videoRef,
 }: {
-  scene: Scene;
-  actionIndex: number;
-  messages: Message[];
+  stage: StageId;
+  tick: number;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 }) {
-  if (scene === "documents") {
+  if (stage === "media") {
     return (
-      <div className="scene scene--document">
-        <aside>
-          <span className="mini-label">Community device log</span>
-          {["Overview", "Device intake", "Battery inspection", "Inventory"].map((item, index) => (
-            <i key={item} className={index === actionIndex % 4 ? "selected" : ""}>{item}</i>
-          ))}
-        </aside>
-        <div className="document-page">
-          <span className="mini-label">DEVICE INTAKE · 2026</span>
-          <h3>Refurbishment field notes</h3>
-          <p className="text-lines"><i /><i /><i /><i /></p>
-          <div className="fake-table">
-            {Array.from({ length: 5 }, (_, index) => (
-              <span key={index} className={index === actionIndex % 5 ? "highlighted" : ""}>
-                <i /> <i /> <i />
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (scene === "browsing") {
-    return (
-      <div className="scene scene--browse">
-        <div className="browse-tabs">
-          {["Article", "Products", "Map", "Comments"].map((item, index) => (
-            <span key={item} className={index === actionIndex % 4 ? "selected" : ""}>{item}</span>
-          ))}
-        </div>
-        <div className="card-grid">
-          {Array.from({ length: 9 }, (_, index) => (
-            <article key={index} className={index === actionIndex % 9 ? "active" : ""}>
-              <span className="card-image" />
-              <i />
-              <i />
-            </article>
+      <div className="test-visual media-visual">
+        <video
+          ref={videoRef}
+          src="/benchmark-assets/flower.mp4"
+          muted
+          playsInline
+          preload="auto"
+        />
+        <div className="motion-dots">
+          {Array.from({ length: 8 }, (_, index) => (
+            <i
+              key={index}
+              style={{
+                transform: `translateX(${((tick + index) % 8) * 9}px)`,
+              }}
+            />
           ))}
         </div>
       </div>
     );
   }
 
-  if (scene === "multitasking") {
+  if (stage === "storage") {
     return (
-      <div className="scene scene--multi">
-        <div className="multi-grid">
-          {["Inbox", "Document", "Search", "Background work"].map((item, index) => (
-            <article key={item} className={index === actionIndex % 4 ? "active" : ""}>
-              <span>{item}</span>
-              <div className="activity-bars">
-                <i style={{ width: `${42 + ((actionIndex + index) * 13) % 48}%` }} />
-                <i style={{ width: `${35 + ((actionIndex + index) * 9) % 52}%` }} />
-                <i style={{ width: `${55 + ((actionIndex + index) * 7) % 38}%` }} />
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="pressure-readout">
-          <span>Controlled background pressure</span>
-          <strong>{actionIndex < 2 ? "Light" : actionIndex < 5 ? "Moderate" : "Recovering"}</strong>
-        </div>
+      <div className="test-visual storage-visual">
+        {Array.from({ length: 6 }, (_, index) => (
+          <span key={index} className={index <= tick % 6 ? "filled" : ""}>
+            <i />
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (stage === "multitasking") {
+    return (
+      <div className="test-visual multitask-visual">
+        {["Inbox", "Document", "Search", "Background"].map((label, index) => (
+          <article key={label} className={index === tick % 4 ? "active" : ""}>
+            <strong>{label}</strong>
+            <i style={{ width: `${48 + ((tick + index) * 9) % 42}%` }} />
+            <i style={{ width: `${35 + ((tick + index) * 13) % 50}%` }} />
+          </article>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="scene scene--inbox">
-      <aside>
-        <button className="compose-chip">＋ Compose</button>
-        {["Inbox", "Starred", "Sent", "Archive"].map((item, index) => (
-          <span key={item} className={index === actionIndex % 4 ? "selected" : ""}>{item}</span>
-        ))}
-      </aside>
-      <div className="inbox-list">
-        <div className="inbox-toolbar">
-          <span className="fake-search">Search: repair fair</span>
-          <span>{sceneMessages.length} messages</span>
-        </div>
-        {sceneMessages.slice(0, 7).map((message, index) => (
-          <div key={`${message.sender}-${index}`} className={index === actionIndex % 7 ? "active" : ""}>
-            <i aria-hidden="true" />
-            <strong>{message.sender}</strong>
-            <span>{message.subject}</span>
-            <time>{message.time}</time>
-          </div>
-        ))}
+    <div className={`test-visual ${stage === "documents" ? "document-visual" : "inbox-visual"}`}>
+      <div className="visual-toolbar">
+        <span>{stage === "documents" ? "Community device log" : "Practice inbox"}</span>
+        <i />
       </div>
+      {Array.from({ length: 7 }, (_, index) => (
+        <div key={index} className={index === tick % 7 ? "active" : ""}>
+          <i />
+          <strong>{stage === "documents" ? `Device row ${index + 1}` : ["Repair fair", "Laptop pickup", "Battery notes"][index % 3]}</strong>
+          <span />
+        </div>
+      ))}
     </div>
   );
 }

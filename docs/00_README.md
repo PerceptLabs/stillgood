@@ -2,7 +2,7 @@
 
 **Working title:** StillGood  
 **Product:** A browser-based second-life computer usability test  
-**Spec version:** 1.0-draft + automation-first addendum  
+**Spec version:** 1.1-draft + Fast Check decision
 **Benchmark profile:** v1  
 
 ## Purpose
@@ -27,10 +27,15 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 10. `10_RESEARCH_BASIS.md` — standards and research behind the decisions
 11. `benchmark-profile.v1.json` — machine-readable weights and thresholds
 12. `11_AUTOMATION_FIRST_ADDENDUM.md` — authoritative unattended benchmark revisions
+13. `12_FAST_CHECK_RESEARCH_DECISION.md` — authoritative duration, test-count, and result simplification
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
+
+Read the Fast Check decision last. Where it conflicts with earlier duration,
+module-count, or result-presentation requirements, the Fast Check decision takes
+precedence for the primary public test.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
@@ -46,9 +51,10 @@ precedence.
 
 ## MVP definition
 
-The MVP is a static progressive web app that:
+The primary public MVP is a static progressive web app that:
 
-- runs a guided 6–10 minute test;
+- runs one unattended test in roughly 20–30 seconds on a supported computer;
+- presents five understandable checks while retaining repeated measurements internally;
 - measures responsiveness, document work, smoothness, multitasking, video, and local browser storage;
 - produces an A–E Second-Life Rating;
 - assigns clear role badges;
