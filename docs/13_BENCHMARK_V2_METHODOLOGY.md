@@ -42,8 +42,9 @@ a test-count problem.
    checksum, playback reports displayed/dropped frames, and storage operations
    must complete before a tier is accepted.
 9. **State test conditions.** The export records browser, platform, logical
-   processors, display cadence, power-mode answer, run duration, profile
-   version, interruptions, and raw samples.
+   processors, display cadence, run duration, profile version, interruptions,
+   and raw samples. Power source is deliberately not requested in the primary
+   flow; exported results mark it as unreported.
 
 ## Test structure
 

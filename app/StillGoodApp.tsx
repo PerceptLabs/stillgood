@@ -14,7 +14,6 @@ type StageId =
   | "video"
   | "multitasking"
   | "storage";
-type PowerMode = "battery" | "plugged-in" | "not-sure";
 type Tier = { id: string; label: string; size: number; domRows: number };
 type TimedSample = {
   durationMs: number;
@@ -91,7 +90,7 @@ type ThoroughResult = {
   roles: string[];
   browser: string;
   platform: string;
-  powerMode: PowerMode;
+  powerSource: "not-reported";
   logicalProcessors: number | null;
   cadenceMs: number;
   startedAt: string;
@@ -281,7 +280,6 @@ async function runStorageTier(
 
 export function StillGoodApp() {
   const [phase, setPhase] = useState<Phase>("home");
-  const [powerMode, setPowerMode] = useState<PowerMode>("not-sure");
   const [stageIndex, setStageIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -766,7 +764,7 @@ export function StillGoodApp() {
         ...summary,
         browser: browserLabel(),
         platform: navigator.platform || "Platform not reported",
-        powerMode,
+        powerSource: "not-reported",
         logicalProcessors: navigator.hardwareConcurrency || null,
         cadenceMs,
         startedAt,
@@ -830,61 +828,37 @@ export function StillGoodApp() {
           </p>
         )}
         <section className="simple-hero">
-          <p className="kicker">A practical benchmark for older computers</p>
+          <p className="kicker">Practical computer check</p>
           <h1>What is this computer still good for?</h1>
           <p className="simple-lede">
-            A thorough automatic test of everyday apps, documents, graphics,
-            video, multitasking, and browser storage. Usually about one minute.
+            One automatic test. A clear answer. Usually about one minute.
           </p>
-          <div className="power-choice" aria-label="Current power mode">
-            <span>Running:</span>
-            {(
-              [
-                ["battery", "On battery"],
-                ["plugged-in", "Plugged in"],
-                ["not-sure", "Not sure"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                className={powerMode === value ? "selected" : ""}
-                onClick={() => setPowerMode(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <button className="start-button" onClick={begin}>
-            Start thorough test <span aria-hidden="true">→</span>
+          <button className="start-orb" onClick={begin}>
+            <span>Start</span>
+            <small>the test</small>
           </button>
           <p className="quiet-instruction">
             Keep this tab visible and leave the computer alone until it finishes.
           </p>
         </section>
-        <section className="five-checks six-checks" aria-label="The six checks">
-          {stages.map((item, index) => (
-            <article key={item.id}>
-              <span>{index + 1}</span>
-              <strong>{item.name}</strong>
-              <p>{item.detail}</p>
-            </article>
-          ))}
-        </section>
-        <section className="plain-boundary">
-          <strong>More evidence</strong>
-          <p>
-            Five workload levels, separate warm-ups, three measured repetitions,
-            variability checks, and real 480p–1080p video.
+        <details className="home-details">
+          <summary>What does it test?</summary>
+          <div className="home-detail-grid">
+            {stages.map((item) => (
+              <article key={item.id}>
+                <strong>{item.name}</strong>
+                <p>{item.detail}</p>
+              </article>
+            ))}
+          </div>
+          <p className="scope-note">
+            It measures this browser and computer together. It cannot inspect
+            battery health, temperature, total RAM use, or every desktop app.
           </p>
-          <strong>Clear limits</strong>
-          <p>
-            The browser cannot diagnose battery health, temperature, system RAM,
-            or every desktop application.
-          </p>
-        </section>
+        </details>
         <footer className="simple-footer">
-          <span>No account · deterministic local workloads · exportable evidence</span>
-          <span>Results describe this computer and browser together.</span>
+          <span>No account · local workloads · exportable results</span>
+          <span>Method v2 · experimental calibration</span>
         </footer>
       </main>
     );
@@ -1020,24 +994,41 @@ export function StillGoodApp() {
           </p>
         </div>
       </section>
-      <section className="check-results check-results-six">
-        {categoryCards.map(([name, category]) => (
-          <article key={name}>
-            <div>
-              <strong>{name}</strong>
-              <span>{classifyScore(category.score)} · {category.score}</span>
-            </div>
-            <div className="result-bar" aria-hidden="true">
-              <span style={{ width: `${Math.max(3, category.score)}%` }} />
-            </div>
-            <p>
-              {"highestComfortable" in category
-                ? `Comfortable through ${category.highestComfortable}`
-                : `${category.tiers.at(-1)?.label ?? "No"} dataset measured`}
-            </p>
-          </article>
-        ))}
+      <section className="result-at-a-glance" aria-label="Result at a glance">
+        <article>
+          <span>Everyday work</span>
+          <strong>{result.everyday.highestComfortable}</strong>
+        </article>
+        <article>
+          <span>Multitasking</span>
+          <strong>{result.multitasking.highestUsable}</strong>
+        </article>
+        <article>
+          <span>Video</span>
+          <strong>{result.video.highestUsable ?? "None"}</strong>
+        </article>
       </section>
+      <details className="result-breakdown">
+        <summary>See all six test results</summary>
+        <section className="check-results check-results-six">
+          {categoryCards.map(([name, category]) => (
+            <article key={name}>
+              <div>
+                <strong>{name}</strong>
+                <span>{classifyScore(category.score)} · {category.score}</span>
+              </div>
+              <div className="result-bar" aria-hidden="true">
+                <span style={{ width: `${Math.max(3, category.score)}%` }} />
+              </div>
+              <p>
+                {"highestComfortable" in category
+                  ? `Comfortable through ${category.highestComfortable}`
+                  : `${category.tiers.at(-1)?.label ?? "No"} dataset measured`}
+              </p>
+            </article>
+          ))}
+        </section>
+      </details>
       <section className="fit-summary">
         <div>
           <p className="kicker">Good fit for</p>
@@ -1074,8 +1065,9 @@ export function StillGoodApp() {
           ))}
         </div>
         <p>
-          {result.browser} · {result.platform} · {result.powerMode} ·{" "}
-          {result.logicalProcessors ?? "unknown"} logical processors
+          {result.browser} · {result.platform} ·{" "}
+          {result.logicalProcessors ?? "unknown"} logical processors · power
+          source not requested
         </p>
         <p>
           {(result.elapsedMs / 1000).toFixed(1)} seconds ·{" "}
