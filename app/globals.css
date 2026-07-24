@@ -134,6 +134,35 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   color: #778078;
   font-size: 12px;
 }
+.power-choice {
+  width: fit-content;
+  margin: 28px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+}
+.power-choice > span {
+  margin: 0 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.power-choice button {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+}
+.power-choice button.selected {
+  color: white;
+  background: var(--accent-dark);
+}
 .five-checks {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -166,6 +195,15 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   color: #707a72;
   font-size: 11px;
   line-height: 1.5;
+}
+.six-checks {
+  grid-template-columns: repeat(3, 1fr);
+}
+.six-checks article {
+  min-height: 158px;
+}
+.six-checks article > span {
+  margin-bottom: 22px;
 }
 .plain-boundary {
   display: grid;
@@ -303,7 +341,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   border-radius: 6px;
   background: #eef0ea;
 }
-.inbox-visual > div:not(.visual-toolbar), .document-visual > div:not(.visual-toolbar) {
+.scrolling-data {
+  height: 366px;
+  overflow: hidden;
+  contain: content;
+}
+.scrolling-data > div {
   min-height: 49px;
   display: grid;
   grid-template-columns: 18px 1fr 38%;
@@ -313,34 +356,44 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   border-bottom: 1px solid #eaebe6;
   font-size: 10px;
 }
-.inbox-visual > div.active, .document-visual > div.active {
+.scrolling-data > div.active {
   background: #eef6d8;
   box-shadow: inset 3px 0 var(--accent-dark);
 }
-.inbox-visual > div > i, .document-visual > div > i {
+.scrolling-data > div > i {
   width: 12px;
   height: 12px;
   border: 1px solid #bec6bc;
   border-radius: 3px;
 }
-.inbox-visual > div > span, .document-visual > div > span {
+.scrolling-data > div > span {
   height: 5px;
   border-radius: 4px;
   background: #dfe3dc;
 }
 .document-visual { background: #f0f1ed; }
-.document-visual > div:not(.visual-toolbar) {
+.document-visual .scrolling-data > div {
   margin: 0 28px;
   background: white;
 }
 .media-visual { padding: 24px; background: #1f2821; }
-.media-visual video {
+.media-visual video,
+.media-visual canvas {
   width: 100%;
   height: 300px;
   display: block;
   border-radius: 9px;
   background: #111;
   object-fit: cover;
+}
+.media-visual canvas {
+  height: 370px;
+}
+.video-caption {
+  margin: 18px 0 0;
+  color: #cbd5cc;
+  font-size: 11px;
+  text-align: center;
 }
 .motion-dots {
   height: 62px;
@@ -458,6 +511,11 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   font-family: Georgia, serif;
   font-size: 65px;
 }
+.answer-grade-wide {
+  width: 112px;
+  border-radius: 42% 58% 50% 50% / 55% 44% 56% 45%;
+  font-size: 48px;
+}
 .clear-answer h1 {
   max-width: 700px;
   font-size: clamp(38px, 5.5vw, 60px);
@@ -503,6 +561,15 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   font-size: 10px;
   line-height: 1.45;
 }
+.check-results-six {
+  grid-template-columns: repeat(3, 1fr);
+  background: transparent;
+  gap: 10px;
+}
+.check-results-six article {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
 .fit-summary {
   display: flex;
   align-items: center;
@@ -539,6 +606,27 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   font-weight: 740;
 }
 .result-details p:last-child { padding-bottom: 16px; }
+.tier-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 0 0 18px;
+}
+.tier-detail-grid section {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.tier-detail-grid section > strong {
+  display: block;
+  margin-bottom: 14px;
+  color: var(--ink);
+}
+.tier-detail-grid p {
+  margin: 8px 0;
+  line-height: 1.45;
+}
 
 @media (max-width: 900px) {
   .five-checks, .check-results { grid-template-columns: repeat(2, 1fr); }
@@ -547,6 +635,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   .run-main { grid-template-columns: 90px 1fr; }
   .progress-orbit { width: 86px; height: 86px; }
   .test-visual { grid-column: 1 / -1; }
+  .tier-detail-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -575,6 +664,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   .progress-orbit strong { font-size: 25px; }
   .test-visual { min-height: 330px; }
   .media-visual video { height: 230px; }
+  .media-visual canvas { height: 290px; }
   .multitask-visual { grid-template-columns: 1fr; }
   .multitask-visual article { min-height: 120px; }
   .multitask-visual article:nth-child(n + 3) { display: none; }
@@ -585,6 +675,11 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   .answer-grade { width: 82px; height: 82px; font-size: 52px; }
   .result-buttons { width: 100%; }
   .result-buttons button { flex: 1; }
+  .power-choice {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

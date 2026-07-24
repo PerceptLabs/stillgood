@@ -2,7 +2,7 @@
 
 **Working title:** StillGood  
 **Product:** A browser-based second-life computer usability test  
-**Spec version:** 1.1-draft + Fast Check decision
+**Spec version:** 2.0-experimental methodology
 **Benchmark profile:** v1  
 
 ## Purpose
@@ -28,6 +28,7 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 11. `benchmark-profile.v1.json` — machine-readable weights and thresholds
 12. `11_AUTOMATION_FIRST_ADDENDUM.md` — authoritative unattended benchmark revisions
 13. `12_FAST_CHECK_RESEARCH_DECISION.md` — authoritative duration, test-count, and result simplification
+14. `13_BENCHMARK_V2_METHODOLOGY.md` — current implemented benchmark and scoring methodology
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -36,6 +37,10 @@ precedence.
 Read the Fast Check decision last. Where it conflicts with earlier duration,
 module-count, or result-presentation requirements, the Fast Check decision takes
 precedence for the primary public test.
+
+For implementation work, Benchmark Methodology v2 supersedes the Fast Check
+decision where their durations, repetition policies, media ladders, category
+weights, or grade bands conflict.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
@@ -53,8 +58,8 @@ precedence for the primary public test.
 
 The primary public MVP is a static progressive web app that:
 
-- runs one unattended test in roughly 20–30 seconds on a supported computer;
-- presents five understandable checks while retaining repeated measurements internally;
+- runs one unattended test in roughly one minute, extending on slower computers;
+- presents six understandable checks while retaining repeated measurements internally;
 - measures responsiveness, document work, smoothness, multitasking, video, and local browser storage;
 - produces an A–E Second-Life Rating;
 - assigns clear role badges;

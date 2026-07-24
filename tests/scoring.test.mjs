@@ -1,71 +1,141 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  coefficientOfVariation,
   gradeForScore,
-  latencyPoints,
+  median,
   normalizeLower,
   percentile,
-  summarizeFastRun,
+  summarizeLatencyTiers,
+  summarizeThoroughRun,
 } from "../lib/scoring.mjs";
 
-test("percentile keeps high-delay samples visible", () => {
+test("statistics preserve median, tail, and variation", () => {
   const samples = [20, 22, 23, 24, 25, 26, 27, 28, 90, 220];
+  assert.equal(median(samples), 25.5);
   assert.equal(percentile(samples, 0.75), 28);
   assert.equal(percentile(samples, 0.95), 220);
+  assert.ok(coefficientOfVariation(samples) > 0.9);
 });
 
-test("latency normalization interpolates and clamps", () => {
-  assert.equal(normalizeLower(50, latencyPoints), 100);
-  assert.equal(normalizeLower(2000, latencyPoints), 0);
-  assert.equal(normalizeLower(275, latencyPoints), 75);
+test("normalization interpolates and clamps", () => {
+  const points = [
+    { value: 100, score: 100 },
+    { value: 300, score: 50 },
+    { value: 1000, score: 0 },
+  ];
+  assert.equal(normalizeLower(50, points), 100);
+  assert.equal(normalizeLower(1000, points), 0);
+  assert.equal(normalizeLower(200, points), 75);
 });
 
-test("grade boundaries match the experimental profile", () => {
-  assert.deepEqual(gradeForScore(85), { grade: "A", label: "Comfortable" });
-  assert.deepEqual(gradeForScore(70), { grade: "B", label: "Useful" });
-  assert.deepEqual(gradeForScore(50), { grade: "C", label: "Light-duty" });
-  assert.deepEqual(gradeForScore(30), { grade: "D", label: "Single-purpose" });
-  assert.deepEqual(gradeForScore(29.99), { grade: "E", label: "Struggling" });
+test("grade bands provide useful extra strata", () => {
+  assert.equal(gradeForScore(94).grade, "A+");
+  assert.equal(gradeForScore(86).grade, "A");
+  assert.equal(gradeForScore(78).grade, "B+");
+  assert.equal(gradeForScore(70).grade, "B");
+  assert.equal(gradeForScore(60).grade, "C+");
+  assert.equal(gradeForScore(50).grade, "C");
+  assert.equal(gradeForScore(40).grade, "D");
+  assert.equal(gradeForScore(20).grade, "E");
 });
 
-test("capability summary reports practical workload limits", () => {
-  const result = summarizeFastRun({
-    actionDurations: [80, 85, 90, 92, 95, 100, 110, 115],
-    pressureDurations: [160, 170, 180, 190, 195, 200],
-    workDurations: [20, 22, 24, 25, 28, 30],
-    frameIntervals: Array.from({ length: 120 }, () => 16.67),
-    cadenceMs: 16.67,
+test("tier scoring uses three repetitions and workload capacity", () => {
+  const result = summarizeLatencyTiers([
+    { id: "basic", label: "Basic", samples: [80, 82, 84] },
+    { id: "everyday", label: "Everyday", samples: [130, 140, 145] },
+    { id: "busy", label: "Busy", samples: [180, 190, 210] },
+    { id: "demanding", label: "Demanding", samples: [320, 350, 390] },
+    { id: "extreme", label: "Extreme", samples: [800, 900, 1100] },
+  ]);
+  assert.equal(result.highestComfortable, "Busy");
+  assert.equal(result.highestUsable, "Demanding");
+  assert.ok(result.score >= 60 && result.score < 85);
+});
+
+function latencyTiers(values) {
+  return ["Basic", "Everyday", "Busy", "Demanding", "Extreme"]
+    .slice(0, values.length)
+    .map(
+    (label, index) => ({
+      id: label.toLowerCase(),
+      label,
+      samples: values[index].map((durationMs) => ({ durationMs })),
+    }),
+    );
+}
+
+function fullMetrics(coreValues) {
+  return {
+    everydayTiers: latencyTiers(coreValues),
+    documentTiers: latencyTiers(coreValues),
+    multitaskTiers: latencyTiers(coreValues.slice(1)),
+    graphicsTiers: [
+      { id: "1", label: "Light", onTimeRatio: 1, longFrameRatio: 0 },
+      { id: "2", label: "Medium", onTimeRatio: 0.99, longFrameRatio: 0 },
+      { id: "3", label: "Busy", onTimeRatio: 0.97, longFrameRatio: 0.01 },
+      { id: "4", label: "Dense", onTimeRatio: 0.9, longFrameRatio: 0.05 },
+    ],
+    videoTiers: [
+      { id: "480p", label: "480p", completed: true, droppedRatio: 0, stalls: 0 },
+      { id: "720p", label: "720p", completed: true, droppedRatio: 0, stalls: 0 },
+      {
+        id: "1080p",
+        label: "1080p",
+        completed: true,
+        droppedRatio: 0.03,
+        stalls: 1,
+      },
+    ],
+    storageTiers: [
+      { id: "1", label: "1 MB", writeMs: 40, readMs: 10 },
+      { id: "8", label: "8 MB", writeMs: 180, readMs: 40 },
+      { id: "32", label: "32 MB", writeMs: 700, readMs: 120 },
+    ],
     recoveryMs: 500,
-    videoDroppedRatio: 0.004,
-    videoStalls: 0,
-    storageWriteMs: 180,
-    storageReadMs: 30,
-    longTaskCount: 0,
-    highestTierCompleted: "moderate",
-  });
+    longTaskCount: 8,
+    longAnimationFrameCount: 4,
+    interruptionCount: 0,
+  };
+}
 
-  assert.equal(result.comfortableWorkload, "Everyday work and light multitasking");
-  assert.equal(result.usableWorkload, "Moderate browser multitasking");
-  assert.ok(result.roles.includes("Web and email"));
-  assert.ok(result.score >= 70);
+test("a strong second-life profile is separated from modern-fast hardware", () => {
+  const result = summarizeThoroughRun(
+    fullMetrics([
+      [70, 75, 80],
+      [110, 120, 125],
+      [180, 195, 210],
+      [330, 360, 390],
+      [850, 930, 1050],
+    ]),
+  );
+  assert.ok(["B+", "B"].includes(result.grade));
+  assert.equal(result.ceilingReached, false);
 });
 
-test("fast hardware is described as above the test ceiling", () => {
-  const result = summarizeFastRun({
-    actionDurations: [35, 38, 40, 42],
-    pressureDurations: [55, 60, 64, 68],
-    workDurations: [8, 9, 10, 11],
-    frameIntervals: Array.from({ length: 120 }, () => 16.67),
-    cadenceMs: 16.67,
-    recoveryMs: 250,
-    videoDroppedRatio: 0,
-    videoStalls: 0,
-    storageWriteMs: 70,
-    storageReadMs: 12,
-    longTaskCount: 0,
-    highestTierCompleted: "heavy",
-  });
+test("easy categories cannot hide a weak core workload", () => {
+  const metrics = fullMetrics([
+    [400, 450, 500],
+    [700, 800, 900],
+    [1300, 1500, 1700],
+    [2500, 2700, 2900],
+    [5000, 5200, 5400],
+  ]);
+  const result = summarizeThoroughRun(metrics);
+  assert.ok(result.score <= 47);
+  assert.ok(["D", "E", "C"].includes(result.grade));
+});
 
-  assert.equal(result.ceilingReached, true);
-  assert.ok(result.score <= 97);
+test("only broadly fast and stable hardware reaches the ceiling", () => {
+  const result = summarizeThoroughRun(
+    fullMetrics([
+      [40, 41, 42],
+      [45, 46, 47],
+      [50, 51, 52],
+      [55, 56, 57],
+      [60, 61, 62],
+    ]),
+  );
+  assert.equal(result.ceilingReached, false);
+  assert.ok(result.score >= 84);
 });
