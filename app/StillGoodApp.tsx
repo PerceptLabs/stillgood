@@ -1,11 +1,20 @@
 "use client";
 
 import { useRef, useState, type CSSProperties, type RefObject } from "react";
+import { flushSync } from "react-dom";
 import {
   median,
   summarizeThoroughRun,
 } from "@/lib/scoring.mjs";
 import { classifyFormFactor } from "@/lib/context.mjs";
+import {
+  buildDocumentDataset,
+  buildInboxDataset,
+  createDocumentView,
+  createInboxView,
+  documentActionNames,
+  inboxActionNames,
+} from "@/lib/fixture-workloads.mjs";
 
 type Phase = "home" | "prepare" | "run" | "result";
 type StageId =
@@ -21,6 +30,51 @@ type TimedSample = {
   workMs: number;
   presentationMs: number;
   checksum: number;
+  actions: Array<{ name: string; durationMs: number; workMs: number }>;
+};
+type InboxView = {
+  actionName: string;
+  query: string;
+  folder: string;
+  totalMatches: number;
+  rows: Array<{
+    id: number;
+    sender: string;
+    subject: string;
+    body: string;
+    unread: boolean;
+    label: string;
+    selected: boolean;
+  }>;
+  activeMessage: null | {
+    sender: string;
+    subject: string;
+    body: string;
+  };
+  draft: string;
+  checksum: number;
+  success: boolean;
+};
+type DocumentView = {
+  actionName: string;
+  title: string;
+  query: string;
+  paragraphs: Array<{
+    id: number;
+    text: string;
+    match: boolean;
+    bold: boolean;
+  }>;
+  tableRows: Array<{
+    id: number;
+    model: string;
+    year: number;
+    status: string;
+  }>;
+  matchCount: number;
+  saved: boolean;
+  checksum: number;
+  success: boolean;
 };
 type LatencyTierResult = {
   id: string;
@@ -67,6 +121,8 @@ type TierSummary = {
 };
 type LatencyCategory = {
   score: number;
+  available?: boolean;
+  invalidTierCount?: number;
   highestComfortable: string;
   highestUsable: string;
   tiers: TierSummary[];
@@ -118,13 +174,13 @@ const stages: Array<{
     id: "everyday",
     name: "Everyday apps",
     title: "Everyday browser work",
-    detail: "Five levels of searching, sorting, filtering, and rendering.",
+    detail: "Scripted inbox search, opening, selection, composing, and folders.",
   },
   {
     id: "documents",
     name: "Documents",
     title: "Documents and tables",
-    detail: "Editing, text search, table sorting, and increasingly large views.",
+    detail: "Scripted rich-text finding, editing, formatting, tables, and saving.",
   },
   {
     id: "graphics",
@@ -167,7 +223,7 @@ const videoTiers = [
     width: 854,
     height: 480,
     src: "/benchmark-assets/video-480p.mp4",
-    durationMs: 3200,
+    durationMs: 4500,
   },
   {
     id: "720p",
@@ -175,7 +231,7 @@ const videoTiers = [
     width: 1280,
     height: 720,
     src: "/benchmark-assets/video-720p.mp4",
-    durationMs: 4200,
+    durationMs: 4500,
   },
   {
     id: "1080p",
@@ -183,7 +239,7 @@ const videoTiers = [
     width: 1920,
     height: 1080,
     src: "/benchmark-assets/video-1080p.mp4",
-    durationMs: 4200,
+    durationMs: 4500,
   },
 ];
 
@@ -218,24 +274,34 @@ function detectFormFactor(): "mobile" | "computer" | "unknown" {
   });
 }
 
-function deterministicJourney(seed: number, size: number, documentMode: boolean) {
-  let value = seed >>> 0;
-  const rows = Array.from({ length: size }, (_, index) => {
-    value = (value * 1664525 + 1013904223) >>> 0;
-    return {
-      id: index,
-      score: value % 1000003,
-      text: `${documentMode ? "battery inspection" : "repair fair"} ${value.toString(36)} device record`,
-    };
+async function measureRenderedAction<T>(
+  compute: () => T,
+  commit: (result: T) => void,
+) {
+  return new Promise<{
+    result: T;
+    durationMs: number;
+    workMs: number;
+  }>((resolve) => {
+    requestAnimationFrame(() => {
+      const start = performance.now();
+      const workStart = performance.now();
+      const result = compute();
+      const workMs = performance.now() - workStart;
+      flushSync(() => commit(result));
+      requestAnimationFrame(() => {
+        window.setTimeout(
+          () =>
+            resolve({
+              result,
+              durationMs: performance.now() - start,
+              workMs,
+            }),
+          0,
+        );
+      });
+    });
   });
-  rows.sort((a, b) => a.score - b.score || a.id - b.id);
-  const query = documentMode ? "battery" : "repair";
-  const filtered = rows.filter(
-    (row) => row.score % 5 < 2 && row.text.includes(query),
-  );
-  const json = JSON.stringify(filtered.slice(0, Math.min(1800, filtered.length)));
-  const restored = JSON.parse(json) as Array<{ score: number }>;
-  return restored.reduce((checksum, row) => (checksum ^ row.score) >>> 0, 0);
 }
 
 function classifyScore(score: number) {
@@ -304,7 +370,8 @@ export function StillGoodApp() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [visualTick, setVisualTick] = useState(0);
-  const [visualRows, setVisualRows] = useState(30);
+  const [inboxView, setInboxView] = useState<InboxView | null>(null);
+  const [documentView, setDocumentView] = useState<DocumentView | null>(null);
   const [result, setResult] = useState<ThoroughResult | null>(null);
   const [notice, setNotice] = useState("");
   const cancelledRef = useRef(false);
@@ -330,24 +397,56 @@ export function StillGoodApp() {
     stageId: "everyday" | "documents" | "multitasking",
     tier: Tier,
     seed: number,
+    dataset: unknown,
   ): Promise<TimedSample> {
-    const start = performance.now();
-    const workStart = performance.now();
-    const checksum = deterministicJourney(
-      seed,
-      tier.size,
-      stageId === "documents",
-    );
-    const workMs = performance.now() - workStart;
-    setVisualRows(tier.domRows);
-    setVisualTick((value) => value + 1);
-    await nextPaint();
-    const durationMs = performance.now() - start;
+    const documentMode = stageId === "documents";
+    const actionNames = documentMode ? documentActionNames : inboxActionNames;
+    const actions: Array<{ name: string; durationMs: number; workMs: number }> =
+      [];
+    let durationMs = 0;
+    let workMs = 0;
+    let checksum = 0;
+
+    for (let actionIndex = 0; actionIndex < actionNames.length; actionIndex += 1) {
+      const measured = documentMode
+        ? await measureRenderedAction(
+            () =>
+              createDocumentView(
+                dataset,
+                actionIndex,
+                tier.domRows,
+                seed + actionIndex,
+              ) as DocumentView,
+            (view) => setDocumentView(view),
+          )
+        : await measureRenderedAction(
+            () =>
+              createInboxView(
+                dataset,
+                actionIndex,
+                tier.domRows,
+                seed + actionIndex,
+              ) as InboxView,
+            (view) => setInboxView(view),
+          );
+      if (!measured.result.success)
+        throw new Error(`${actionNames[actionIndex]} fixture assertion failed`);
+      durationMs += measured.durationMs;
+      workMs += measured.workMs;
+      checksum = (checksum ^ measured.result.checksum) >>> 0;
+      actions.push({
+        name: actionNames[actionIndex],
+        durationMs: measured.durationMs,
+        workMs: measured.workMs,
+      });
+      setVisualTick((value) => value + 1);
+    }
     return {
       durationMs,
       workMs,
       presentationMs: durationMs - workMs,
       checksum,
+      actions,
     };
   }
 
@@ -360,11 +459,20 @@ export function StillGoodApp() {
     for (let tierIndex = 0; tierIndex < workloadTiers.length; tierIndex += 1) {
       const tier = workloadTiers[tierIndex];
       if (cancelledRef.current) break;
+      const dataset =
+        stageId === "documents"
+          ? buildDocumentDataset(700 + tierIndex, tier.size)
+          : buildInboxDataset(700 + tierIndex, tier.size);
       setStatus(`${tier.label} workload · warm-up`);
-      await measureJourney(stageId, tier, 1000 + tierIndex * 100);
+      await measureJourney(stageId, tier, 1000 + tierIndex * 100, dataset);
       if (tierIndex === 0) {
         await sleep(90);
-        await measureJourney(stageId, tier, 1050 + tierIndex * 100);
+        await measureJourney(
+          stageId,
+          tier,
+          1050 + tierIndex * 100,
+          dataset,
+        );
       }
       const samples: TimedSample[] = [];
       setStatus(`${tier.label} workload · 3 measured runs`);
@@ -374,6 +482,7 @@ export function StillGoodApp() {
             stageId,
             tier,
             1100 + tierIndex * 100 + repetition,
+            dataset,
           ),
         );
         setProgress(
@@ -403,6 +512,7 @@ export function StillGoodApp() {
                 workMs: 6000,
                 presentationMs: 0,
                 checksum: 0,
+                actions: [],
               },
             ],
           });
@@ -733,6 +843,7 @@ export function StillGoodApp() {
       );
       for (let level = 0; level < 4; level += 1) {
         const tier = workloadTiers[level + 1];
+        const multitaskDataset = buildInboxDataset(1700 + level, tier.size);
         const workerCount = Math.min(maxWorkers, level + 1);
         setStatus(
           `${tier.label} foreground work · ${workerCount} background worker${workerCount === 1 ? "" : "s"}`,
@@ -748,7 +859,12 @@ export function StillGoodApp() {
           return worker;
         });
         await sleep(350);
-        await measureJourney("multitasking", tier, 3000 + level * 100);
+        await measureJourney(
+          "multitasking",
+          tier,
+          3000 + level * 100,
+          multitaskDataset,
+        );
         const samples: TimedSample[] = [];
         const repetitions = level === 3 ? 8 : 3;
         for (let repetition = 0; repetition < repetitions; repetition += 1) {
@@ -757,6 +873,7 @@ export function StillGoodApp() {
               "multitasking",
               tier,
               3100 + level * 100 + repetition,
+              multitaskDataset,
             ),
           );
           await sleep(level === 3 ? 350 : 140);
@@ -780,6 +897,7 @@ export function StillGoodApp() {
                   workMs: 6000,
                   presentationMs: 0,
                   checksum: 0,
+                  actions: [],
                 },
               ],
             });
@@ -797,7 +915,6 @@ export function StillGoodApp() {
         database = await openStorageDatabase();
         for (const [index, size] of [1, 8, 32].entries()) {
           setStatus(`Writing and reading a temporary ${size} MB dataset`);
-          setVisualRows(size * 8);
           storageTiers.push(await runStorageTier(database, size, index));
           setProgress(89 + ((index + 1) / 3) * 8);
         }
@@ -852,7 +969,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "2.1.0-experimental-thorough",
+        profileVersion: "3.0.0-experimental-application-fixtures",
         raw: {
           everydayTiers,
           documentTiers,
@@ -878,7 +995,7 @@ export function StillGoodApp() {
       [
         JSON.stringify(
           {
-            schemaVersion: "stillgood-result.v2",
+            schemaVersion: "stillgood-result.v3",
             result,
             disclosure:
               "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -903,7 +1020,7 @@ export function StillGoodApp() {
           <a className="simple-brand" href="#" aria-label="StillGood home">
             <span>S</span> StillGood
           </a>
-          <span className="experimental-label">Method v2</span>
+          <span className="experimental-label">Method v3</span>
         </header>
         {notice && (
           <p className="simple-notice" role="status">
@@ -941,7 +1058,7 @@ export function StillGoodApp() {
         </details>
         <footer className="simple-footer">
           <span>No account · local workloads · exportable results</span>
-          <span>Method v2 · experimental calibration</span>
+          <span>Method v3 · experimental calibration</span>
         </footer>
       </main>
     );
@@ -999,7 +1116,8 @@ export function StillGoodApp() {
           <BenchmarkVisual
             stage={stage.id}
             tick={visualTick}
-            rows={visualRows}
+            inboxView={inboxView}
+            documentView={documentView}
             videoRef={videoRef}
             canvasRef={canvasRef}
           />
@@ -1097,7 +1215,9 @@ export function StillGoodApp() {
           <strong>
             {result.video.available === false
               ? "Not verified"
-              : result.video.highestUsable ?? "None"}
+              : result.video.invalidTierCount
+                ? `${result.video.highestUsable ?? "None"} verified`
+                : result.video.highestUsable ?? "None"}
           </strong>
         </article>
       </section>
@@ -1108,13 +1228,21 @@ export function StillGoodApp() {
             <article key={name}>
               <div>
                 <strong>{name}</strong>
-                <span>{classifyScore(category.score)} · {category.score}</span>
+                <span>
+                  {category.available === false
+                    ? "Not verified"
+                    : category.invalidTierCount
+                      ? `Partial · ${category.score}`
+                      : `${classifyScore(category.score)} · ${category.score}`}
+                </span>
               </div>
               <div className="result-bar" aria-hidden="true">
                 <span style={{ width: `${Math.max(3, category.score)}%` }} />
               </div>
               <p>
-                {"highestComfortable" in category
+                {category.invalidTierCount
+                  ? `${category.highestUsable ?? "No tier"} verified · ${category.invalidTierCount} excluded`
+                  : "highestComfortable" in category
                   ? `Comfortable through ${category.highestComfortable}`
                   : `${category.tiers.at(-1)?.label ?? "No"} dataset measured`}
               </p>
@@ -1187,13 +1315,15 @@ export function StillGoodApp() {
 function BenchmarkVisual({
   stage,
   tick,
-  rows,
+  inboxView,
+  documentView,
   videoRef,
   canvasRef,
 }: {
   stage: StageId;
   tick: number;
-  rows: number;
+  inboxView: InboxView | null;
+  documentView: DocumentView | null;
   videoRef: RefObject<HTMLVideoElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
 }) {
@@ -1214,16 +1344,15 @@ function BenchmarkVisual({
   }
   if (stage === "multitasking") {
     return (
-      <div className="test-visual multitask-visual">
-        {["Foreground app", "Document", "Search", "Background workers"].map(
-          (label, index) => (
-            <article key={label} className={index === tick % 4 ? "active" : ""}>
-              <strong>{label}</strong>
-              <i style={{ width: `${48 + ((tick + index) * 9) % 42}%` }} />
-              <i style={{ width: `${35 + ((tick + index) * 13) % 50}%` }} />
-            </article>
-          ),
-        )}
+      <div className="test-visual multitask-fixture">
+        <InboxFixture view={inboxView} compact />
+        <div className="pressure-strip">
+          {["Foreground", "Search", "Workers"].map((label, index) => (
+            <span key={label} className={index === tick % 3 ? "active" : ""}>
+              {label}
+            </span>
+          ))}
+        </div>
       </div>
     );
   }
@@ -1238,30 +1367,131 @@ function BenchmarkVisual({
       </div>
     );
   }
-  const visibleRows = Math.min(rows, 900);
-  return (
-    <div
-      className={`test-visual data-visual ${
-        stage === "documents" ? "document-visual" : "inbox-visual"
-      }`}
-    >
-      <div className="visual-toolbar">
-        <span>{stage === "documents" ? "Community device log" : "Practice inbox"}</span>
-        <i />
+  if (stage === "documents")
+    return (
+      <div className="test-visual fixture-host">
+        <DocumentFixture view={documentView} />
       </div>
-      <div className="scrolling-data">
-        {Array.from({ length: visibleRows }, (_, index) => (
-          <div key={index} className={index === tick % visibleRows ? "active" : ""}>
-            <i />
-            <strong>
-              {stage === "documents"
-                ? `Device record ${index + 1}`
-                : ["Repair fair", "Laptop pickup", "Battery notes"][index % 3]}
-            </strong>
-            <span />
-          </div>
+    );
+  return (
+    <div className="test-visual fixture-host">
+      <InboxFixture view={inboxView} />
+    </div>
+  );
+}
+
+function InboxFixture({
+  view,
+  compact = false,
+}: {
+  view: InboxView | null;
+  compact?: boolean;
+}) {
+  if (!view)
+    return <div className="fixture-loading">Preparing the practice inbox…</div>;
+  return (
+    <section className={`inbox-app ${compact ? "compact" : ""}`}>
+      <header>
+        <strong>Practice inbox</strong>
+        <span>{view.actionName}</span>
+        <label>
+          Search
+          <input value={view.query} readOnly />
+        </label>
+      </header>
+      <aside>
+        {["inbox", "archive", "sent"].map((folder) => (
+          <span key={folder} className={folder === view.folder ? "active" : ""}>
+            {folder}
+          </span>
+        ))}
+      </aside>
+      <div className="message-list">
+        {view.rows.map((message) => (
+          <article
+            key={message.id}
+            className={`${message.unread ? "unread" : ""} ${message.selected ? "selected" : ""}`}
+          >
+            <i aria-hidden="true" />
+            <strong>{message.sender}</strong>
+            <span>{message.subject}</span>
+            {message.label && <em>{message.label}</em>}
+          </article>
         ))}
       </div>
-    </div>
+      <div className="message-preview">
+        {view.draft ? (
+          <>
+            <strong>Reply draft</strong>
+            <textarea value={view.draft} readOnly />
+          </>
+        ) : view.activeMessage ? (
+          <>
+            <strong>{view.activeMessage.subject}</strong>
+            <span>{view.activeMessage.sender}</span>
+            <p>{view.activeMessage.body}</p>
+          </>
+        ) : (
+          <>
+            <strong>{view.totalMatches.toLocaleString()} messages</strong>
+            <p>Scripted inbox operations are updating this view.</p>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DocumentFixture({ view }: { view: DocumentView | null }) {
+  if (!view)
+    return <div className="fixture-loading">Preparing the practice document…</div>;
+  return (
+    <section className="document-app">
+      <header>
+        <strong>{view.title}</strong>
+        <span>{view.actionName}</span>
+        {view.saved && <em>Saved and reopened</em>}
+      </header>
+      <div className="document-toolbar">
+        <button tabIndex={-1}>B</button>
+        <button tabIndex={-1}>Find</button>
+        <input value={view.query} readOnly aria-label="Document search" />
+        <span>{view.matchCount ? `${view.matchCount} matches` : "Ready"}</span>
+      </div>
+      <article
+        className="editor-surface"
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-label="Practice document"
+      >
+        {view.paragraphs.map((paragraph) => (
+          <p
+            key={paragraph.id}
+            className={paragraph.match ? "match" : ""}
+          >
+            {paragraph.bold ? <strong>{paragraph.text}</strong> : paragraph.text}
+          </p>
+        ))}
+        <table>
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Year</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {view.tableRows.map((row) => (
+              <tr key={row.id}>
+                <td>{row.model}</td>
+                <td>{row.year}</td>
+                <td>{row.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </article>
+    </section>
   );
 }

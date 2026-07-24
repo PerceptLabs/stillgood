@@ -1,16 +1,19 @@
 # Benchmark media
 
-The v2 playback ladder uses three local CC0 H.264/30 fps fixtures:
+The v3 playback ladder uses one deterministic moving test pattern encoded at
+three resolutions. Keeping content, duration, frame rate, codec profile, pixel
+format, GOP structure, and quality target constant makes resolution the primary
+intentional variable.
 
-- `video-480p.mp4`: 854×480, 4 seconds, 1 MB
-- `video-720p.mp4`: 1280×720, 5 seconds, about 2 MB
-- `video-1080p.mp4`: 1920×1080, 5 seconds, about 800 KB
+- `video-480p.mp4`: 854×480, 6 seconds, H.264 High Profile, 30 fps
+- `video-720p.mp4`: 1280×720, 6 seconds, H.264 High Profile, 30 fps
+- `video-1080p.mp4`: 1920×1080, 6 seconds, H.264 High Profile, 30 fps
 
-Source and license details:
+The fixtures are generated from FFmpeg's `testsrc2` source at 1920×1080 and
+scaled with bicubic filtering. They contain continuous visible motion and no
+audio. Encoding uses yuv420p, CRF 23, level 4.0, a 60-frame GOP, and fast-start
+MP4 metadata.
 
-- 480p: https://truefilesize.com/video/mp4/
-- 720p and 1080p: https://examplefiles.org/example-video-files/sample-mp4-files
-
-The earlier `flower.mp4` fixture is retained for compatibility with v1 exports.
 All assets are cached before measurement so network transfer is excluded from
-playback scores.
+playback scores. The earlier `flower.mp4` fixture is retained only for
+compatibility with v1 exports.
