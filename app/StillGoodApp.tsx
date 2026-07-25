@@ -551,13 +551,13 @@ export function StillGoodApp() {
       const draw = (timestamp: number) => {
         if (previous) intervals.push(timestamp - previous);
         previous = timestamp;
-        context.fillStyle = "#172019";
+        context.fillStyle = "#162033";
         context.fillRect(0, 0, canvas.width, canvas.height);
         for (let index = 0; index < complexity; index += 1) {
           const x = (index * 47 + timestamp * 0.08) % canvas.width;
           const y = (index * 83 + timestamp * 0.04) % canvas.height;
           context.fillStyle =
-            index % 3 === 0 ? "#c9ed61" : index % 3 === 1 ? "#8fb5a0" : "#f2d5bf";
+            index % 3 === 0 ? "#ff6b4a" : index % 3 === 1 ? "#75b9ff" : "#91a4f4";
           context.beginPath();
           context.arc(x, y, 2 + (index % 7), 0, Math.PI * 2);
           context.fill();
@@ -1020,7 +1020,6 @@ export function StillGoodApp() {
           <a className="simple-brand" href="#" aria-label="StillGood home">
             <span>S</span> StillGood
           </a>
-          <span className="experimental-label">Method v3</span>
         </header>
         {notice && (
           <p className="simple-notice" role="status">
@@ -1028,7 +1027,7 @@ export function StillGoodApp() {
           </p>
         )}
         <section className="simple-hero">
-          <p className="kicker">Practical computer check</p>
+          <p className="kicker">A second-life computer check</p>
           <h1>What is this computer still good for?</h1>
           <p className="simple-lede">
             One automatic test. A clear answer. Usually about one minute.
@@ -1057,8 +1056,7 @@ export function StillGoodApp() {
           </p>
         </details>
         <footer className="simple-footer">
-          <span>No account · local workloads · exportable results</span>
-          <span>Method v3 · experimental calibration</span>
+          <span>Private by design · local workloads · exportable results</span>
         </footer>
       </main>
     );
@@ -1183,7 +1181,7 @@ export function StillGoodApp() {
         >
           <span>S</span> StillGood
         </button>
-        <span className="experimental-label">Confidence: {result.confidence}</span>
+        <span className="status-label">Confidence: {result.confidence}</span>
       </header>
       <section className="clear-answer">
         <div className="answer-grade answer-grade-wide">{result.grade}</div>

@@ -37,7 +37,8 @@ test("server-renders the StillGood product shell", async () => {
   assert.match(html, />the test<\/small>/);
   assert.match(html, /What does it test/);
   assert.match(html, /Usually about one minute/);
-  assert.match(html, /Method v3/);
+  assert.doesNotMatch(html, /Method v3/);
+  assert.match(html, /A second-life computer check/);
   assert.match(html, /Everyday apps/);
   assert.match(html, /Scripted inbox search, opening, selection, composing, and folders/);
   assert.match(html, /Scripted rich-text finding, editing, formatting, tables, and saving/);
