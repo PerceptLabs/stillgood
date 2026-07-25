@@ -579,7 +579,7 @@ export function StillGoodApp() {
           const x = (index * 47 + timestamp * 0.08) % canvas.width;
           const y = (index * 83 + timestamp * 0.04) % canvas.height;
           context.fillStyle =
-            index % 3 === 0 ? "#ff6b4a" : index % 3 === 1 ? "#75b9ff" : "#91a4f4";
+            index % 3 === 0 ? "#6636b8" : index % 3 === 1 ? "#9a7bd2" : "#c8b9e4";
           context.beginPath();
           context.arc(x, y, 2 + (index % 7), 0, Math.PI * 2);
           context.fill();

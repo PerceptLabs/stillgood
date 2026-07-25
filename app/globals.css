@@ -6,10 +6,10 @@
   --paper: #f6f7fb;
   --surface: #ffffff;
   --line: #dce1eb;
-  --accent: #ff6b4a;
-  --accent-dark: #3157c8;
-  --soft: #e9eeff;
-  --accent-soft: #fff0eb;
+  --accent: #6636b8;
+  --accent-dark: #4b227d;
+  --soft: #eee9f8;
+  --accent-soft: #f3eff9;
   --shadow: 0 24px 70px rgba(34, 49, 91, 0.14);
 }
 
@@ -57,10 +57,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 50%;
   color: white;
-  background: var(--accent-dark);
-  box-shadow: inset 0 -3px 0 rgba(18, 37, 99, 0.22);
+  background: var(--ink);
+  box-shadow: none;
   font-style: normal;
   font-weight: 850;
 }
@@ -89,9 +89,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .simple-notice {
   margin: 18px 0 0;
   padding: 12px 14px;
-  border: 1px solid #f0b7a9;
+  border: 1px solid #cfc2e8;
   border-radius: 10px;
-  color: #7d2f20;
+  color: var(--accent-dark);
   background: var(--accent-soft);
   font-size: 13px;
 }
@@ -139,7 +139,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   place-content: center;
   border: 1px solid var(--accent-dark);
   border-radius: 50%;
-  color: var(--ink);
+  color: white;
   background: var(--accent);
   box-shadow:
     0 0 0 9px var(--paper),
@@ -162,7 +162,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   box-shadow:
     0 0 0 9px var(--paper),
     0 0 0 11px var(--accent-dark),
-    0 16px 40px rgba(49, 87, 200, 0.2);
+    0 16px 40px rgba(75, 34, 125, 0.22);
 }
 .quiet-instruction {
   margin: 28px 0 0;
@@ -190,7 +190,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   place-items: center;
   margin-bottom: 30px;
   border-radius: 50%;
-  color: var(--accent-dark);
+  color: white;
   background: var(--accent);
   font-size: 11px;
   font-weight: 800;
@@ -316,11 +316,11 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   margin: 0 auto 34px;
   border: 13px solid var(--accent);
   border-radius: 50%;
-  box-shadow: 0 0 0 0 rgba(255, 107, 74, 0.42);
+  box-shadow: 0 0 0 0 rgba(102, 54, 184, 0.38);
   animation: pulse 1.5s ease-out infinite;
 }
 @keyframes pulse {
-  70% { box-shadow: 0 0 0 22px rgba(255, 107, 74, 0); }
+  70% { box-shadow: 0 0 0 22px rgba(102, 54, 184, 0); }
 }
 .run-main {
   width: min(1120px, calc(100% - 48px));
@@ -363,7 +363,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   height: 8px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 5px rgba(255, 107, 74, 0.2);
+  box-shadow: 0 0 0 5px rgba(102, 54, 184, 0.16);
 }
 .test-visual {
   min-height: 420px;
@@ -575,7 +575,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   background: #fbfcfe;
 }
 .message-list article.selected {
-  background: #fff0eb;
+  background: var(--accent-soft);
 }
 .message-list article i {
   width: 9px;
@@ -682,7 +682,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .document-app > header em {
   margin-left: auto;
-  color: #3157c8;
+  color: var(--accent-dark);
   font-size: 8px;
   font-style: normal;
 }
@@ -734,7 +734,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   margin: 0 0 8px;
 }
 .editor-surface p.match {
-  background: #ffe3db;
+  background: #e8def7;
 }
 .editor-surface table {
   width: 100%;
@@ -817,14 +817,15 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   display: grid;
   place-items: center;
   border-radius: 50%;
+  color: white;
   background: var(--accent);
-  box-shadow: inset 0 -5px 0 rgba(126, 43, 25, 0.14);
+  box-shadow: none;
   font-family: Georgia, serif;
   font-size: 65px;
 }
 .answer-grade-wide {
-  width: 112px;
-  border-radius: 42% 58% 50% 50% / 55% 44% 56% 45%;
+  width: 104px;
+  border-radius: 50%;
   font-size: 48px;
 }
 .clear-answer h1 {
@@ -972,9 +973,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .integrity-note {
   margin: 18px 0 0;
   padding: 18px 22px;
-  border: 1px solid #efc087;
+  border: 1px solid #cfc2e8;
   border-radius: 10px;
-  background: #fff7e8;
+  background: #f4f0fa;
 }
 .integrity-note strong {
   font-size: 12px;
@@ -997,13 +998,13 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   border-radius: 18px;
   color: white;
   background:
-    radial-gradient(circle at 92% 8%, rgba(255, 107, 74, 0.95) 0 8px, transparent 9px),
-    linear-gradient(125deg, #213e9e, var(--accent-dark));
-  box-shadow: 0 22px 50px rgba(33, 62, 158, 0.2);
+    radial-gradient(circle at 92% 8%, #9a7bd2 0 8px, transparent 9px),
+    linear-gradient(125deg, #162033, #242c3f);
+  box-shadow: 0 22px 50px rgba(22, 32, 51, 0.2);
 }
 .guide-invite .kicker {
   margin-bottom: 9px;
-  color: #bfcaff;
+  color: #cdbbea;
 }
 .guide-invite h2 {
   margin: 0;
@@ -1013,7 +1014,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .guide-invite p:last-child {
   max-width: 620px;
   margin: 10px 0 0;
-  color: #e1e6ff;
+  color: #e6e1ee;
   font-size: 13px;
   line-height: 1.55;
 }
@@ -1027,7 +1028,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   padding: 0 17px 0 20px;
   border: 0;
   border-radius: 12px;
-  color: var(--ink);
+  color: white;
   background: var(--accent);
   font-size: 12px;
   font-weight: 780;
@@ -1079,7 +1080,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   gap: 11px;
   padding: 0 72px 0 30px;
   color: white;
-  background: #173584;
+  background: var(--ink);
 }
 .flyer-brand strong {
   font-size: 18px;
@@ -1087,7 +1088,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .flyer-brand small {
   margin-left: auto;
-  color: #cbd5ff;
+  color: #cfc4df;
   font-size: 10px;
   font-weight: 760;
   letter-spacing: 0.1em;
@@ -1099,8 +1100,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   height: 31px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
-  color: #173584;
+  border-radius: 50%;
+  color: var(--ink);
   background: white;
   font-weight: 850;
 }
@@ -1110,7 +1111,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   top: -4px;
   width: 10px;
   height: 10px;
-  border: 2px solid #173584;
+  border: 2px solid var(--ink);
   border-radius: 50%;
   background: var(--accent);
   content: "";
@@ -1124,24 +1125,24 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   padding: 38px 48px;
   color: white;
   background:
-    radial-gradient(circle at 91% 25%, transparent 0 70px, rgba(122, 150, 255, 0.28) 71px 72px, transparent 73px),
-    linear-gradient(130deg, #1e43a5, #3157c8 68%, #456ce1);
+    radial-gradient(circle at 91% 25%, transparent 0 70px, rgba(167, 130, 222, 0.3) 71px 72px, transparent 73px),
+    linear-gradient(130deg, #162033, #242c3f);
 }
 .flyer-grade {
   width: 118px;
   height: 118px;
   display: grid;
   place-items: center;
-  border-radius: 37px 51px 42px 50px;
-  color: var(--ink);
+  border-radius: 50%;
+  color: white;
   background: var(--accent);
-  box-shadow: inset 0 -6px 0 rgba(126, 43, 25, 0.15);
+  box-shadow: none;
   font-family: Georgia, serif;
   font-size: 56px;
 }
 .flyer-hero p {
   margin: 0 0 9px;
-  color: #cbd5ff;
+  color: #cfc4df;
   font-size: 10px;
   font-weight: 780;
   letter-spacing: 0.1em;
@@ -1159,7 +1160,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   display: block;
   max-width: 640px;
   margin-top: 16px;
-  color: #e3e8ff;
+  color: #e5dfec;
   font-size: 13px;
   line-height: 1.55;
 }
@@ -1245,7 +1246,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .flyer-cautions article {
   padding: 14px 15px;
   border-left: 3px solid var(--accent);
-  border-radius: 4px 10px 10px 4px;
+  border-radius: 0 10px 10px 0;
   background: var(--accent-soft);
 }
 .flyer-footer {
@@ -1330,7 +1331,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   .flyer-grade {
     width: 72px;
     height: 72px;
-    border-radius: 24px 30px 26px 31px;
+    border-radius: 50%;
     font-size: 35px;
   }
   .flyer-hero h2 { font-size: 34px; }
