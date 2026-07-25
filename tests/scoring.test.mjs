@@ -182,5 +182,18 @@ test("an unavailable video module lowers confidence without erasing core results
   assert.equal(result.video.available, false);
   assert.equal(result.confidence, "Low");
   assert.ok(result.score >= 68);
-  assert.ok(!result.roles.some((role) => role.startsWith("Video up to")));
+  assert.ok(!result.roles.some((role) => role.includes("video up to")));
+});
+
+test("intentional long tasks do not lower otherwise sound measurement confidence", () => {
+  const metrics = fullMetrics([
+    [80, 82, 84],
+    [120, 125, 130],
+    [170, 180, 190],
+    [300, 320, 340],
+    [700, 760, 820],
+  ]);
+  metrics.longTaskCount = 150;
+  const result = summarizeThoroughRun(metrics);
+  assert.equal(result.confidence, "High");
 });

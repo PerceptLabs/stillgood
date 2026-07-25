@@ -1,12 +1,19 @@
 "use client";
 
-import { useRef, useState, type CSSProperties, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import { flushSync } from "react-dom";
 import {
   median,
   summarizeThoroughRun,
 } from "@/lib/scoring.mjs";
 import { classifyFormFactor } from "@/lib/context.mjs";
+import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import {
   buildDocumentDataset,
   buildInboxDataset,
@@ -374,10 +381,25 @@ export function StillGoodApp() {
   const [documentView, setDocumentView] = useState<DocumentView | null>(null);
   const [result, setResult] = useState<ThoroughResult | null>(null);
   const [notice, setNotice] = useState("");
+  const [showGuide, setShowGuide] = useState(false);
   const cancelledRef = useRef(false);
   const workersRef = useRef<Worker[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!showGuide) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowGuide(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showGuide]);
   const stage = stages[stageIndex] ?? stages[0];
 
   function stop() {
@@ -969,7 +991,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "3.0.0-experimental-application-fixtures",
+        profileVersion: "3.1.0-friendly-capability-guide",
         raw: {
           everydayTiers,
           documentTiers,
@@ -1142,6 +1164,7 @@ export function StillGoodApp() {
   }
 
   if (!result) return null;
+  const guide = buildCapabilityGuide(result);
   const categoryCards = [
     ["Everyday apps", result.everyday],
     ["Documents", result.documents],
@@ -1173,6 +1196,7 @@ export function StillGoodApp() {
               : "Best assigned one simple job at a time.";
 
   return (
+    <>
     <main className="result-page">
       <header className="simple-header">
         <button
@@ -1193,31 +1217,36 @@ export function StillGoodApp() {
           </p>
           <h1>{verdict}</h1>
           <p>
-            Comfortable everyday level:{" "}
-            <strong>{result.everyday.highestComfortable}</strong>. Usable under
-            multitasking: <strong>{result.multitasking.highestUsable}</strong>.
+            Best at <strong>{guide.everydayLabel.toLowerCase()}</strong>.
+            Comfortable with{" "}
+            <strong>{guide.multitaskingLabel.toLowerCase()}</strong>.
           </p>
         </div>
       </section>
       <section className="result-at-a-glance" aria-label="Result at a glance">
         <article>
-          <span>Everyday work</span>
-          <strong>{result.everyday.highestComfortable}</strong>
+          <span>Best everyday use</span>
+          <strong>{guide.everydayLabel}</strong>
         </article>
         <article>
-          <span>Multitasking</span>
-          <strong>{result.multitasking.highestUsable}</strong>
+          <span>Comfortable multitasking</span>
+          <strong>{guide.multitaskingLabel}</strong>
         </article>
         <article>
-          <span>Video</span>
-          <strong>
-            {result.video.available === false
-              ? "Not verified"
-              : result.video.invalidTierCount
-                ? `${result.video.highestUsable ?? "None"} verified`
-                : result.video.highestUsable ?? "None"}
-          </strong>
+          <span>Comfortable video</span>
+          <strong>{guide.videoLabel}</strong>
         </article>
+      </section>
+      <section className="guide-invite">
+        <div>
+          <p className="kicker">Your practical use guide</p>
+          <h2>What can you actually do with it?</h2>
+          <p>{guide.summary}</p>
+        </div>
+        <button className="guide-action" onClick={() => setShowGuide(true)}>
+          Open your use guide
+          <span aria-hidden="true">↗</span>
+        </button>
       </section>
       <details className="result-breakdown">
         <summary>See all six test results</summary>
@@ -1260,6 +1289,12 @@ export function StillGoodApp() {
         <div className="result-buttons">
           <button className="secondary-action" onClick={() => setPhase("home")}>
             Test again
+          </button>
+          <button
+            className="secondary-action"
+            onClick={() => setShowGuide(true)}
+          >
+            Use guide
           </button>
           <button className="primary-action" onClick={downloadResult}>
             Export full result
@@ -1307,6 +1342,100 @@ export function StillGoodApp() {
         </p>
       </details>
     </main>
+    {showGuide && (
+      <div
+        className="guide-overlay"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setShowGuide(false);
+        }}
+      >
+        <section
+          className="capability-flyer"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guide-title"
+        >
+          <button
+            className="guide-close"
+            onClick={() => setShowGuide(false)}
+            aria-label="Close use guide"
+          >
+            ×
+          </button>
+          <header className="flyer-brand">
+            <span className="flyer-mark">S</span>
+            <strong>StillGood</strong>
+            <small>Personal use guide</small>
+          </header>
+          <div className="flyer-hero">
+            <div className="flyer-grade">{result.grade}</div>
+            <div>
+              <p>{result.label} · {result.score}/100</p>
+              <h2 id="guide-title">{guide.headline}</h2>
+              <span>{guide.summary}</span>
+            </div>
+          </div>
+          <div className="flyer-levels">
+            <article>
+              <span>Everyday use</span>
+              <strong>{guide.everydayLabel}</strong>
+            </article>
+            <article>
+              <span>Multitasking</span>
+              <strong>{guide.multitaskingLabel}</strong>
+            </article>
+            <article>
+              <span>Video tested</span>
+              <strong>{guide.videoLabel}</strong>
+            </article>
+          </div>
+          <div className="flyer-columns">
+            <section>
+              <p className="flyer-section-label">A good fit for</p>
+              <div className="flyer-items">
+                {guide.bestFor.map(
+                  (item: { title: string; detail: string }, index: number) => (
+                    <article key={item.title}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                      </div>
+                    </article>
+                  ),
+                )}
+              </div>
+            </section>
+            <section>
+              <p className="flyer-section-label">Use with care</p>
+              <div className="flyer-cautions">
+                {guide.cautions.map(
+                  (item: { title: string; detail: string }) => (
+                    <article key={item.title}>
+                      <strong>{item.title}</strong>
+                      <p>{item.detail}</p>
+                    </article>
+                  ),
+                )}
+              </div>
+            </section>
+          </div>
+          <footer className="flyer-footer">
+            <div>
+              <span>Best setup</span>
+              <strong>{guide.setup}</strong>
+            </div>
+            <button onClick={() => window.print()}>Print or save PDF</button>
+          </footer>
+          <p className="flyer-disclosure">
+            Based on this browser and device together. Streaming services and
+            desktop applications can behave differently.
+          </p>
+        </section>
+      </div>
+    )}
+    </>
   );
 }
 
