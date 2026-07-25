@@ -1239,12 +1239,12 @@ export function StillGoodApp() {
       </section>
       <section className="guide-invite">
         <div>
-          <p className="kicker">Your practical use guide</p>
+          <p className="kicker">Detailed report</p>
           <h2>What can you actually do with it?</h2>
           <p>{guide.summary}</p>
         </div>
         <button className="guide-action" onClick={() => setShowGuide(true)}>
-          Open your use guide
+          Open detailed report
           <span aria-hidden="true">↗</span>
         </button>
       </section>
@@ -1294,7 +1294,7 @@ export function StillGoodApp() {
             className="secondary-action"
             onClick={() => setShowGuide(true)}
           >
-            Use guide
+            Detailed report
           </button>
           <button className="primary-action" onClick={downloadResult}>
             Export full result
@@ -1351,28 +1351,28 @@ export function StillGoodApp() {
         }}
       >
         <section
-          className="capability-flyer"
+          className="capability-flyer detailed-report"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="guide-title"
+          aria-labelledby="report-title"
         >
           <button
             className="guide-close"
             onClick={() => setShowGuide(false)}
-            aria-label="Close use guide"
+            aria-label="Close detailed report"
           >
             ×
           </button>
           <header className="flyer-brand">
             <span className="flyer-mark">S</span>
             <strong>StillGood</strong>
-            <small>Personal use guide</small>
+            <small>Detailed report</small>
           </header>
           <div className="flyer-hero">
             <div className="flyer-grade">{result.grade}</div>
             <div>
               <p>{result.label} · {result.score}/100</p>
-              <h2 id="guide-title">{guide.headline}</h2>
+              <h2 id="report-title">{guide.headline}</h2>
               <span>{guide.summary}</span>
             </div>
           </div>
@@ -1390,6 +1390,72 @@ export function StillGoodApp() {
               <strong>{guide.videoLabel}</strong>
             </article>
           </div>
+          <section className="report-capacity">
+            <div className="report-section-heading">
+              <div>
+                <p>Comfort range</p>
+                <h3>Where performance begins to slow</h3>
+              </div>
+              <div className="capacity-legend" aria-label="Capacity chart legend">
+                <span className="comfortable"><i />Comfortable</span>
+                <span className="stretch"><i />Usable with delays</span>
+                <span className="outside"><i />Not recommended</span>
+              </div>
+            </div>
+            <CapacityScale
+              title="Everyday web work"
+              friendlyValue={guide.everydayLabel}
+              comfortable={result.everyday.highestComfortable}
+              usable={result.everyday.highestUsable}
+              levels={[
+                ["Basic", "Basics"],
+                ["Everyday", "Routine"],
+                ["Busy", "Busy"],
+                ["Demanding", "Demanding"],
+                ["Extreme", "Very heavy"],
+              ]}
+            />
+            <CapacityScale
+              title="Active tasks"
+              friendlyValue={guide.multitaskingLabel}
+              comfortable={result.multitasking.highestComfortable}
+              usable={result.multitasking.highestUsable}
+              levels={[
+                ["Everyday", "One main"],
+                ["Busy", "A few"],
+                ["Demanding", "Several"],
+                ["Extreme", "Heavy"],
+              ]}
+            />
+          </section>
+          <section className="report-measurements">
+            <div className="report-section-heading">
+              <div>
+                <p>Measured breakdown</p>
+                <h3>Six practical browser workloads</h3>
+              </div>
+            </div>
+            <div className="report-score-grid">
+              {categoryCards.map(([name, category]) => (
+                <article className="report-score-card" key={name}>
+                  <div className="report-score-topline">
+                    <strong>{name}</strong>
+                    <span>{category.score}</span>
+                  </div>
+                  <div className="report-score-bar" aria-hidden="true">
+                    <i style={{ width: `${Math.max(3, category.score)}%` }} />
+                  </div>
+                  <p>
+                    {category.available === false
+                      ? "Not verified"
+                      : category.invalidTierCount
+                        ? "Partially verified"
+                        : classifyScore(category.score)}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </section>
           <div className="flyer-columns">
             <section>
               <p className="flyer-section-label">A good fit for</p>
@@ -1421,6 +1487,43 @@ export function StillGoodApp() {
               </div>
             </section>
           </div>
+          <section className="report-context">
+            <p className="flyer-section-label">Test context</p>
+            <div className="report-context-grid">
+              <article>
+                <span>Browser</span>
+                <strong>{result.browser}</strong>
+              </article>
+              <article>
+                <span>System</span>
+                <strong>{result.platform}</strong>
+              </article>
+              <article>
+                <span>Logical processors</span>
+                <strong>{result.logicalProcessors ?? "Not reported"}</strong>
+              </article>
+              <article>
+                <span>Display cadence</span>
+                <strong>
+                  {result.cadenceMs > 0
+                    ? `${Math.round(1000 / result.cadenceMs)} Hz`
+                    : "Not reported"}
+                </strong>
+              </article>
+              <article>
+                <span>Test duration</span>
+                <strong>{(result.elapsedMs / 1000).toFixed(1)} seconds</strong>
+              </article>
+              <article>
+                <span>Recovery after load</span>
+                <strong>{Math.round(result.recoveryMs)} ms</strong>
+              </article>
+              <article>
+                <span>Confidence</span>
+                <strong>{result.confidence}</strong>
+              </article>
+            </div>
+          </section>
           <footer className="flyer-footer">
             <div>
               <span>Best setup</span>
@@ -1436,6 +1539,48 @@ export function StillGoodApp() {
       </div>
     )}
     </>
+  );
+}
+
+function CapacityScale({
+  title,
+  friendlyValue,
+  comfortable,
+  usable,
+  levels,
+}: {
+  title: string;
+  friendlyValue: string;
+  comfortable: string;
+  usable: string;
+  levels: Array<[string, string]>;
+}) {
+  const comfortableIndex = levels.findIndex(([id]) => id === comfortable);
+  const usableIndex = levels.findIndex(([id]) => id === usable);
+
+  return (
+    <div className="report-capacity-row">
+      <div className="report-capacity-title">
+        <span>{title}</span>
+        <strong>{friendlyValue}</strong>
+      </div>
+      <div className="report-capacity-track">
+        {levels.map(([id, label], index) => {
+          const state =
+            comfortableIndex >= 0 && index <= comfortableIndex
+              ? "comfortable"
+              : usableIndex >= 0 && index <= usableIndex
+                ? "stretch"
+                : "outside";
+          return (
+            <div className={`report-capacity-step ${state}`} key={id}>
+              <i aria-hidden="true" />
+              <span>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
