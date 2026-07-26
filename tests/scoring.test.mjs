@@ -6,9 +6,38 @@ import {
   median,
   normalizeLower,
   percentile,
+  qualifiesForHeadroom,
   summarizeLatencyTiers,
   summarizeThoroughRun,
 } from "../lib/scoring.mjs";
+
+test("adaptive headroom runs only after fast, stable measurements", () => {
+  assert.equal(
+    qualifiesForHeadroom([
+      { durationMs: 180 },
+      { durationMs: 205 },
+      { durationMs: 220 },
+    ]),
+    true,
+  );
+  assert.equal(
+    qualifiesForHeadroom([
+      { durationMs: 150 },
+      { durationMs: 170 },
+      { durationMs: 1400 },
+    ]),
+    false,
+  );
+  assert.equal(
+    qualifiesForHeadroom([{ durationMs: 120 }, { durationMs: 130 }]),
+    false,
+  );
+});
+
+test("second adaptive gate allows measured headroom without risking a runaway", () => {
+  assert.equal(qualifiesForHeadroom([620, 690, 760], 1), true);
+  assert.equal(qualifiesForHeadroom([700, 900, 2200], 1), false);
+});
 
 test("statistics preserve median, tail, and variation", () => {
   const samples = [20, 22, 23, 24, 25, 26, 27, 28, 90, 220];
@@ -78,6 +107,25 @@ test("early-stopped tiers are explicit and never masquerade as measured", () => 
   assert.equal(result.tiers[1].status, "stopped");
   assert.equal(result.tiers[1].earlyStopped, true);
   assert.equal(result.tiers[1].score, 0);
+});
+
+test("headroom metadata distinguishes a found limit from an open ceiling", () => {
+  const found = summarizeLatencyTiers([
+    { id: "extreme", label: "Extreme", samples: [150, 160, 170] },
+    { id: "headroom", label: "Extended", samples: [700, 760, 820] },
+  ]);
+  assert.equal(found.testedHeadroom, true);
+  assert.equal(found.limitFound, true);
+  assert.equal(found.headroomCeiling, false);
+
+  const open = summarizeLatencyTiers([
+    { id: "extreme", label: "Extreme", samples: [100, 110, 120] },
+    { id: "headroom", label: "Extended", samples: [130, 140, 150] },
+    { id: "limit", label: "Maximum", samples: [160, 170, 180] },
+  ]);
+  assert.equal(open.testedHeadroom, true);
+  assert.equal(open.limitFound, false);
+  assert.equal(open.headroomCeiling, true);
 });
 
 function latencyTiers(values) {

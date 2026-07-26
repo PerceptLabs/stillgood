@@ -100,6 +100,15 @@ stillgood/
 └─ README.md
 ```
 
+# Addendum: Benchmark v6 adaptive headroom
+
+The authoritative adaptive-limit revision is maintained in
+`17_BENCHMARK_V6_ADAPTIVE_HEADROOM.md`. StillGood now extends browsing, email,
+document, and spreadsheet workloads only after the ordinary top tier completes
+quickly and consistently. Unattempted extensions do not count as failures.
+Measured extensions identify whether a practical limit was found, an extended
+range passed, or the benchmark still did not reach the system's limit.
+
 ---
 
 # Benchmark v5 balanced everyday-use addendum

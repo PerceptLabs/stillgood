@@ -10,6 +10,7 @@ import {
 import { flushSync } from "react-dom";
 import {
   median,
+  qualifiesForHeadroom,
   summarizeThoroughRun,
 } from "@/lib/scoring.mjs";
 import { classifyFormFactor } from "@/lib/context.mjs";
@@ -41,7 +42,13 @@ type StageId =
   | "video"
   | "multitasking"
   | "storage";
-type Tier = { id: string; label: string; size: number; domRows: number };
+type Tier = {
+  id: string;
+  label: string;
+  size: number;
+  domRows: number;
+  headroom?: boolean;
+};
 type TimedSample = {
   durationMs: number;
   workMs: number;
@@ -194,6 +201,9 @@ type LatencyCategory = {
   highestComfortable: string;
   highestUsable: string;
   tiers: TierSummary[];
+  testedHeadroom?: boolean;
+  headroomCeiling?: boolean;
+  limitFound?: boolean;
 };
 type SimpleCategory = {
   score: number;
@@ -304,6 +314,20 @@ const browsingTiers: Tier[] = [
   { id: "busy", label: "Busy", size: 6500, domRows: 64 },
   { id: "demanding", label: "Demanding", size: 18000, domRows: 92 },
   { id: "extreme", label: "Extreme", size: 45000, domRows: 120 },
+  {
+    id: "headroom",
+    label: "Extended",
+    size: 120000,
+    domRows: 180,
+    headroom: true,
+  },
+  {
+    id: "limit",
+    label: "Maximum",
+    size: 250000,
+    domRows: 260,
+    headroom: true,
+  },
 ];
 
 const emailTiers: Tier[] = [
@@ -312,6 +336,20 @@ const emailTiers: Tier[] = [
   { id: "busy", label: "20,000 messages", size: 20000, domRows: 64 },
   { id: "demanding", label: "50,000 messages", size: 50000, domRows: 80 },
   { id: "extreme", label: "100,000 messages", size: 100000, domRows: 96 },
+  {
+    id: "headroom",
+    label: "Extended",
+    size: 250000,
+    domRows: 140,
+    headroom: true,
+  },
+  {
+    id: "limit",
+    label: "Maximum",
+    size: 500000,
+    domRows: 200,
+    headroom: true,
+  },
 ];
 
 const writingTiers: Tier[] = [
@@ -320,6 +358,20 @@ const writingTiers: Tier[] = [
   { id: "busy", label: "25,000 words", size: 25000, domRows: 300 },
   { id: "demanding", label: "60,000 words", size: 60000, domRows: 720 },
   { id: "extreme", label: "100,000 words", size: 100000, domRows: 1200 },
+  {
+    id: "headroom",
+    label: "Extended",
+    size: 250000,
+    domRows: 2500,
+    headroom: true,
+  },
+  {
+    id: "limit",
+    label: "Maximum",
+    size: 500000,
+    domRows: 5000,
+    headroom: true,
+  },
 ];
 
 const spreadsheetTiers: Tier[] = [
@@ -328,6 +380,20 @@ const spreadsheetTiers: Tier[] = [
   { id: "busy", label: "50,000 cells", size: 50000, domRows: 36 },
   { id: "demanding", label: "150,000 cells", size: 150000, domRows: 42 },
   { id: "extreme", label: "400,000 cells", size: 400000, domRows: 48 },
+  {
+    id: "headroom",
+    label: "Extended",
+    size: 1000000,
+    domRows: 64,
+    headroom: true,
+  },
+  {
+    id: "limit",
+    label: "Maximum",
+    size: 2000000,
+    domRows: 80,
+    headroom: true,
+  },
 ];
 
 const videoTiers = [
@@ -426,15 +492,27 @@ function friendlyProgressLevel(id: string) {
       busy: "Adding a busier workload",
       demanding: "Checking heavier work",
       extreme: "Finding the practical limit",
+      headroom: "Extending the check to find the limit",
+      limit: "Testing the remaining headroom",
     }[id] ?? "Checking everyday work"
   );
 }
 
 function categoryOutcome(
-  category: { score: number; available?: boolean; invalidTierCount?: number },
+  category: {
+    score: number;
+    available?: boolean;
+    invalidTierCount?: number;
+    testedHeadroom?: boolean;
+    headroomCeiling?: boolean;
+    limitFound?: boolean;
+  },
 ) {
   if (category.available === false) return "Could not be checked";
   if (category.invalidTierCount) return "Partly checked";
+  if (category.headroomCeiling) return "Limit not reached";
+  if (category.limitFound) return "Limit found";
+  if (category.testedHeadroom) return "Extended range passed";
   if (category.score >= 84) return "Comfortable";
   if (category.score >= 68) return "Good for everyday use";
   if (category.score >= 58) return "Usable with some limits";
@@ -650,10 +728,27 @@ export function StillGoodApp() {
     progressEnd: number,
   ) {
     const output: LatencyTierResult[] = [];
-    const repetitions = 5;
+    const totalPlannedRuns = tiers.reduce(
+      (total, tier) => total + (tier.headroom ? 3 : 5),
+      0,
+    );
+    let completedRuns = 0;
     for (let tierIndex = 0; tierIndex < tiers.length; tierIndex += 1) {
       const tier = tiers[tierIndex];
       if (cancelledRef.current) break;
+      if (tier.headroom) {
+        const previousTier = output.at(-1);
+        const headroomLevel = tiers
+          .slice(0, tierIndex)
+          .filter((candidate) => candidate.headroom).length;
+        if (
+          !previousTier ||
+          !qualifiesForHeadroom(previousTier.samples, headroomLevel)
+        ) {
+          break;
+        }
+      }
+      const repetitions = tier.headroom ? 3 : 5;
       const dataset =
         stageId === "browsing"
           ? buildBrowsingDataset(700 + tierIndex, tier.size)
@@ -676,20 +771,20 @@ export function StillGoodApp() {
       const samples: TimedSample[] = [];
       setStatus(`${friendlyProgressLevel(tier.id)} · measuring consistency`);
       for (let repetition = 0; repetition < repetitions; repetition += 1) {
-        samples.push(
-          await measureJourney(
-            stageId,
-            tier,
-            1100 + tierIndex * 100 + repetition,
-            dataset,
-          ),
+        const sample = await measureJourney(
+          stageId,
+          tier,
+          1100 + tierIndex * 100 + repetition,
+          dataset,
         );
+        samples.push(sample);
+        completedRuns += 1;
         setProgress(
           progressStart +
-            ((tierIndex * repetitions + repetition + 1) /
-              (tiers.length * repetitions)) *
+            (completedRuns / totalPlannedRuns) *
               (progressEnd - progressStart),
         );
+        if (sample.durationMs > 5000) break;
         await sleep(90);
       }
       output.push({ id: tier.id, label: tier.label, samples });
@@ -703,6 +798,7 @@ export function StillGoodApp() {
           remaining += 1
         ) {
           const skipped = tiers[remaining];
+          if (skipped.headroom) continue;
           output.push({
             id: skipped.id,
             label: skipped.label,
@@ -721,6 +817,7 @@ export function StillGoodApp() {
         break;
       }
     }
+    setProgress(progressEnd);
     return output;
   }
 
@@ -1196,8 +1293,22 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "5.0.0-balanced-everyday-use",
+        profileVersion: "6.0.0-adaptive-headroom",
         raw: {
+          headroomPolicy: {
+            baseRepetitions: 5,
+            headroomRepetitions: 3,
+            firstGate: {
+              medianMs: 450,
+              worstMs: 1000,
+              maximumCv: 0.35,
+            },
+            secondGate: {
+              medianMs: 850,
+              worstMs: 2000,
+              maximumCv: 0.45,
+            },
+          },
           browsingTiers: browsingResults,
           emailTiers: emailResults,
           writingTiers: writingResults,
@@ -1224,7 +1335,7 @@ export function StillGoodApp() {
       [
         JSON.stringify(
           {
-            schemaVersion: "stillgood-result.v5",
+            schemaVersion: "stillgood-result.v6",
             result,
             disclosure:
               "This describes browser-observed behavior, not a system-wide hardware diagnosis.",

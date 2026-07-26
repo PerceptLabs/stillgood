@@ -32,6 +32,7 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 15. `14_BENCHMARK_V3_APPLICATION_FIXTURES.md` — purpose-built email and document fixtures
 16. `15_BENCHMARK_V4_OFFICE_WORKLOADS.md` — authoritative large-email, writing, and spreadsheet revision
 17. `16_BENCHMARK_V5_BALANCED_EVERYDAY_USE.md` — authoritative browsing and balanced-score revision
+18. `17_BENCHMARK_V6_ADAPTIVE_HEADROOM.md` — authoritative adaptive limit-finding revision
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -47,6 +48,9 @@ weights, or grade bands conflict.
 
 Benchmark v5 keeps the v4 office fixtures but supersedes its overall category
 weights, grade guardrails, module count, and general-use positioning.
+
+Benchmark v6 keeps the v5 balanced categories but supersedes its latency-tier
+progression, weighting, and practical-limit reporting.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
