@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  browsingActionNames,
+  buildBrowsingDataset,
+  createBrowsingView,
+} from "../lib/browsing-workloads.mjs";
+import {
   buildEmailDataset,
   buildSpreadsheetDataset,
   buildWritingDataset,
@@ -11,6 +16,21 @@ import {
   spreadsheetActionNames,
   writingActionNames,
 } from "../lib/office-workloads.mjs";
+
+test("browsing fixture covers articles, search, shopping, and busy pages", () => {
+  const dataset = buildBrowsingDataset(31, 6500);
+  const views = browsingActionNames.map((_, index) =>
+    createBrowsingView(dataset, index, 64, 500 + index),
+  );
+  assert.ok(views.every((view) => view.success));
+  assert.equal(views[0].layout, "article");
+  assert.ok(views[0].paragraphs.length >= 8);
+  assert.equal(views[1].query, "repair guide");
+  assert.equal(views[2].layout, "catalog");
+  assert.equal(views[3].layout, "homepage");
+  assert.equal(views[4].query, "Highly rated");
+  assert.ok(views.every((view) => view.items.length <= 64));
+});
 
 test("email fixture covers large-mailbox and rich-message journeys", () => {
   const messages = buildEmailDataset(42, 20000);

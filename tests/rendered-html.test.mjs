@@ -39,6 +39,8 @@ test("server-renders the StillGood product shell", async () => {
   assert.match(html, /Usually two to four minutes/);
   assert.doesNotMatch(html, /Method v3/);
   assert.match(html, /A second-life computer check/);
+  assert.match(html, />Browsing</);
+  assert.match(html, /Articles, search results, shopping pages, navigation, and filters/);
   assert.match(html, /Email/);
   assert.match(html, /Searching, opening conversations, sorting, and writing replies/);
   assert.match(html, /Editing, page layout, formatting, tables, and reopening documents/);

@@ -15,6 +15,11 @@ import {
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import {
+  browsingActionNames,
+  buildBrowsingDataset,
+  createBrowsingView,
+} from "@/lib/browsing-workloads.mjs";
+import {
   buildEmailDataset,
   buildSpreadsheetDataset,
   buildWritingDataset,
@@ -28,6 +33,7 @@ import {
 
 type Phase = "home" | "prepare" | "run" | "result";
 type StageId =
+  | "browsing"
   | "email"
   | "writing"
   | "spreadsheets"
@@ -42,6 +48,31 @@ type TimedSample = {
   presentationMs: number;
   checksum: number;
   actions: Array<{ name: string; durationMs: number; workMs: number }>;
+};
+type BrowsingView = {
+  actionName: string;
+  layout: string;
+  query: string;
+  article: null | {
+    id: number;
+    category: string;
+    title: string;
+    summary: string;
+    hue: number;
+  };
+  paragraphs: string[];
+  items: Array<{
+    id: number;
+    category: string;
+    title: string;
+    summary: string;
+    price: number;
+    rating: number;
+    hue: number;
+  }>;
+  totalResults: number;
+  checksum: number;
+  success: boolean;
 };
 type EmailView = {
   actionName: string;
@@ -178,6 +209,7 @@ type ThoroughResult = {
   score: number;
   ceilingReached: boolean;
   confidence: string;
+  browsing: LatencyCategory;
   email: LatencyCategory;
   writing: LatencyCategory;
   spreadsheets: LatencyCategory;
@@ -208,6 +240,12 @@ const stages: Array<{
   title: string;
   detail: string;
 }> = [
+  {
+    id: "browsing",
+    name: "Browsing",
+    title: "Everyday web browsing",
+    detail: "Articles, search results, shopping pages, navigation, and filters.",
+  },
   {
     id: "email",
     name: "Email",
@@ -258,6 +296,14 @@ const workloadTiers: Tier[] = [
   { id: "busy", label: "Busy", size: 14000, domRows: 220 },
   { id: "demanding", label: "Demanding", size: 38000, domRows: 480 },
   { id: "extreme", label: "Extreme", size: 85000, domRows: 900 },
+];
+
+const browsingTiers: Tier[] = [
+  { id: "basic", label: "Basic", size: 400, domRows: 20 },
+  { id: "everyday", label: "Everyday", size: 1800, domRows: 36 },
+  { id: "busy", label: "Busy", size: 6500, domRows: 64 },
+  { id: "demanding", label: "Demanding", size: 18000, domRows: 92 },
+  { id: "extreme", label: "Extreme", size: 45000, domRows: 120 },
 ];
 
 const emailTiers: Tier[] = [
@@ -397,6 +443,7 @@ function categoryOutcome(
 }
 
 const categoryDescriptions: Record<string, string> = {
+  "Web browsing": "Articles, search results, shopping pages, navigation, and filters.",
   "Email and webmail": "Searching, opening conversations, and writing replies.",
   Documents: "Typing, formatting, tables, and changing page layout.",
   Spreadsheets: "Formulas, sorting, filtering, pasting, and scrolling.",
@@ -464,6 +511,7 @@ export function StillGoodApp() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [visualTick, setVisualTick] = useState(0);
+  const [browsingView, setBrowsingView] = useState<BrowsingView | null>(null);
   const [emailView, setEmailView] = useState<EmailView | null>(null);
   const [writingView, setWritingView] = useState<WritingView | null>(null);
   const [spreadsheetView, setSpreadsheetView] =
@@ -505,13 +553,20 @@ export function StillGoodApp() {
   }
 
   async function measureJourney(
-    stageId: "email" | "writing" | "spreadsheets" | "multitasking",
+    stageId:
+      | "browsing"
+      | "email"
+      | "writing"
+      | "spreadsheets"
+      | "multitasking",
     tier: Tier,
     seed: number,
     dataset: unknown,
   ): Promise<TimedSample> {
     const actionNames =
-      stageId === "writing"
+      stageId === "browsing"
+        ? browsingActionNames
+        : stageId === "writing"
         ? writingActionNames
         : stageId === "spreadsheets"
           ? spreadsheetActionNames
@@ -524,7 +579,18 @@ export function StillGoodApp() {
 
     for (let actionIndex = 0; actionIndex < actionNames.length; actionIndex += 1) {
       const measured =
-        stageId === "writing"
+        stageId === "browsing"
+          ? await measureRenderedAction(
+              () =>
+                createBrowsingView(
+                  dataset,
+                  actionIndex,
+                  tier.domRows,
+                  seed + actionIndex,
+                ) as BrowsingView,
+              (view) => setBrowsingView(view),
+            )
+        : stageId === "writing"
         ? await measureRenderedAction(
             () =>
               createWritingView(
@@ -578,7 +644,7 @@ export function StillGoodApp() {
   }
 
   async function runLatencySection(
-    stageId: "email" | "writing" | "spreadsheets",
+    stageId: "browsing" | "email" | "writing" | "spreadsheets",
     tiers: Tier[],
     progressStart: number,
     progressEnd: number,
@@ -589,7 +655,9 @@ export function StillGoodApp() {
       const tier = tiers[tierIndex];
       if (cancelledRef.current) break;
       const dataset =
-        stageId === "writing"
+        stageId === "browsing"
+          ? buildBrowsingDataset(700 + tierIndex, tier.size)
+          : stageId === "writing"
           ? buildWritingDataset(700 + tierIndex, tier.size)
           : stageId === "spreadsheets"
             ? buildSpreadsheetDataset(700 + tierIndex, tier.size)
@@ -906,30 +974,40 @@ export function StillGoodApp() {
     try {
       setStageIndex(0);
       await nextPaint();
-      const emailResults = await runLatencySection("email", emailTiers, 2, 18);
+      const browsingResults = await runLatencySection(
+        "browsing",
+        browsingTiers,
+        2,
+        16,
+      );
       if (cancelledRef.current) return;
 
       setStageIndex(1);
       await nextPaint();
-      const writingResults = await runLatencySection(
-        "writing",
-        writingTiers,
-        18,
-        34,
-      );
+      const emailResults = await runLatencySection("email", emailTiers, 16, 28);
       if (cancelledRef.current) return;
 
       setStageIndex(2);
       await nextPaint();
-      const spreadsheetResults = await runLatencySection(
-        "spreadsheets",
-        spreadsheetTiers,
-        34,
-        50,
+      const writingResults = await runLatencySection(
+        "writing",
+        writingTiers,
+        28,
+        40,
       );
       if (cancelledRef.current) return;
 
       setStageIndex(3);
+      await nextPaint();
+      const spreadsheetResults = await runLatencySection(
+        "spreadsheets",
+        spreadsheetTiers,
+        40,
+        52,
+      );
+      if (cancelledRef.current) return;
+
+      setStageIndex(4);
       setStatus("Ramping from light motion to a dense canvas");
       await nextPaint();
       const graphicsTiers: GraphicsTierResult[] = [];
@@ -944,18 +1022,18 @@ export function StillGoodApp() {
         graphicsTiers.push(
           await runGraphicsTier(id, label, complexity, cadenceMs),
         );
-        setProgress(50 + ((index + 1) / graphicsLevels.length) * 10);
+        setProgress(52 + ((index + 1) / graphicsLevels.length) * 10);
       }
       if (cancelledRef.current) return;
 
-      setStageIndex(4);
+      setStageIndex(5);
       await nextPaint();
       const measuredVideoTiers: VideoTierResult[] = [];
       for (let index = 0; index < videoTiers.length; index += 1) {
         setStatus(`Playing ${videoTiers[index].label} H.264 video`);
         const measured = await runVideoTier(videoTiers[index]);
         measuredVideoTiers.push(measured);
-        setProgress(60 + ((index + 1) / videoTiers.length) * 10);
+        setProgress(62 + ((index + 1) / videoTiers.length) * 10);
         if (
           !measured.valid ||
           measured.droppedRatio > 0.15 ||
@@ -982,7 +1060,7 @@ export function StillGoodApp() {
       }
       if (cancelledRef.current) return;
 
-      setStageIndex(5);
+      setStageIndex(6);
       await nextPaint();
       const multitaskTiers: LatencyTierResult[] = [];
       const maxWorkers = Math.max(
@@ -1030,7 +1108,7 @@ export function StillGoodApp() {
           worker.terminate();
         });
         workersRef.current = [];
-        setProgress(70 + ((level + 1) / 4) * 21);
+        setProgress(72 + ((level + 1) / 4) * 20);
         if (median(samples.map((sample) => sample.durationMs)) > 3000) {
           for (let remaining = level + 1; remaining < 4; remaining += 1) {
             const skipped = workloadTiers[remaining + 1];
@@ -1054,7 +1132,7 @@ export function StillGoodApp() {
       }
       if (cancelledRef.current) return;
 
-      setStageIndex(6);
+      setStageIndex(7);
       await nextPaint();
       const storageTiers: StorageTierResult[] = [];
       let database: IDBDatabase | null = null;
@@ -1063,7 +1141,7 @@ export function StillGoodApp() {
         for (const [index, size] of [1, 8, 32].entries()) {
           setStatus("Saving and reopening temporary browser data");
           storageTiers.push(await runStorageTier(database, size, index));
-          setProgress(91 + ((index + 1) / 3) * 7);
+          setProgress(92 + ((index + 1) / 3) * 6);
         }
       } catch {
         storageTiers.push(
@@ -1094,6 +1172,7 @@ export function StillGoodApp() {
       const recoveryMs = performance.now() - recoveryStart;
       const formFactor = detectFormFactor();
       const summary = summarizeThoroughRun({
+        browsingTiers: browsingResults,
         emailTiers: emailResults,
         writingTiers: writingResults,
         spreadsheetTiers: spreadsheetResults,
@@ -1117,8 +1196,9 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "4.0.0-office-workloads",
+        profileVersion: "5.0.0-balanced-everyday-use",
         raw: {
+          browsingTiers: browsingResults,
           emailTiers: emailResults,
           writingTiers: writingResults,
           spreadsheetTiers: spreadsheetResults,
@@ -1144,7 +1224,7 @@ export function StillGoodApp() {
       [
         JSON.stringify(
           {
-            schemaVersion: "stillgood-result.v4",
+            schemaVersion: "stillgood-result.v5",
             result,
             disclosure:
               "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1157,7 +1237,7 @@ export function StillGoodApp() {
     );
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `stillgood-office-check-${Date.now()}.json`;
+    link.download = `stillgood-everyday-check-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -1250,7 +1330,7 @@ export function StillGoodApp() {
             aria-label={`${Math.round(progress)} percent complete`}
           >
             <strong>{stageIndex + 1}</strong>
-            <span>of 7</span>
+            <span>of 8</span>
           </div>
           <div className="run-message">
             <p className="kicker">{stage.name}</p>
@@ -1263,6 +1343,7 @@ export function StillGoodApp() {
           <BenchmarkVisual
             stage={stage.id}
             tick={visualTick}
+            browsingView={browsingView}
             emailView={emailView}
             writingView={writingView}
             spreadsheetView={spreadsheetView}
@@ -1294,6 +1375,7 @@ export function StillGoodApp() {
   if (!result) return null;
   const guide = buildCapabilityGuide(result);
   const categoryCards = [
+    ["Web browsing", result.browsing],
     ["Email and webmail", result.email],
     ["Documents", result.writing],
     ["Spreadsheets", result.spreadsheets],
@@ -1341,24 +1423,24 @@ export function StillGoodApp() {
           </p>
           <h1>{verdict}</h1>
           <p>
-            Email: <strong>{guide.everydayLabel}</strong>. Documents:{" "}
-            <strong>{guide.writingLabel}</strong>. Spreadsheets:{" "}
-            <strong>{guide.spreadsheetLabel}</strong>.
+            Browsing: <strong>{guide.browsingLabel}</strong>. Office:{" "}
+            <strong>{guide.officeLabel}</strong>. Multitasking:{" "}
+            <strong>{guide.multitaskingLabel}</strong>.
           </p>
         </div>
       </section>
       <section className="result-at-a-glance" aria-label="Result at a glance">
         <article>
-          <span>Email and webmail</span>
-          <strong>{guide.everydayLabel}</strong>
+          <span>Web browsing</span>
+          <strong>{guide.browsingLabel}</strong>
         </article>
         <article>
-          <span>Writing and documents</span>
-          <strong>{guide.writingLabel}</strong>
+          <span>Office work</span>
+          <strong>{guide.officeLabel}</strong>
         </article>
         <article>
-          <span>Spreadsheets</span>
-          <strong>{guide.spreadsheetLabel}</strong>
+          <span>Multitasking</span>
+          <strong>{guide.multitaskingLabel}</strong>
         </article>
       </section>
       <section className="guide-invite">
@@ -1373,7 +1455,7 @@ export function StillGoodApp() {
         </button>
       </section>
       <details className="result-breakdown">
-        <summary>See all seven test results</summary>
+        <summary>See all eight test results</summary>
         <section className="check-results check-results-six">
           {categoryCards.map(([name, category]) => (
             <article key={name}>
@@ -1460,16 +1542,16 @@ export function StillGoodApp() {
           </div>
           <div className="flyer-levels">
              <article>
-               <span>Email and webmail</span>
-               <strong>{guide.everydayLabel}</strong>
+               <span>Web browsing</span>
+               <strong>{guide.browsingLabel}</strong>
              </article>
              <article>
-               <span>Writing and documents</span>
-               <strong>{guide.writingLabel}</strong>
+               <span>Office work</span>
+               <strong>{guide.officeLabel}</strong>
              </article>
              <article>
-               <span>Spreadsheets</span>
-               <strong>{guide.spreadsheetLabel}</strong>
+               <span>Video playback</span>
+               <strong>{guide.videoLabel}</strong>
              </article>
             <article>
               <span>Multitasking</span>
@@ -1568,6 +1650,7 @@ export function StillGoodApp() {
 function BenchmarkVisual({
   stage,
   tick,
+  browsingView,
   emailView,
   writingView,
   spreadsheetView,
@@ -1576,6 +1659,7 @@ function BenchmarkVisual({
 }: {
   stage: StageId;
   tick: number;
+  browsingView: BrowsingView | null;
   emailView: EmailView | null;
   writingView: WritingView | null;
   spreadsheetView: SpreadsheetView | null;
@@ -1622,6 +1706,12 @@ function BenchmarkVisual({
       </div>
     );
   }
+  if (stage === "browsing")
+    return (
+      <div className="test-visual fixture-host">
+        <BrowsingFixture view={browsingView} />
+      </div>
+    );
   if (stage === "writing")
     return (
       <div className="test-visual fixture-host">
@@ -1638,6 +1728,77 @@ function BenchmarkVisual({
     <div className="test-visual fixture-host">
       <EmailFixture view={emailView} />
     </div>
+  );
+}
+
+function BrowsingFixture({ view }: { view: BrowsingView | null }) {
+  if (!view)
+    return <div className="fixture-loading">Preparing local practice pages…</div>;
+
+  return (
+    <section className={`browse-app ${view.layout}`}>
+      <header>
+        <strong>Fieldnotes</strong>
+        <nav aria-label="Practice site navigation">
+          <span>News</span>
+          <span>Guides</span>
+          <span>Reviews</span>
+          <span>Community</span>
+        </nav>
+        <small>{view.actionName}</small>
+      </header>
+      <div className="browse-toolbar">
+        <input
+          value={view.query}
+          readOnly
+          placeholder="Search"
+          aria-label="Practice site search"
+        />
+        <span>Local test pages</span>
+      </div>
+      {view.layout === "article" && view.article ? (
+        <div className="browse-article-layout">
+          <article className="browse-article">
+            <p>{view.article.category}</p>
+            <h2>{view.article.title}</h2>
+            <div
+              className="browse-hero-image"
+              style={{ "--hue": view.article.hue } as CSSProperties}
+            />
+            {view.paragraphs.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </article>
+          <aside>
+            <strong>Related</strong>
+            {view.items.slice(0, 8).map((item) => (
+              <span key={item.id}>{item.title}</span>
+            ))}
+          </aside>
+        </div>
+      ) : (
+        <div className={view.layout === "catalog" ? "browse-grid" : "browse-list"}>
+          {view.items.map((item) => (
+            <article key={item.id}>
+              <div
+                className="browse-card-image"
+                style={{ "--hue": item.hue } as CSSProperties}
+              />
+              <div>
+                <small>{item.category}</small>
+                <strong>{item.title}</strong>
+                <p>{item.summary}</p>
+                {view.layout === "catalog" && (
+                  <span>
+                    ${item.price} · {item.rating.toFixed(1)} stars
+                  </span>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

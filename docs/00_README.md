@@ -31,6 +31,7 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 14. `13_BENCHMARK_V2_METHODOLOGY.md` — current implemented benchmark and scoring methodology
 15. `14_BENCHMARK_V3_APPLICATION_FIXTURES.md` — purpose-built email and document fixtures
 16. `15_BENCHMARK_V4_OFFICE_WORKLOADS.md` — authoritative large-email, writing, and spreadsheet revision
+17. `16_BENCHMARK_V5_BALANCED_EVERYDAY_USE.md` — authoritative browsing and balanced-score revision
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -44,8 +45,8 @@ For implementation work, Benchmark Methodology v2 supersedes the Fast Check
 decision where their durations, repetition policies, media ladders, category
 weights, or grade bands conflict.
 
-Benchmark v4 supersedes earlier fixture counts, office category definitions,
-repetition counts, office weights, and office capability labels.
+Benchmark v5 keeps the v4 office fixtures but supersedes its overall category
+weights, grade guardrails, module count, and general-use positioning.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
@@ -64,8 +65,8 @@ repetition counts, office weights, and office capability labels.
 The primary public MVP is a static progressive web app that:
 
 - runs one unattended test in roughly two to four minutes, ending heavy tiers early when necessary;
-- presents seven understandable checks while retaining repeated measurements internally;
-- measures large email, long-document reflow, spreadsheets, smoothness, multitasking, video, and local browser storage;
+- presents eight understandable checks while retaining repeated measurements internally;
+- measures web browsing, email, documents, spreadsheets, smoothness, multitasking, video, and local browser storage;
 - produces an A–E Second-Life Rating;
 - assigns clear role badges;
 - explains bottlenecks as observed symptoms, not hardware diagnoses;

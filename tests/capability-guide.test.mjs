@@ -11,6 +11,7 @@ import {
 const chromebookResult = {
   grade: "C+",
   formFactor: "computer",
+  browsing: { score: 74, highestComfortable: "Busy", highestUsable: "Demanding" },
   email: { score: 76, highestComfortable: "20,000 messages", highestUsable: "50,000 messages" },
   writing: { score: 82, highestComfortable: "25,000 words", highestUsable: "60,000 words" },
   spreadsheets: { score: 70, highestComfortable: "50,000 cells", highestUsable: "150,000 cells" },
@@ -38,6 +39,8 @@ test("a light-use result becomes a concrete practical guide", () => {
   const guide = buildCapabilityGuide(chromebookResult);
   assert.equal(guide.headline, "A capable light-duty computer");
   assert.match(guide.summary, /office and browser work/);
+  assert.equal(guide.browsingLabel, "Busy everyday use");
+  assert.equal(guide.officeLabel, "Everyday office work");
   assert.match(
     guide.bestFor.find((item) => item.title === "Email and webmail").detail,
     /busy inboxes/,

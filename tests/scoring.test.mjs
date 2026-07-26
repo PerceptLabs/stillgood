@@ -94,6 +94,7 @@ function latencyTiers(values) {
 
 function fullMetrics(coreValues) {
   return {
+    browsingTiers: latencyTiers(coreValues),
     emailTiers: latencyTiers(coreValues),
     writingTiers: latencyTiers(coreValues),
     spreadsheetTiers: latencyTiers(coreValues),
@@ -167,6 +168,26 @@ test("only broadly fast and stable hardware reaches the ceiling", () => {
   );
   assert.equal(result.ceilingReached, false);
   assert.ok(result.score >= 84);
+});
+
+test("excellent office scores cannot hide visibly weak browsing smoothness", () => {
+  const metrics = fullMetrics([
+    [105, 110, 115],
+    [110, 115, 120],
+    [115, 120, 125],
+    [125, 130, 140],
+    [145, 155, 165],
+  ]);
+  metrics.graphicsTiers = [
+    { id: "1", label: "Light", onTimeRatio: 1, longFrameRatio: 0, frameCount: 100 },
+    { id: "2", label: "Medium", onTimeRatio: 1, longFrameRatio: 0, frameCount: 100 },
+    { id: "3", label: "Busy", onTimeRatio: 0.99, longFrameRatio: 0.01, frameCount: 100 },
+    { id: "4", label: "Dense", onTimeRatio: 0.64, longFrameRatio: 0.25, frameCount: 100 },
+  ];
+  const result = summarizeThoroughRun(metrics);
+  assert.ok(result.graphics.score < 68);
+  assert.ok(result.score <= 75);
+  assert.notEqual(result.grade, "A");
 });
 
 test("a zero-frame video tier is invalid and cannot earn a recommendation", () => {

@@ -102,6 +102,30 @@ stillgood/
 
 ---
 
+# Benchmark v5 balanced everyday-use addendum
+
+Benchmark v5 keeps the detailed email, writing, and spreadsheet fixtures from
+v4 while restoring StillGood as a general second-life computer check.
+
+It adds a deterministic local browsing module covering articles, search
+results, shopping pages, busy home pages, filters, and pagination. The eight
+public modules are browsing, email, documents, spreadsheets, visual smoothness,
+video, multitasking, and browser storage/recovery.
+
+The overall weights are: browsing 22%, email 9%, writing 9%, spreadsheets 10%,
+multitasking 17%, visual smoothness 13%, video 12%, browser storage 3%, and
+recovery 5%. Office therefore contributes 28%, not a majority.
+
+Browsing is a core category. Weak visual-smoothness or video results can prevent
+an A grade even when office results are excellent. Internal dataset sizes remain
+available in exported diagnostic data but are not shown as user-facing
+capability claims.
+
+The full decision record is in
+`16_BENCHMARK_V5_BALANCED_EVERYDAY_USE.md`.
+
+---
+
 # Authoritative implementation update — Benchmark v4
 
 The implemented public benchmark now follows
