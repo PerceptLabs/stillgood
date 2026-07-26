@@ -4,6 +4,7 @@ import {
   buildCapabilityGuide,
   friendlyEverydayLevel,
   friendlyMultitaskingLevel,
+  friendlyOfficeLevel,
   friendlyVideoLevel,
 } from "../lib/capability-guide.mjs";
 
@@ -20,13 +21,17 @@ const chromebookResult = {
     highestComfortable: "1080p",
     highestUsable: "1080p",
   },
-  roles: ["Large email websites", "Writing and documents", "Spreadsheets", "Remote access"],
+  roles: ["Email and webmail", "Writing and documents", "Spreadsheets", "Remote access"],
 };
 
 test("technical tiers receive friendly, consistent names", () => {
-  assert.equal(friendlyEverydayLevel("Basic"), "Everyday basics");
+  assert.equal(friendlyEverydayLevel("Basic"), "Light everyday use");
   assert.equal(friendlyMultitaskingLevel("Busy"), "A few light tasks");
-  assert.equal(friendlyVideoLevel(chromebookResult.video), "H.264 1080p");
+  assert.equal(friendlyVideoLevel(chromebookResult.video), "1080p video");
+  assert.equal(
+    friendlyOfficeLevel(chromebookResult.email, "email"),
+    "Busy inboxes",
+  );
 });
 
 test("a light-use result becomes a concrete practical guide", () => {
@@ -35,8 +40,9 @@ test("a light-use result becomes a concrete practical guide", () => {
   assert.match(guide.summary, /office and browser work/);
   assert.match(
     guide.bestFor.find((item) => item.title === "Email and webmail").detail,
-    /20,000 messages/,
+    /busy inboxes/,
   );
+  assert.doesNotMatch(JSON.stringify(guide), /20,000|25,000|50,000/);
   assert.ok(
     guide.bestFor.some((item) => item.title === "Writing and documents"),
   );

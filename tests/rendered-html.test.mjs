@@ -39,10 +39,10 @@ test("server-renders the StillGood product shell", async () => {
   assert.match(html, /Usually two to four minutes/);
   assert.doesNotMatch(html, /Method v3/);
   assert.match(html, /A second-life computer check/);
-  assert.match(html, /Large email/);
-  assert.match(html, /long threads, HTML newsletters, bulk actions, and composing/);
-  assert.match(html, /full-document reflow, formatting, tables, and reopening/);
-  assert.match(html, /Formula recalculation, sorting, filtering, pasting, search, and scrolling/);
+  assert.match(html, /Email/);
+  assert.match(html, /Searching, opening conversations, sorting, and writing replies/);
+  assert.match(html, /Editing, page layout, formatting, tables, and reopening documents/);
+  assert.match(html, /Formulas, sorting, filtering, pasting, searching, and scrolling/);
   assert.match(html, /Local H\.264 clips at 480p, 720p, and 1080p/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });

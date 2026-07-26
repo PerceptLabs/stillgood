@@ -210,27 +210,27 @@ const stages: Array<{
 }> = [
   {
     id: "email",
-    name: "Large email",
-    title: "Large email websites",
-    detail: "Search, long threads, HTML newsletters, bulk actions, and composing.",
+    name: "Email",
+    title: "Email and webmail",
+    detail: "Searching, opening conversations, sorting, and writing replies.",
   },
   {
     id: "writing",
     name: "Writing",
-    title: "Long documents and word wrapping",
-    detail: "Editing, full-document reflow, formatting, tables, and reopening.",
+    title: "Writing and documents",
+    detail: "Editing, page layout, formatting, tables, and reopening documents.",
   },
   {
     id: "spreadsheets",
     name: "Spreadsheets",
-    title: "Large spreadsheets",
-    detail: "Formula recalculation, sorting, filtering, pasting, search, and scrolling.",
+    title: "Spreadsheet work",
+    detail: "Formulas, sorting, filtering, pasting, searching, and scrolling.",
   },
   {
     id: "graphics",
     name: "Visuals",
     title: "Visual smoothness",
-    detail: "Four increasing canvas workloads measured against this display.",
+    detail: "Checks whether scrolling and movement stay smooth as pages get busier.",
   },
   {
     id: "video",
@@ -242,13 +242,13 @@ const stages: Array<{
     id: "multitasking",
     name: "Multitasking",
     title: "Responsiveness under pressure",
-    detail: "Foreground work while one or more background workers stay busy.",
+    detail: "Checks whether the computer stays responsive when work overlaps.",
   },
   {
     id: "storage",
     name: "Storage",
     title: "Browser storage and recovery",
-    detail: "Local datasets from 1 MB to 32 MB, followed by recovery checks.",
+    detail: "Saves temporary browser data, reopens it, and checks recovery.",
   },
 ];
 
@@ -372,13 +372,39 @@ async function measureRenderedAction<T>(
   });
 }
 
-function classifyScore(score: number) {
-  if (score >= 92) return "Excellent";
-  if (score >= 84) return "Comfortable";
-  if (score >= 68) return "Useful";
-  if (score >= 48) return "Limited";
-  return "Struggling";
+function friendlyProgressLevel(id: string) {
+  return (
+    {
+      basic: "Starting with light everyday work",
+      everyday: "Trying typical everyday work",
+      busy: "Adding a busier workload",
+      demanding: "Checking heavier work",
+      extreme: "Finding the practical limit",
+    }[id] ?? "Checking everyday work"
+  );
 }
+
+function categoryOutcome(
+  category: { score: number; available?: boolean; invalidTierCount?: number },
+) {
+  if (category.available === false) return "Could not be checked";
+  if (category.invalidTierCount) return "Partly checked";
+  if (category.score >= 84) return "Comfortable";
+  if (category.score >= 68) return "Good for everyday use";
+  if (category.score >= 58) return "Usable with some limits";
+  if (category.score >= 48) return "Best for lighter use";
+  return "Likely to feel slow";
+}
+
+const categoryDescriptions: Record<string, string> = {
+  "Email and webmail": "Searching, opening conversations, and writing replies.",
+  Documents: "Typing, formatting, tables, and changing page layout.",
+  Spreadsheets: "Formulas, sorting, filtering, pasting, and scrolling.",
+  "Using several things": "Staying responsive while work overlaps.",
+  "Scrolling and visuals": "Keeping movement and animated pages smooth.",
+  "Video playback": "Playing common video sizes without interruptions.",
+  "Saving browser data": "Saving and reopening information in the browser.",
+};
 
 async function openStorageDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -568,7 +594,7 @@ export function StillGoodApp() {
           : stageId === "spreadsheets"
             ? buildSpreadsheetDataset(700 + tierIndex, tier.size)
             : buildEmailDataset(700 + tierIndex, tier.size);
-      setStatus(`${tier.label} workload · warm-up`);
+      setStatus(`${friendlyProgressLevel(tier.id)} · getting ready`);
       await measureJourney(stageId, tier, 1000 + tierIndex * 100, dataset);
       if (tierIndex === 0) {
         await sleep(90);
@@ -580,7 +606,7 @@ export function StillGoodApp() {
         );
       }
       const samples: TimedSample[] = [];
-      setStatus(`${tier.label} workload · ${repetitions} measured runs`);
+      setStatus(`${friendlyProgressLevel(tier.id)} · measuring consistency`);
       for (let repetition = 0; repetition < repetitions; repetition += 1) {
         samples.push(
           await measureJourney(
@@ -967,9 +993,7 @@ export function StillGoodApp() {
         const tier = workloadTiers[level + 1];
         const multitaskDataset = buildEmailDataset(1700 + level, tier.size);
         const workerCount = Math.min(maxWorkers, level + 1);
-        setStatus(
-          `${tier.label} foreground work · ${workerCount} background worker${workerCount === 1 ? "" : "s"}`,
-        );
+        setStatus(`${friendlyProgressLevel(tier.id)} while other work continues`);
         workersRef.current = Array.from({ length: workerCount }, (_, index) => {
           const worker = new Worker("/benchmark-worker.js");
           worker.postMessage({
@@ -1037,7 +1061,7 @@ export function StillGoodApp() {
       try {
         database = await openStorageDatabase();
         for (const [index, size] of [1, 8, 32].entries()) {
-          setStatus(`Writing and reading a temporary ${size} MB dataset`);
+          setStatus("Saving and reopening temporary browser data");
           storageTiers.push(await runStorageTier(database, size, index));
           setProgress(91 + ((index + 1) / 3) * 7);
         }
@@ -1270,20 +1294,14 @@ export function StillGoodApp() {
   if (!result) return null;
   const guide = buildCapabilityGuide(result);
   const categoryCards = [
-    ["Large email", result.email],
-    ["Writing", result.writing],
+    ["Email and webmail", result.email],
+    ["Documents", result.writing],
     ["Spreadsheets", result.spreadsheets],
-    ["Multitasking", result.multitasking],
-    ["Visual smoothness", result.graphics],
-    ["Video", result.video],
-    ["Browser storage", result.storage],
+    ["Using several things", result.multitasking],
+    ["Scrolling and visuals", result.graphics],
+    ["Video playback", result.video],
+    ["Saving browser data", result.storage],
   ] as const;
-  const detailCategories: Array<[string, LatencyCategory]> = [
-    ["Large email", result.email],
-    ["Writing", result.writing],
-    ["Spreadsheets", result.spreadsheets],
-    ["Multitasking", result.multitasking],
-  ];
   const verdict =
     result.formFactor === "mobile"
       ? result.grade === "A+"
@@ -1319,11 +1337,11 @@ export function StillGoodApp() {
           <p className="kicker">
             {result.ceilingReached
               ? "Above the current test ceiling"
-              : `${result.formFactor === "mobile" ? "Mobile result · " : ""}${result.label} · ${result.score}/100`}
+              : `${result.formFactor === "mobile" ? "Mobile result · " : ""}${result.label}`}
           </p>
           <h1>{verdict}</h1>
           <p>
-            Comfortable email: <strong>{guide.everydayLabel}</strong>. Writing:{" "}
+            Email: <strong>{guide.everydayLabel}</strong>. Documents:{" "}
             <strong>{guide.writingLabel}</strong>. Spreadsheets:{" "}
             <strong>{guide.spreadsheetLabel}</strong>.
           </p>
@@ -1331,15 +1349,15 @@ export function StillGoodApp() {
       </section>
       <section className="result-at-a-glance" aria-label="Result at a glance">
         <article>
-          <span>Comfortable email size</span>
+          <span>Email and webmail</span>
           <strong>{guide.everydayLabel}</strong>
         </article>
         <article>
-          <span>Comfortable document</span>
+          <span>Writing and documents</span>
           <strong>{guide.writingLabel}</strong>
         </article>
         <article>
-          <span>Comfortable spreadsheet</span>
+          <span>Spreadsheets</span>
           <strong>{guide.spreadsheetLabel}</strong>
         </article>
       </section>
@@ -1361,24 +1379,9 @@ export function StillGoodApp() {
             <article key={name}>
               <div>
                 <strong>{name}</strong>
-                <span>
-                  {category.available === false
-                    ? "Not verified"
-                    : category.invalidTierCount
-                      ? `Partial · ${category.score}`
-                      : `${classifyScore(category.score)} · ${category.score}`}
-                </span>
+                <span>{categoryOutcome(category)}</span>
               </div>
-              <div className="result-bar" aria-hidden="true">
-                <span style={{ width: `${Math.max(3, category.score)}%` }} />
-              </div>
-              <p>
-                {category.invalidTierCount
-                  ? `${category.highestUsable ?? "No tier"} verified · ${category.invalidTierCount} excluded`
-                  : "highestComfortable" in category
-                  ? `Comfortable through ${category.highestComfortable}`
-                  : `${category.tiers.at(-1)?.label ?? "No"} dataset measured`}
-              </p>
+              <p>{categoryDescriptions[name]}</p>
             </article>
           ))}
         </section>
@@ -1415,38 +1418,11 @@ export function StillGoodApp() {
           ))}
         </aside>
       )}
-      <details className="result-details">
-        <summary>Workload levels and measurements</summary>
-        <div className="tier-detail-grid">
-          {detailCategories.map(([name, category]) => (
-            <section key={name}>
-              <strong>{name}</strong>
-              {category.tiers.map((tier) => (
-                <p key={tier.id}>
-                  {tier.label}:{" "}
-                  {tier.status === "stopped"
-                    ? "not run because the previous level exceeded the safety limit"
-                    : `${tier.status} · score ${"score" in tier ? tier.score : "—"} · median ${Math.round(tier.medianMs)} ms · worst ${Math.round(tier.worstMs)} ms · variation ${(tier.cv * 100).toFixed(0)}%`}
-                </p>
-              ))}
-            </section>
-          ))}
-        </div>
-        <p>
-          {result.browser} · {result.platform} · {result.formFactor} ·{" "}
-          {result.logicalProcessors ?? "unknown"} logical processors · power
-          source not requested
-        </p>
-        <p>
-          {(result.elapsedMs / 1000).toFixed(1)} seconds ·{" "}
-          {result.longTaskCount} long tasks · {result.longAnimationFrameCount}{" "}
-          long animation frames · profile {result.profileVersion}
-        </p>
-        <p>
-          This result measures browser-observed behavior. It does not diagnose
-          CPU, RAM, thermals, battery health, or physical-drive throughput.
-        </p>
-      </details>
+      <p className="plain-result-note">
+        This is a practical check of this browser and computer together.
+        Different browsers and desktop applications can behave differently.
+        Full measurements remain available in the exported result.
+      </p>
     </main>
     {showGuide && (
       <div
@@ -1474,123 +1450,50 @@ export function StillGoodApp() {
             <strong>StillGood</strong>
             <small>Detailed report</small>
           </header>
-          <div className="flyer-hero">
-            <div className="flyer-grade">{result.grade}</div>
-            <div>
-              <p>{result.label} · {result.score}/100</p>
-              <h2 id="report-title">{guide.headline}</h2>
-              <span>{guide.summary}</span>
-            </div>
+           <div className="flyer-hero">
+             <div className="flyer-grade">{result.grade}</div>
+             <div>
+               <p>{result.label}</p>
+               <h2 id="report-title">{guide.headline}</h2>
+               <span>{guide.summary}</span>
+             </div>
           </div>
           <div className="flyer-levels">
-            <article>
-              <span>Email comfortably</span>
-              <strong>{guide.everydayLabel}</strong>
-            </article>
-            <article>
-              <span>Writing comfortably</span>
-              <strong>{guide.writingLabel}</strong>
-            </article>
-            <article>
-              <span>Spreadsheet comfortably</span>
-              <strong>{guide.spreadsheetLabel}</strong>
-            </article>
+             <article>
+               <span>Email and webmail</span>
+               <strong>{guide.everydayLabel}</strong>
+             </article>
+             <article>
+               <span>Writing and documents</span>
+               <strong>{guide.writingLabel}</strong>
+             </article>
+             <article>
+               <span>Spreadsheets</span>
+               <strong>{guide.spreadsheetLabel}</strong>
+             </article>
             <article>
               <span>Multitasking</span>
               <strong>{guide.multitaskingLabel}</strong>
             </article>
           </div>
-          <section className="report-capacity">
-            <div className="report-section-heading">
-              <div>
-                <p>Comfort range</p>
-                <h3>Where performance begins to slow</h3>
-              </div>
-              <div className="capacity-legend" aria-label="Capacity chart legend">
-                <span className="comfortable"><i />Comfortable</span>
-                <span className="stretch"><i />Usable with delays</span>
-                <span className="outside"><i />Not recommended</span>
-              </div>
-            </div>
-            <CapacityScale
-              title="Email mailbox"
-              friendlyValue={guide.everydayLabel}
-              comfortable={result.email.highestComfortable}
-              usable={result.email.highestUsable}
-              levels={[
-                ["1,000 messages", "1K"],
-                ["5,000 messages", "5K"],
-                ["20,000 messages", "20K"],
-                ["50,000 messages", "50K"],
-                ["100,000 messages", "100K"],
-              ]}
-            />
-            <CapacityScale
-              title="Long document"
-              friendlyValue={guide.writingLabel}
-              comfortable={result.writing.highestComfortable}
-              usable={result.writing.highestUsable}
-              levels={[
-                ["1,500 words", "1.5K"],
-                ["8,000 words", "8K"],
-                ["25,000 words", "25K"],
-                ["60,000 words", "60K"],
-                ["100,000 words", "100K"],
-              ]}
-            />
-            <CapacityScale
-              title="Spreadsheet"
-              friendlyValue={guide.spreadsheetLabel}
-              comfortable={result.spreadsheets.highestComfortable}
-              usable={result.spreadsheets.highestUsable}
-              levels={[
-                ["1,000 cells", "1K"],
-                ["10,000 cells", "10K"],
-                ["50,000 cells", "50K"],
-                ["150,000 cells", "150K"],
-                ["400,000 cells", "400K"],
-              ]}
-            />
-            <CapacityScale
-              title="Active tasks"
-              friendlyValue={guide.multitaskingLabel}
-              comfortable={result.multitasking.highestComfortable}
-              usable={result.multitasking.highestUsable}
-              levels={[
-                ["Everyday", "One main"],
-                ["Busy", "A few"],
-                ["Demanding", "Several"],
-                ["Extreme", "Heavy"],
-              ]}
-            />
-          </section>
-          <section className="report-measurements">
-            <div className="report-section-heading">
-              <div>
-                <p>Measured breakdown</p>
-                <h3>Six practical browser workloads</h3>
-              </div>
-            </div>
-            <div className="report-score-grid">
-              {categoryCards.map(([name, category]) => (
-                <article className="report-score-card" key={name}>
-                  <div className="report-score-topline">
-                    <strong>{name}</strong>
-                    <span>{category.score}</span>
-                  </div>
-                  <div className="report-score-bar" aria-hidden="true">
-                    <i style={{ width: `${Math.max(3, category.score)}%` }} />
-                  </div>
-                  <p>
-                    {category.available === false
-                      ? "Not verified"
-                      : category.invalidTierCount
-                        ? "Partially verified"
-                        : classifyScore(category.score)}
-                  </p>
-                </article>
-              ))}
-            </div>
+           <section className="report-measurements">
+             <div className="report-section-heading">
+               <div>
+                 <p>What the test found</p>
+                 <h3>A plain-language view of everyday work</h3>
+               </div>
+             </div>
+             <div className="report-score-grid">
+               {categoryCards.map(([name, category]) => (
+                 <article className="report-score-card" key={name}>
+                   <div className="report-score-topline">
+                     <strong>{name}</strong>
+                     <span>{categoryOutcome(category)}</span>
+                   </div>
+                   <p>{categoryDescriptions[name]}</p>
+                 </article>
+               ))}
+             </div>
           </section>
           <div className="flyer-columns">
             <section>
@@ -1630,31 +1533,15 @@ export function StillGoodApp() {
                 <span>Browser</span>
                 <strong>{result.browser}</strong>
               </article>
-              <article>
-                <span>System</span>
-                <strong>{result.platform}</strong>
-              </article>
-              <article>
-                <span>Logical processors</span>
-                <strong>{result.logicalProcessors ?? "Not reported"}</strong>
-              </article>
-              <article>
-                <span>Display cadence</span>
-                <strong>
-                  {result.cadenceMs > 0
-                    ? `${Math.round(1000 / result.cadenceMs)} Hz`
-                    : "Not reported"}
-                </strong>
-              </article>
-              <article>
-                <span>Test duration</span>
-                <strong>{(result.elapsedMs / 1000).toFixed(1)} seconds</strong>
-              </article>
-              <article>
-                <span>Recovery after load</span>
-                <strong>{Math.round(result.recoveryMs)} ms</strong>
-              </article>
-              <article>
+               <article>
+                 <span>System</span>
+                 <strong>{result.platform}</strong>
+               </article>
+               <article>
+                 <span>Test duration</span>
+                 <strong>{Math.max(1, Math.round(result.elapsedMs / 60000))} minutes</strong>
+               </article>
+               <article>
                 <span>Confidence</span>
                 <strong>{result.confidence}</strong>
               </article>
@@ -1675,48 +1562,6 @@ export function StillGoodApp() {
       </div>
     )}
     </>
-  );
-}
-
-function CapacityScale({
-  title,
-  friendlyValue,
-  comfortable,
-  usable,
-  levels,
-}: {
-  title: string;
-  friendlyValue: string;
-  comfortable: string;
-  usable: string;
-  levels: Array<[string, string]>;
-}) {
-  const comfortableIndex = levels.findIndex(([id]) => id === comfortable);
-  const usableIndex = levels.findIndex(([id]) => id === usable);
-
-  return (
-    <div className="report-capacity-row">
-      <div className="report-capacity-title">
-        <span>{title}</span>
-        <strong>{friendlyValue}</strong>
-      </div>
-      <div className="report-capacity-track">
-        {levels.map(([id, label], index) => {
-          const state =
-            comfortableIndex >= 0 && index <= comfortableIndex
-              ? "comfortable"
-              : usableIndex >= 0 && index <= usableIndex
-                ? "stretch"
-                : "outside";
-          return (
-            <div className={`report-capacity-step ${state}`} key={id}>
-              <i aria-hidden="true" />
-              <span>{label}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -1862,11 +1707,8 @@ function EmailFixture({
           </>
         ) : (
           <>
-            <strong>
-              {view.totalMatches.toLocaleString()} of{" "}
-              {view.totalMessages.toLocaleString()} messages
-            </strong>
-            <p>Local mailbox operations are updating this virtualized view.</p>
+            <strong>Searching the practice inbox</strong>
+            <p>Messages are being opened, sorted, and updated.</p>
           </>
         )}
       </div>
@@ -1882,9 +1724,7 @@ function WritingFixture({ view }: { view: WritingView | null }) {
       <header>
         <strong>{view.title}</strong>
         <span>{view.actionName}</span>
-        <small>
-          {view.wordCount.toLocaleString()} words · {view.layoutMode}
-        </small>
+        <small>Practice document · {view.layoutMode}</small>
         {view.saved && <em>Saved and reopened</em>}
       </header>
       <div className="document-toolbar">
@@ -1950,9 +1790,7 @@ function SpreadsheetFixture({ view }: { view: SpreadsheetView | null }) {
       <header>
         <strong>{view.title}</strong>
         <span>{view.actionName}</span>
-        <small>
-          {view.cellCount.toLocaleString()} cells · {view.totalRows.toLocaleString()} rows
-        </small>
+        <small>Practice spreadsheet · live calculations</small>
       </header>
       <div className="sheet-toolbar">
         <span>fx</span>
@@ -1960,8 +1798,8 @@ function SpreadsheetFixture({ view }: { view: SpreadsheetView | null }) {
           value={
             view.query ||
             (view.pasteCount
-              ? `${view.pasteCount.toLocaleString()} cells pasted`
-              : `${view.recalculatedCells.toLocaleString()} formula results`)
+              ? "Pasted data and updated formulas"
+              : "Recalculated workbook formulas")
           }
           readOnly
           aria-label="Spreadsheet formula or operation"
