@@ -100,6 +100,18 @@ stillgood/
 └─ README.md
 ```
 
+---
+
+# Authoritative implementation update — Benchmark v4
+
+The implemented public benchmark now follows
+`15_BENCHMARK_V4_OFFICE_WORKLOADS.md`. That addendum supersedes earlier
+office-fixture, module-count, duration, repetition, office-weight, and
+office-label requirements. Email, writing, and spreadsheets are separate
+measured categories using five repetitions per tier and continuous latency
+scoring. The public run contains seven sections and normally takes two to four
+minutes.
+
 ## Definition of success
 
 A first-time user should be able to run the test without technical knowledge and understand the final result in under 30 seconds. A developer should be able to change thresholds or weights without rewriting the application.

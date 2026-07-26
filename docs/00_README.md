@@ -29,6 +29,8 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 12. `11_AUTOMATION_FIRST_ADDENDUM.md` — authoritative unattended benchmark revisions
 13. `12_FAST_CHECK_RESEARCH_DECISION.md` — authoritative duration, test-count, and result simplification
 14. `13_BENCHMARK_V2_METHODOLOGY.md` — current implemented benchmark and scoring methodology
+15. `14_BENCHMARK_V3_APPLICATION_FIXTURES.md` — purpose-built email and document fixtures
+16. `15_BENCHMARK_V4_OFFICE_WORKLOADS.md` — authoritative large-email, writing, and spreadsheet revision
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -41,6 +43,9 @@ precedence for the primary public test.
 For implementation work, Benchmark Methodology v2 supersedes the Fast Check
 decision where their durations, repetition policies, media ladders, category
 weights, or grade bands conflict.
+
+Benchmark v4 supersedes earlier fixture counts, office category definitions,
+repetition counts, office weights, and office capability labels.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
@@ -58,9 +63,9 @@ weights, or grade bands conflict.
 
 The primary public MVP is a static progressive web app that:
 
-- runs one unattended test in roughly one minute, extending on slower computers;
-- presents six understandable checks while retaining repeated measurements internally;
-- measures responsiveness, document work, smoothness, multitasking, video, and local browser storage;
+- runs one unattended test in roughly two to four minutes, ending heavy tiers early when necessary;
+- presents seven understandable checks while retaining repeated measurements internally;
+- measures large email, long-document reflow, spreadsheets, smoothness, multitasking, video, and local browser storage;
 - produces an A–E Second-Life Rating;
 - assigns clear role badges;
 - explains bottlenecks as observed symptoms, not hardware diagnoses;

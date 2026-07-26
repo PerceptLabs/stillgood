@@ -10,8 +10,9 @@ import {
 const chromebookResult = {
   grade: "C+",
   formFactor: "computer",
-  everyday: { highestComfortable: "Basic", highestUsable: "Demanding" },
-  documents: { score: 100 },
+  email: { score: 76, highestComfortable: "20,000 messages", highestUsable: "50,000 messages" },
+  writing: { score: 82, highestComfortable: "25,000 words", highestUsable: "60,000 words" },
+  spreadsheets: { score: 70, highestComfortable: "50,000 cells", highestUsable: "150,000 cells" },
   multitasking: { score: 67, highestComfortable: "Busy", highestUsable: "Demanding" },
   graphics: { score: 48 },
   video: {
@@ -19,7 +20,7 @@ const chromebookResult = {
     highestComfortable: "1080p",
     highestUsable: "1080p",
   },
-  roles: ["Web and email", "Documents and PDFs", "Remote access"],
+  roles: ["Large email websites", "Writing and documents", "Spreadsheets", "Remote access"],
 };
 
 test("technical tiers receive friendly, consistent names", () => {
@@ -31,15 +32,15 @@ test("technical tiers receive friendly, consistent names", () => {
 test("a light-use result becomes a concrete practical guide", () => {
   const guide = buildCapabilityGuide(chromebookResult);
   assert.equal(guide.headline, "A capable light-duty computer");
-  assert.match(guide.summary, /basic spreadsheets/);
+  assert.match(guide.summary, /office and browser work/);
   assert.match(
-    guide.bestFor.find((item) => item.title === "Web and email").detail,
-    /few ordinary tabs/,
+    guide.bestFor.find((item) => item.title === "Email and webmail").detail,
+    /20,000 messages/,
   );
   assert.ok(
     guide.bestFor.some((item) => item.title === "Writing and documents"),
   );
-  assert.ok(guide.cautions.some((item) => item.title === "Heavy web apps"));
+  assert.ok(guide.cautions.some((item) => item.title === "Too many active tasks"));
   assert.equal(
     guide.setup,
     "One main task plus a few light background tasks",

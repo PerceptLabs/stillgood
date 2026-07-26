@@ -15,18 +15,22 @@ import {
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import {
-  buildDocumentDataset,
-  buildInboxDataset,
-  createDocumentView,
-  createInboxView,
-  documentActionNames,
-  inboxActionNames,
-} from "@/lib/fixture-workloads.mjs";
+  buildEmailDataset,
+  buildSpreadsheetDataset,
+  buildWritingDataset,
+  createEmailView,
+  createSpreadsheetView,
+  createWritingView,
+  emailActionNames,
+  spreadsheetActionNames,
+  writingActionNames,
+} from "@/lib/office-workloads.mjs";
 
 type Phase = "home" | "prepare" | "run" | "result";
 type StageId =
-  | "everyday"
-  | "documents"
+  | "email"
+  | "writing"
+  | "spreadsheets"
   | "graphics"
   | "video"
   | "multitasking"
@@ -39,11 +43,12 @@ type TimedSample = {
   checksum: number;
   actions: Array<{ name: string; durationMs: number; workMs: number }>;
 };
-type InboxView = {
+type EmailView = {
   actionName: string;
   query: string;
   folder: string;
   totalMatches: number;
+  totalMessages: number;
   rows: Array<{
     id: number;
     sender: string;
@@ -54,15 +59,18 @@ type InboxView = {
     selected: boolean;
   }>;
   activeMessage: null | {
+    id: number;
     sender: string;
     subject: string;
     body: string;
+    kind: string;
   };
-  draft: string;
+  thread: Array<{ id: string; sender: string; body: string }>;
+  draftBlocks: string[];
   checksum: number;
   success: boolean;
 };
-type DocumentView = {
+type WritingView = {
   actionName: string;
   title: string;
   query: string;
@@ -71,6 +79,8 @@ type DocumentView = {
     text: string;
     match: boolean;
     bold: boolean;
+    italic: boolean;
+    heading: boolean;
   }>;
   tableRows: Array<{
     id: number;
@@ -80,6 +90,23 @@ type DocumentView = {
   }>;
   matchCount: number;
   saved: boolean;
+  wordCount: number;
+  editorWidth: number;
+  layoutMode: string;
+  checksum: number;
+  success: boolean;
+};
+type SpreadsheetView = {
+  actionName: string;
+  title: string;
+  rows: Array<{ row: number; cells: Array<string | number> }>;
+  query: string;
+  totalRows: number;
+  visibleMatches: number;
+  cellCount: number;
+  recalculatedCells: number;
+  pasteCount: number;
+  startRow: number;
   checksum: number;
   success: boolean;
 };
@@ -87,6 +114,7 @@ type LatencyTierResult = {
   id: string;
   label: string;
   samples: TimedSample[];
+  earlyStopped?: boolean;
 };
 type GraphicsTierResult = {
   id: string;
@@ -125,6 +153,8 @@ type TierSummary = {
   worstMs: number;
   cv: number;
   status: string;
+  score: number;
+  earlyStopped: boolean;
 };
 type LatencyCategory = {
   score: number;
@@ -148,8 +178,9 @@ type ThoroughResult = {
   score: number;
   ceilingReached: boolean;
   confidence: string;
-  everyday: LatencyCategory;
-  documents: LatencyCategory;
+  email: LatencyCategory;
+  writing: LatencyCategory;
+  spreadsheets: LatencyCategory;
   multitasking: LatencyCategory;
   graphics: SimpleCategory;
   video: SimpleCategory;
@@ -178,16 +209,22 @@ const stages: Array<{
   detail: string;
 }> = [
   {
-    id: "everyday",
-    name: "Everyday apps",
-    title: "Everyday browser work",
-    detail: "Scripted inbox search, opening, selection, composing, and folders.",
+    id: "email",
+    name: "Large email",
+    title: "Large email websites",
+    detail: "Search, long threads, HTML newsletters, bulk actions, and composing.",
   },
   {
-    id: "documents",
-    name: "Documents",
-    title: "Documents and tables",
-    detail: "Scripted rich-text finding, editing, formatting, tables, and saving.",
+    id: "writing",
+    name: "Writing",
+    title: "Long documents and word wrapping",
+    detail: "Editing, full-document reflow, formatting, tables, and reopening.",
+  },
+  {
+    id: "spreadsheets",
+    name: "Spreadsheets",
+    title: "Large spreadsheets",
+    detail: "Formula recalculation, sorting, filtering, pasting, search, and scrolling.",
   },
   {
     id: "graphics",
@@ -221,6 +258,30 @@ const workloadTiers: Tier[] = [
   { id: "busy", label: "Busy", size: 14000, domRows: 220 },
   { id: "demanding", label: "Demanding", size: 38000, domRows: 480 },
   { id: "extreme", label: "Extreme", size: 85000, domRows: 900 },
+];
+
+const emailTiers: Tier[] = [
+  { id: "basic", label: "1,000 messages", size: 1000, domRows: 30 },
+  { id: "everyday", label: "5,000 messages", size: 5000, domRows: 48 },
+  { id: "busy", label: "20,000 messages", size: 20000, domRows: 64 },
+  { id: "demanding", label: "50,000 messages", size: 50000, domRows: 80 },
+  { id: "extreme", label: "100,000 messages", size: 100000, domRows: 96 },
+];
+
+const writingTiers: Tier[] = [
+  { id: "basic", label: "1,500 words", size: 1500, domRows: 24 },
+  { id: "everyday", label: "8,000 words", size: 8000, domRows: 96 },
+  { id: "busy", label: "25,000 words", size: 25000, domRows: 300 },
+  { id: "demanding", label: "60,000 words", size: 60000, domRows: 720 },
+  { id: "extreme", label: "100,000 words", size: 100000, domRows: 1200 },
+];
+
+const spreadsheetTiers: Tier[] = [
+  { id: "basic", label: "1,000 cells", size: 1000, domRows: 24 },
+  { id: "everyday", label: "10,000 cells", size: 10000, domRows: 30 },
+  { id: "busy", label: "50,000 cells", size: 50000, domRows: 36 },
+  { id: "demanding", label: "150,000 cells", size: 150000, domRows: 42 },
+  { id: "extreme", label: "400,000 cells", size: 400000, domRows: 48 },
 ];
 
 const videoTiers = [
@@ -377,8 +438,10 @@ export function StillGoodApp() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [visualTick, setVisualTick] = useState(0);
-  const [inboxView, setInboxView] = useState<InboxView | null>(null);
-  const [documentView, setDocumentView] = useState<DocumentView | null>(null);
+  const [emailView, setEmailView] = useState<EmailView | null>(null);
+  const [writingView, setWritingView] = useState<WritingView | null>(null);
+  const [spreadsheetView, setSpreadsheetView] =
+    useState<SpreadsheetView | null>(null);
   const [result, setResult] = useState<ThoroughResult | null>(null);
   const [notice, setNotice] = useState("");
   const [showGuide, setShowGuide] = useState(false);
@@ -416,13 +479,17 @@ export function StillGoodApp() {
   }
 
   async function measureJourney(
-    stageId: "everyday" | "documents" | "multitasking",
+    stageId: "email" | "writing" | "spreadsheets" | "multitasking",
     tier: Tier,
     seed: number,
     dataset: unknown,
   ): Promise<TimedSample> {
-    const documentMode = stageId === "documents";
-    const actionNames = documentMode ? documentActionNames : inboxActionNames;
+    const actionNames =
+      stageId === "writing"
+        ? writingActionNames
+        : stageId === "spreadsheets"
+          ? spreadsheetActionNames
+          : emailActionNames;
     const actions: Array<{ name: string; durationMs: number; workMs: number }> =
       [];
     let durationMs = 0;
@@ -430,26 +497,38 @@ export function StillGoodApp() {
     let checksum = 0;
 
     for (let actionIndex = 0; actionIndex < actionNames.length; actionIndex += 1) {
-      const measured = documentMode
+      const measured =
+        stageId === "writing"
         ? await measureRenderedAction(
             () =>
-              createDocumentView(
+              createWritingView(
                 dataset,
                 actionIndex,
                 tier.domRows,
                 seed + actionIndex,
-              ) as DocumentView,
-            (view) => setDocumentView(view),
+              ) as WritingView,
+            (view) => setWritingView(view),
           )
-        : await measureRenderedAction(
+        : stageId === "spreadsheets"
+          ? await measureRenderedAction(
+              () =>
+                createSpreadsheetView(
+                  dataset,
+                  actionIndex,
+                  tier.domRows,
+                  seed + actionIndex,
+                ) as SpreadsheetView,
+              (view) => setSpreadsheetView(view),
+            )
+          : await measureRenderedAction(
             () =>
-              createInboxView(
+              createEmailView(
                 dataset,
                 actionIndex,
                 tier.domRows,
                 seed + actionIndex,
-              ) as InboxView,
-            (view) => setInboxView(view),
+              ) as EmailView,
+            (view) => setEmailView(view),
           );
       if (!measured.result.success)
         throw new Error(`${actionNames[actionIndex]} fixture assertion failed`);
@@ -473,18 +552,22 @@ export function StillGoodApp() {
   }
 
   async function runLatencySection(
-    stageId: "everyday" | "documents",
+    stageId: "email" | "writing" | "spreadsheets",
+    tiers: Tier[],
     progressStart: number,
     progressEnd: number,
   ) {
     const output: LatencyTierResult[] = [];
-    for (let tierIndex = 0; tierIndex < workloadTiers.length; tierIndex += 1) {
-      const tier = workloadTiers[tierIndex];
+    const repetitions = 5;
+    for (let tierIndex = 0; tierIndex < tiers.length; tierIndex += 1) {
+      const tier = tiers[tierIndex];
       if (cancelledRef.current) break;
       const dataset =
-        stageId === "documents"
-          ? buildDocumentDataset(700 + tierIndex, tier.size)
-          : buildInboxDataset(700 + tierIndex, tier.size);
+        stageId === "writing"
+          ? buildWritingDataset(700 + tierIndex, tier.size)
+          : stageId === "spreadsheets"
+            ? buildSpreadsheetDataset(700 + tierIndex, tier.size)
+            : buildEmailDataset(700 + tierIndex, tier.size);
       setStatus(`${tier.label} workload · warm-up`);
       await measureJourney(stageId, tier, 1000 + tierIndex * 100, dataset);
       if (tierIndex === 0) {
@@ -497,8 +580,8 @@ export function StillGoodApp() {
         );
       }
       const samples: TimedSample[] = [];
-      setStatus(`${tier.label} workload · 3 measured runs`);
-      for (let repetition = 0; repetition < 3; repetition += 1) {
+      setStatus(`${tier.label} workload · ${repetitions} measured runs`);
+      for (let repetition = 0; repetition < repetitions; repetition += 1) {
         samples.push(
           await measureJourney(
             stageId,
@@ -509,7 +592,8 @@ export function StillGoodApp() {
         );
         setProgress(
           progressStart +
-            ((tierIndex * 3 + repetition + 1) / 15) *
+            ((tierIndex * repetitions + repetition + 1) /
+              (tiers.length * repetitions)) *
               (progressEnd - progressStart),
         );
         await sleep(90);
@@ -521,13 +605,14 @@ export function StillGoodApp() {
       ) {
         for (
           let remaining = tierIndex + 1;
-          remaining < workloadTiers.length;
+          remaining < tiers.length;
           remaining += 1
         ) {
-          const skipped = workloadTiers[remaining];
+          const skipped = tiers[remaining];
           output.push({
             id: skipped.id,
             label: skipped.label,
+            earlyStopped: true,
             samples: [
               {
                 durationMs: 6000,
@@ -795,15 +880,30 @@ export function StillGoodApp() {
     try {
       setStageIndex(0);
       await nextPaint();
-      const everydayTiers = await runLatencySection("everyday", 2, 25);
+      const emailResults = await runLatencySection("email", emailTiers, 2, 18);
       if (cancelledRef.current) return;
 
       setStageIndex(1);
       await nextPaint();
-      const documentTiers = await runLatencySection("documents", 25, 47);
+      const writingResults = await runLatencySection(
+        "writing",
+        writingTiers,
+        18,
+        34,
+      );
       if (cancelledRef.current) return;
 
       setStageIndex(2);
+      await nextPaint();
+      const spreadsheetResults = await runLatencySection(
+        "spreadsheets",
+        spreadsheetTiers,
+        34,
+        50,
+      );
+      if (cancelledRef.current) return;
+
+      setStageIndex(3);
       setStatus("Ramping from light motion to a dense canvas");
       await nextPaint();
       const graphicsTiers: GraphicsTierResult[] = [];
@@ -818,18 +918,18 @@ export function StillGoodApp() {
         graphicsTiers.push(
           await runGraphicsTier(id, label, complexity, cadenceMs),
         );
-        setProgress(47 + ((index + 1) / graphicsLevels.length) * 13);
+        setProgress(50 + ((index + 1) / graphicsLevels.length) * 10);
       }
       if (cancelledRef.current) return;
 
-      setStageIndex(3);
+      setStageIndex(4);
       await nextPaint();
       const measuredVideoTiers: VideoTierResult[] = [];
       for (let index = 0; index < videoTiers.length; index += 1) {
         setStatus(`Playing ${videoTiers[index].label} H.264 video`);
         const measured = await runVideoTier(videoTiers[index]);
         measuredVideoTiers.push(measured);
-        setProgress(60 + ((index + 1) / videoTiers.length) * 13);
+        setProgress(60 + ((index + 1) / videoTiers.length) * 10);
         if (
           !measured.valid ||
           measured.droppedRatio > 0.15 ||
@@ -856,7 +956,7 @@ export function StillGoodApp() {
       }
       if (cancelledRef.current) return;
 
-      setStageIndex(4);
+      setStageIndex(5);
       await nextPaint();
       const multitaskTiers: LatencyTierResult[] = [];
       const maxWorkers = Math.max(
@@ -865,7 +965,7 @@ export function StillGoodApp() {
       );
       for (let level = 0; level < 4; level += 1) {
         const tier = workloadTiers[level + 1];
-        const multitaskDataset = buildInboxDataset(1700 + level, tier.size);
+        const multitaskDataset = buildEmailDataset(1700 + level, tier.size);
         const workerCount = Math.min(maxWorkers, level + 1);
         setStatus(
           `${tier.label} foreground work · ${workerCount} background worker${workerCount === 1 ? "" : "s"}`,
@@ -906,13 +1006,14 @@ export function StillGoodApp() {
           worker.terminate();
         });
         workersRef.current = [];
-        setProgress(73 + ((level + 1) / 4) * 16);
+        setProgress(70 + ((level + 1) / 4) * 21);
         if (median(samples.map((sample) => sample.durationMs)) > 3000) {
           for (let remaining = level + 1; remaining < 4; remaining += 1) {
             const skipped = workloadTiers[remaining + 1];
             multitaskTiers.push({
               id: skipped.id,
               label: skipped.label,
+              earlyStopped: true,
               samples: [
                 {
                   durationMs: 6000,
@@ -929,7 +1030,7 @@ export function StillGoodApp() {
       }
       if (cancelledRef.current) return;
 
-      setStageIndex(5);
+      setStageIndex(6);
       await nextPaint();
       const storageTiers: StorageTierResult[] = [];
       let database: IDBDatabase | null = null;
@@ -938,7 +1039,7 @@ export function StillGoodApp() {
         for (const [index, size] of [1, 8, 32].entries()) {
           setStatus(`Writing and reading a temporary ${size} MB dataset`);
           storageTiers.push(await runStorageTier(database, size, index));
-          setProgress(89 + ((index + 1) / 3) * 8);
+          setProgress(91 + ((index + 1) / 3) * 7);
         }
       } catch {
         storageTiers.push(
@@ -969,8 +1070,9 @@ export function StillGoodApp() {
       const recoveryMs = performance.now() - recoveryStart;
       const formFactor = detectFormFactor();
       const summary = summarizeThoroughRun({
-        everydayTiers,
-        documentTiers,
+        emailTiers: emailResults,
+        writingTiers: writingResults,
+        spreadsheetTiers: spreadsheetResults,
         graphicsTiers,
         videoTiers: measuredVideoTiers,
         multitaskTiers,
@@ -991,10 +1093,11 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "3.1.0-friendly-capability-guide",
+        profileVersion: "4.0.0-office-workloads",
         raw: {
-          everydayTiers,
-          documentTiers,
+          emailTiers: emailResults,
+          writingTiers: writingResults,
+          spreadsheetTiers: spreadsheetResults,
           graphicsTiers,
           videoTiers: measuredVideoTiers,
           multitaskTiers,
@@ -1017,7 +1120,7 @@ export function StillGoodApp() {
       [
         JSON.stringify(
           {
-            schemaVersion: "stillgood-result.v3",
+            schemaVersion: "stillgood-result.v4",
             result,
             disclosure:
               "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1030,7 +1133,7 @@ export function StillGoodApp() {
     );
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `stillgood-thorough-check-${Date.now()}.json`;
+    link.download = `stillgood-office-check-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -1052,7 +1155,7 @@ export function StillGoodApp() {
           <p className="kicker">A second-life computer check</p>
           <h1>What is this computer still good for?</h1>
           <p className="simple-lede">
-            One automatic test. A clear answer. Usually about one minute.
+            One automatic test. A clear answer. Usually two to four minutes.
           </p>
           <button className="start-orb" onClick={begin}>
             <span>Start</span>
@@ -1123,7 +1226,7 @@ export function StillGoodApp() {
             aria-label={`${Math.round(progress)} percent complete`}
           >
             <strong>{stageIndex + 1}</strong>
-            <span>of 6</span>
+            <span>of 7</span>
           </div>
           <div className="run-message">
             <p className="kicker">{stage.name}</p>
@@ -1136,8 +1239,9 @@ export function StillGoodApp() {
           <BenchmarkVisual
             stage={stage.id}
             tick={visualTick}
-            inboxView={inboxView}
-            documentView={documentView}
+            emailView={emailView}
+            writingView={writingView}
+            spreadsheetView={spreadsheetView}
             videoRef={videoRef}
             canvasRef={canvasRef}
           />
@@ -1166,16 +1270,18 @@ export function StillGoodApp() {
   if (!result) return null;
   const guide = buildCapabilityGuide(result);
   const categoryCards = [
-    ["Everyday apps", result.everyday],
-    ["Documents", result.documents],
+    ["Large email", result.email],
+    ["Writing", result.writing],
+    ["Spreadsheets", result.spreadsheets],
     ["Multitasking", result.multitasking],
     ["Visual smoothness", result.graphics],
     ["Video", result.video],
     ["Browser storage", result.storage],
   ] as const;
   const detailCategories: Array<[string, LatencyCategory]> = [
-    ["Everyday apps", result.everyday],
-    ["Documents", result.documents],
+    ["Large email", result.email],
+    ["Writing", result.writing],
+    ["Spreadsheets", result.spreadsheets],
     ["Multitasking", result.multitasking],
   ];
   const verdict =
@@ -1217,24 +1323,24 @@ export function StillGoodApp() {
           </p>
           <h1>{verdict}</h1>
           <p>
-            Best at <strong>{guide.everydayLabel.toLowerCase()}</strong>.
-            Comfortable with{" "}
-            <strong>{guide.multitaskingLabel.toLowerCase()}</strong>.
+            Comfortable email: <strong>{guide.everydayLabel}</strong>. Writing:{" "}
+            <strong>{guide.writingLabel}</strong>. Spreadsheets:{" "}
+            <strong>{guide.spreadsheetLabel}</strong>.
           </p>
         </div>
       </section>
       <section className="result-at-a-glance" aria-label="Result at a glance">
         <article>
-          <span>Best everyday use</span>
+          <span>Comfortable email size</span>
           <strong>{guide.everydayLabel}</strong>
         </article>
         <article>
-          <span>Comfortable multitasking</span>
-          <strong>{guide.multitaskingLabel}</strong>
+          <span>Comfortable document</span>
+          <strong>{guide.writingLabel}</strong>
         </article>
         <article>
-          <span>Comfortable video</span>
-          <strong>{guide.videoLabel}</strong>
+          <span>Comfortable spreadsheet</span>
+          <strong>{guide.spreadsheetLabel}</strong>
         </article>
       </section>
       <section className="guide-invite">
@@ -1249,7 +1355,7 @@ export function StillGoodApp() {
         </button>
       </section>
       <details className="result-breakdown">
-        <summary>See all six test results</summary>
+        <summary>See all seven test results</summary>
         <section className="check-results check-results-six">
           {categoryCards.map(([name, category]) => (
             <article key={name}>
@@ -1317,10 +1423,10 @@ export function StillGoodApp() {
               <strong>{name}</strong>
               {category.tiers.map((tier) => (
                 <p key={tier.id}>
-                  {tier.label}: {tier.status} · median{" "}
-                  {Math.round(tier.medianMs)} ms · worst{" "}
-                  {Math.round(tier.worstMs)} ms · variation{" "}
-                  {(tier.cv * 100).toFixed(0)}%
+                  {tier.label}:{" "}
+                  {tier.status === "stopped"
+                    ? "not run because the previous level exceeded the safety limit"
+                    : `${tier.status} · score ${"score" in tier ? tier.score : "—"} · median ${Math.round(tier.medianMs)} ms · worst ${Math.round(tier.worstMs)} ms · variation ${(tier.cv * 100).toFixed(0)}%`}
                 </p>
               ))}
             </section>
@@ -1378,16 +1484,20 @@ export function StillGoodApp() {
           </div>
           <div className="flyer-levels">
             <article>
-              <span>Everyday use</span>
+              <span>Email comfortably</span>
               <strong>{guide.everydayLabel}</strong>
+            </article>
+            <article>
+              <span>Writing comfortably</span>
+              <strong>{guide.writingLabel}</strong>
+            </article>
+            <article>
+              <span>Spreadsheet comfortably</span>
+              <strong>{guide.spreadsheetLabel}</strong>
             </article>
             <article>
               <span>Multitasking</span>
               <strong>{guide.multitaskingLabel}</strong>
-            </article>
-            <article>
-              <span>Video tested</span>
-              <strong>{guide.videoLabel}</strong>
             </article>
           </div>
           <section className="report-capacity">
@@ -1403,16 +1513,42 @@ export function StillGoodApp() {
               </div>
             </div>
             <CapacityScale
-              title="Everyday web work"
+              title="Email mailbox"
               friendlyValue={guide.everydayLabel}
-              comfortable={result.everyday.highestComfortable}
-              usable={result.everyday.highestUsable}
+              comfortable={result.email.highestComfortable}
+              usable={result.email.highestUsable}
               levels={[
-                ["Basic", "Basics"],
-                ["Everyday", "Routine"],
-                ["Busy", "Busy"],
-                ["Demanding", "Demanding"],
-                ["Extreme", "Very heavy"],
+                ["1,000 messages", "1K"],
+                ["5,000 messages", "5K"],
+                ["20,000 messages", "20K"],
+                ["50,000 messages", "50K"],
+                ["100,000 messages", "100K"],
+              ]}
+            />
+            <CapacityScale
+              title="Long document"
+              friendlyValue={guide.writingLabel}
+              comfortable={result.writing.highestComfortable}
+              usable={result.writing.highestUsable}
+              levels={[
+                ["1,500 words", "1.5K"],
+                ["8,000 words", "8K"],
+                ["25,000 words", "25K"],
+                ["60,000 words", "60K"],
+                ["100,000 words", "100K"],
+              ]}
+            />
+            <CapacityScale
+              title="Spreadsheet"
+              friendlyValue={guide.spreadsheetLabel}
+              comfortable={result.spreadsheets.highestComfortable}
+              usable={result.spreadsheets.highestUsable}
+              levels={[
+                ["1,000 cells", "1K"],
+                ["10,000 cells", "10K"],
+                ["50,000 cells", "50K"],
+                ["150,000 cells", "150K"],
+                ["400,000 cells", "400K"],
               ]}
             />
             <CapacityScale
@@ -1587,15 +1723,17 @@ function CapacityScale({
 function BenchmarkVisual({
   stage,
   tick,
-  inboxView,
-  documentView,
+  emailView,
+  writingView,
+  spreadsheetView,
   videoRef,
   canvasRef,
 }: {
   stage: StageId;
   tick: number;
-  inboxView: InboxView | null;
-  documentView: DocumentView | null;
+  emailView: EmailView | null;
+  writingView: WritingView | null;
+  spreadsheetView: SpreadsheetView | null;
   videoRef: RefObject<HTMLVideoElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
 }) {
@@ -1617,7 +1755,7 @@ function BenchmarkVisual({
   if (stage === "multitasking") {
     return (
       <div className="test-visual multitask-fixture">
-        <InboxFixture view={inboxView} compact />
+        <EmailFixture view={emailView} compact />
         <div className="pressure-strip">
           {["Foreground", "Search", "Workers"].map((label, index) => (
             <span key={label} className={index === tick % 3 ? "active" : ""}>
@@ -1639,24 +1777,30 @@ function BenchmarkVisual({
       </div>
     );
   }
-  if (stage === "documents")
+  if (stage === "writing")
     return (
       <div className="test-visual fixture-host">
-        <DocumentFixture view={documentView} />
+        <WritingFixture view={writingView} />
+      </div>
+    );
+  if (stage === "spreadsheets")
+    return (
+      <div className="test-visual fixture-host">
+        <SpreadsheetFixture view={spreadsheetView} />
       </div>
     );
   return (
     <div className="test-visual fixture-host">
-      <InboxFixture view={inboxView} />
+      <EmailFixture view={emailView} />
     </div>
   );
 }
 
-function InboxFixture({
+function EmailFixture({
   view,
   compact = false,
 }: {
-  view: InboxView | null;
+  view: EmailView | null;
   compact?: boolean;
 }) {
   if (!view)
@@ -1692,21 +1836,37 @@ function InboxFixture({
         ))}
       </div>
       <div className="message-preview">
-        {view.draft ? (
+        {view.draftBlocks.length ? (
           <>
-            <strong>Reply draft</strong>
-            <textarea value={view.draft} readOnly />
+            <strong>Rich reply draft</strong>
+            <div className="rich-draft">
+              {view.draftBlocks.map((block, index) => (
+                <p key={block}>
+                  {index === 1 ? <strong>{block}</strong> : block}
+                </p>
+              ))}
+            </div>
           </>
         ) : view.activeMessage ? (
           <>
             <strong>{view.activeMessage.subject}</strong>
             <span>{view.activeMessage.sender}</span>
-            <p>{view.activeMessage.body}</p>
+            <div className={`mail-thread ${view.activeMessage.kind}`}>
+              {view.thread.map((message) => (
+                <article key={message.id}>
+                  <strong>{message.sender}</strong>
+                  <p>{message.body}</p>
+                </article>
+              ))}
+            </div>
           </>
         ) : (
           <>
-            <strong>{view.totalMatches.toLocaleString()} messages</strong>
-            <p>Scripted inbox operations are updating this view.</p>
+            <strong>
+              {view.totalMatches.toLocaleString()} of{" "}
+              {view.totalMessages.toLocaleString()} messages
+            </strong>
+            <p>Local mailbox operations are updating this virtualized view.</p>
           </>
         )}
       </div>
@@ -1714,7 +1874,7 @@ function InboxFixture({
   );
 }
 
-function DocumentFixture({ view }: { view: DocumentView | null }) {
+function WritingFixture({ view }: { view: WritingView | null }) {
   if (!view)
     return <div className="fixture-loading">Preparing the practice document…</div>;
   return (
@@ -1722,6 +1882,9 @@ function DocumentFixture({ view }: { view: DocumentView | null }) {
       <header>
         <strong>{view.title}</strong>
         <span>{view.actionName}</span>
+        <small>
+          {view.wordCount.toLocaleString()} words · {view.layoutMode}
+        </small>
         {view.saved && <em>Saved and reopened</em>}
       </header>
       <div className="document-toolbar">
@@ -1736,16 +1899,27 @@ function DocumentFixture({ view }: { view: DocumentView | null }) {
         suppressContentEditableWarning
         role="textbox"
         aria-label="Practice document"
+        style={{ maxWidth: `${view.editorWidth}px` }}
       >
-        {view.paragraphs.map((paragraph) => (
-          <p
-            key={paragraph.id}
-            className={paragraph.match ? "match" : ""}
-          >
-            {paragraph.bold ? <strong>{paragraph.text}</strong> : paragraph.text}
-          </p>
-        ))}
-        <table>
+        {view.paragraphs.map((paragraph) => {
+          const content = paragraph.bold ? (
+            <strong>{paragraph.text}</strong>
+          ) : paragraph.italic ? (
+            <em>{paragraph.text}</em>
+          ) : (
+            paragraph.text
+          );
+          return paragraph.heading ? (
+            <h3 key={paragraph.id} className={paragraph.match ? "match" : ""}>
+              {content}
+            </h3>
+          ) : (
+            <p key={paragraph.id} className={paragraph.match ? "match" : ""}>
+              {content}
+            </p>
+          );
+        })}
+        {view.tableRows.length > 0 && <table>
           <thead>
             <tr>
               <th>Device</th>
@@ -1762,8 +1936,54 @@ function DocumentFixture({ view }: { view: DocumentView | null }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table>}
       </article>
+    </section>
+  );
+}
+
+function SpreadsheetFixture({ view }: { view: SpreadsheetView | null }) {
+  if (!view)
+    return <div className="fixture-loading">Preparing the practice workbook…</div>;
+  return (
+    <section className="spreadsheet-app">
+      <header>
+        <strong>{view.title}</strong>
+        <span>{view.actionName}</span>
+        <small>
+          {view.cellCount.toLocaleString()} cells · {view.totalRows.toLocaleString()} rows
+        </small>
+      </header>
+      <div className="sheet-toolbar">
+        <span>fx</span>
+        <input
+          value={
+            view.query ||
+            (view.pasteCount
+              ? `${view.pasteCount.toLocaleString()} cells pasted`
+              : `${view.recalculatedCells.toLocaleString()} formula results`)
+          }
+          readOnly
+          aria-label="Spreadsheet formula or operation"
+        />
+        <strong>{view.visibleMatches.toLocaleString()} matching rows</strong>
+      </div>
+      <div className="sheet-grid" role="grid" aria-label="Practice spreadsheet">
+        <div className="sheet-row sheet-heading" role="row">
+          <span>#</span>
+          {["Device", "Year", "Status", "Qty", "Price", "Subtotal", "Running total", "Flag", "Asset", "Score"].map(
+            (label) => <span key={label}>{label}</span>,
+          )}
+        </div>
+        {view.rows.map((row) => (
+          <div className="sheet-row" role="row" key={row.row}>
+            <span>{row.row}</span>
+            {row.cells.map((cell, index) => (
+              <span role="gridcell" key={`${row.row}-${index}`}>{cell}</span>
+            ))}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

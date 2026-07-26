@@ -40,7 +40,7 @@ test("grade bands provide useful extra strata", () => {
   assert.equal(gradeForScore(20).grade, "E");
 });
 
-test("tier scoring uses three repetitions and workload capacity", () => {
+test("tier scoring preserves latency strata and workload capacity", () => {
   const result = summarizeLatencyTiers([
     { id: "basic", label: "Basic", samples: [80, 82, 84] },
     { id: "everyday", label: "Everyday", samples: [130, 140, 145] },
@@ -51,6 +51,33 @@ test("tier scoring uses three repetitions and workload capacity", () => {
   assert.equal(result.highestComfortable, "Busy");
   assert.equal(result.highestUsable, "Demanding");
   assert.ok(result.score >= 60 && result.score < 85);
+});
+
+test("continuous latency scoring separates devices inside the same status band", () => {
+  const faster = summarizeLatencyTiers([
+    { id: "basic", label: "Basic", samples: [110, 115, 120, 118, 112] },
+  ]);
+  const slower = summarizeLatencyTiers([
+    { id: "basic", label: "Basic", samples: [180, 185, 190, 188, 182] },
+  ]);
+  assert.equal(faster.tiers[0].status, "comfortable");
+  assert.equal(slower.tiers[0].status, "comfortable");
+  assert.ok(faster.score > slower.score);
+});
+
+test("early-stopped tiers are explicit and never masquerade as measured", () => {
+  const result = summarizeLatencyTiers([
+    { id: "basic", label: "Basic", samples: [800, 900, 1000] },
+    {
+      id: "busy",
+      label: "Busy",
+      earlyStopped: true,
+      samples: [{ durationMs: 6000 }],
+    },
+  ]);
+  assert.equal(result.tiers[1].status, "stopped");
+  assert.equal(result.tiers[1].earlyStopped, true);
+  assert.equal(result.tiers[1].score, 0);
 });
 
 function latencyTiers(values) {
@@ -67,8 +94,9 @@ function latencyTiers(values) {
 
 function fullMetrics(coreValues) {
   return {
-    everydayTiers: latencyTiers(coreValues),
-    documentTiers: latencyTiers(coreValues),
+    emailTiers: latencyTiers(coreValues),
+    writingTiers: latencyTiers(coreValues),
+    spreadsheetTiers: latencyTiers(coreValues),
     multitaskTiers: latencyTiers(coreValues.slice(1)),
     graphicsTiers: [
       { id: "1", label: "Light", onTimeRatio: 1, longFrameRatio: 0, frameCount: 100 },

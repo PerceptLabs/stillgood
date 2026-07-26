@@ -632,6 +632,39 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   font: inherit;
   line-height: 1.5;
 }
+.mail-thread {
+  margin-top: 13px;
+}
+.mail-thread article {
+  padding: 10px 0 12px;
+  border-top: 1px solid #e4e7ee;
+}
+.mail-thread article strong {
+  font-size: 8px;
+}
+.mail-thread article p,
+.rich-draft p {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 9px;
+  line-height: 1.55;
+}
+.mail-thread.newsletter article {
+  padding: 15px;
+  border: 1px solid #ded7e8;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 88% 16%, #9a7bd2 0 6px, transparent 7px),
+    white;
+}
+.rich-draft {
+  min-height: 180px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d9deea;
+  border-radius: 7px;
+  background: white;
+}
 .multitask-fixture {
   position: relative;
   padding: 16px;
@@ -680,8 +713,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   color: var(--accent-dark);
   font-weight: 720;
 }
-.document-app > header em {
+.document-app > header small {
   margin-left: auto;
+  color: var(--muted);
+  font-size: 8px;
+}
+.document-app > header em {
   color: var(--accent-dark);
   font-size: 8px;
   font-style: normal;
@@ -733,7 +770,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .editor-surface p {
   margin: 0 0 8px;
 }
-.editor-surface p.match {
+.editor-surface h3 {
+  margin: 14px 0 8px;
+  font-size: 11px;
+}
+.editor-surface p.match,
+.editor-surface h3.match {
   background: #e8def7;
 }
 .editor-surface table {
@@ -746,6 +788,93 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   padding: 5px;
   border: 1px solid #dfe3ec;
   text-align: left;
+}
+.spreadsheet-app {
+  height: 420px;
+  overflow: hidden;
+  background: white;
+}
+.spreadsheet-app > header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  border-bottom: 1px solid #d9deea;
+  font-size: 10px;
+}
+.spreadsheet-app > header span {
+  color: var(--accent-dark);
+  font-weight: 720;
+}
+.spreadsheet-app > header small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 8px;
+}
+.sheet-toolbar {
+  height: 40px;
+  display: grid;
+  grid-template-columns: 24px minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid #d9deea;
+  background: #f8f9fc;
+  font-size: 8px;
+}
+.sheet-toolbar > span {
+  color: var(--accent-dark);
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 800;
+}
+.sheet-toolbar input {
+  height: 25px;
+  padding: 0 8px;
+  border: 1px solid #d4dae6;
+  border-radius: 4px;
+  background: white;
+  font-size: 8px;
+}
+.sheet-toolbar strong {
+  color: var(--muted);
+  font-size: 8px;
+}
+.sheet-grid {
+  height: 332px;
+  overflow: hidden;
+  contain: strict;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 7px;
+}
+.sheet-row {
+  min-width: 860px;
+  height: 24px;
+  display: grid;
+  grid-template-columns: 38px 105px 46px 58px 44px 58px 68px 90px 62px 72px 54px;
+}
+.sheet-row > span {
+  min-width: 0;
+  padding: 6px 7px;
+  overflow: hidden;
+  border-right: 1px solid #e2e5eb;
+  border-bottom: 1px solid #e2e5eb;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-row > span:first-child {
+  color: var(--muted);
+  background: #f4f5f8;
+  text-align: right;
+}
+.sheet-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #4f596b;
+  background: #f0f2f6;
+  font-weight: 800;
 }
 .storage-visual {
   display: grid;
@@ -1166,7 +1295,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .flyer-levels {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   border-bottom: 1px solid var(--line);
   background: white;
 }
