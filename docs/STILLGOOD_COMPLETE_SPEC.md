@@ -109,6 +109,13 @@ quickly and consistently. Unattempted extensions do not count as failures.
 Measured extensions identify whether a practical limit was found, an extended
 range passed, or the benchmark still did not reach the system's limit.
 
+# Addendum: Benchmark v6.1 refresh-normalized graphics
+
+Graphics scenes are scheduled and graded against a fixed 60 fps usability
+target on displays capable of at least 60 Hz. The native display cadence remains
+part of the evidence, but no longer increases the graded workload. See
+`18_BENCHMARK_V6_1_REFRESH_NORMALIZATION.md` for the authoritative revision.
+
 ---
 
 # Benchmark v5 balanced everyday-use addendum

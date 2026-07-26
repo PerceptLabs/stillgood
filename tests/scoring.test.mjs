@@ -7,9 +7,43 @@ import {
   normalizeLower,
   percentile,
   qualifiesForHeadroom,
+  summarizeGraphicsFrames,
   summarizeLatencyTiers,
   summarizeThoroughRun,
 } from "../lib/scoring.mjs";
+
+test("graphics evaluation uses the same 60 fps target on high-refresh displays", () => {
+  const sixtyHertz = summarizeGraphicsFrames({
+    drawCount: 108,
+    intervals: Array.from({ length: 107 }, () => 16.67),
+    displayCadenceMs: 16.67,
+    elapsedMs: 1800,
+  });
+  const highRefresh = summarizeGraphicsFrames({
+    drawCount: 108,
+    intervals: Array.from({ length: 107 }, (_, index) =>
+      index % 2 ? 13.9 : 20.8,
+    ),
+    displayCadenceMs: 6.94,
+    elapsedMs: 1800,
+  });
+
+  assert.ok(Math.abs(highRefresh.evaluationCadenceMs - 1000 / 60) < 0.01);
+  assert.equal(sixtyHertz.onTimeRatio, 1);
+  assert.equal(highRefresh.onTimeRatio, 1);
+  assert.equal(highRefresh.longFrameRatio, 0);
+});
+
+test("graphics delivery still detects missed 60 fps work", () => {
+  const slowed = summarizeGraphicsFrames({
+    drawCount: 76,
+    intervals: Array.from({ length: 75 }, () => 33.3),
+    displayCadenceMs: 6.94,
+    elapsedMs: 1800,
+  });
+  assert.ok(slowed.onTimeRatio > 0.69 && slowed.onTimeRatio < 0.72);
+  assert.equal(slowed.expectedFrameCount, 108);
+});
 
 test("adaptive headroom runs only after fast, stable measurements", () => {
   assert.equal(

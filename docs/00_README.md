@@ -33,6 +33,7 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 16. `15_BENCHMARK_V4_OFFICE_WORKLOADS.md` — authoritative large-email, writing, and spreadsheet revision
 17. `16_BENCHMARK_V5_BALANCED_EVERYDAY_USE.md` — authoritative browsing and balanced-score revision
 18. `17_BENCHMARK_V6_ADAPTIVE_HEADROOM.md` — authoritative adaptive limit-finding revision
+19. `18_BENCHMARK_V6_1_REFRESH_NORMALIZATION.md` — authoritative high-refresh graphics correction
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -51,6 +52,9 @@ weights, grade guardrails, module count, and general-use positioning.
 
 Benchmark v6 keeps the v5 balanced categories but supersedes its latency-tier
 progression, weighting, and practical-limit reporting.
+
+Benchmark v6.1 keeps v6's categories and headroom behavior but supersedes its
+graphics scheduling and refresh-rate comparison method.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 

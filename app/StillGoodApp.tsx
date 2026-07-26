@@ -11,6 +11,7 @@ import { flushSync } from "react-dom";
 import {
   median,
   qualifiesForHeadroom,
+  summarizeGraphicsFrames,
   summarizeThoroughRun,
 } from "@/lib/scoring.mjs";
 import { classifyFormFactor } from "@/lib/context.mjs";
@@ -162,6 +163,9 @@ type GraphicsTierResult = {
   longFrameRatio: number;
   worstFrameMs: number;
   frameCount: number;
+  expectedFrameCount: number;
+  displayCadenceMs: number;
+  evaluationCadenceMs: number;
   valid?: boolean;
 };
 type VideoTierResult = {
@@ -838,27 +842,46 @@ export function StillGoodApp() {
         longFrameRatio: 1,
         worstFrameMs: 999,
         frameCount: 0,
+        expectedFrameCount: 0,
+        displayCadenceMs: cadenceMs,
+        evaluationCadenceMs: Math.max(1000 / 60, cadenceMs),
         valid: false,
       };
     }
 
     const intervals: number[] = [];
-    let previous = 0;
+    const evaluationCadenceMs = Math.max(1000 / 60, cadenceMs);
+    const schedulingToleranceMs = Math.min(cadenceMs * 0.25, 2);
+    let previousDraw = 0;
+    let nextDraw = 0;
+    let drawCount = 0;
     const start = performance.now();
     await new Promise<void>((resolve) => {
       const draw = (timestamp: number) => {
-        if (previous) intervals.push(timestamp - previous);
-        previous = timestamp;
-        context.fillStyle = "#162033";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        for (let index = 0; index < complexity; index += 1) {
-          const x = (index * 47 + timestamp * 0.08) % canvas.width;
-          const y = (index * 83 + timestamp * 0.04) % canvas.height;
-          context.fillStyle =
-            index % 3 === 0 ? "#6636b8" : index % 3 === 1 ? "#9a7bd2" : "#c8b9e4";
-          context.beginPath();
-          context.arc(x, y, 2 + (index % 7), 0, Math.PI * 2);
-          context.fill();
+        if (!nextDraw) nextDraw = timestamp;
+        if (timestamp >= nextDraw - schedulingToleranceMs) {
+          if (previousDraw) intervals.push(timestamp - previousDraw);
+          previousDraw = timestamp;
+          drawCount += 1;
+          context.fillStyle = "#162033";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          for (let index = 0; index < complexity; index += 1) {
+            const x = (index * 47 + timestamp * 0.08) % canvas.width;
+            const y = (index * 83 + timestamp * 0.04) % canvas.height;
+            context.fillStyle =
+              index % 3 === 0
+                ? "#6636b8"
+                : index % 3 === 1
+                  ? "#9a7bd2"
+                  : "#c8b9e4";
+            context.beginPath();
+            context.arc(x, y, 2 + (index % 7), 0, Math.PI * 2);
+            context.fill();
+          }
+          nextDraw += evaluationCadenceMs;
+          while (nextDraw < timestamp - schedulingToleranceMs) {
+            nextDraw += evaluationCadenceMs;
+          }
         }
         if (
           performance.now() - start < 1800 &&
@@ -871,16 +894,18 @@ export function StillGoodApp() {
       };
       requestAnimationFrame(draw);
     });
-    const late = intervals.filter((value) => value > cadenceMs * 1.5).length;
-    const long = intervals.filter((value) => value > 50).length;
+    const frameSummary = summarizeGraphicsFrames({
+      drawCount,
+      intervals,
+      displayCadenceMs: cadenceMs,
+      elapsedMs: performance.now() - start,
+    });
     return {
       id,
       label,
       complexity,
-      onTimeRatio: intervals.length ? 1 - late / intervals.length : 0,
-      longFrameRatio: intervals.length ? long / intervals.length : 1,
-      worstFrameMs: Math.max(...intervals, 0),
-      frameCount: intervals.length,
+      ...frameSummary,
+      frameCount: drawCount,
       valid: true,
     };
   }
@@ -1293,7 +1318,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.0.0-adaptive-headroom",
+        profileVersion: "6.1.0-refresh-normalized-graphics",
         raw: {
           headroomPolicy: {
             baseRepetitions: 5,
