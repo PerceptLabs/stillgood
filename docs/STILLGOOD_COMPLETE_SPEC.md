@@ -1,16 +1,17 @@
 # StillGood Complete Specification
 
-> Combined on 2026-07-19. Individual source files remain authoritative.
+> Combined on 2026-07-26. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.2 consistency and headroom
+## Current benchmark addendum: v6.3 calibrated headroom and run history
 
 The authoritative current profile is
-`6.2.0-consistency-and-headroom`. It preserves the balanced automated workload
-ladder and 60 fps-normalized graphics schedule, adds action-level p95 and hitch
-ratios, normalizes Long Animation Frame evidence by active run time, performs a
-short unsettled-system preflight, scores graphics continuously, and reports
-performance reserve separately from the A–E capability grade. See
-`19_BENCHMARK_V6_2_CONSISTENCY_AND_HEADROOM.md` for the complete rules.
+`6.3.0-calibrated-headroom-and-history`. It preserves v6.2's balanced automated
+workload ladder, action-tail evidence, preflight, and 60 fps-normalized graphics
+schedule. It stops treating a merely usable maximum adaptive tier as perfect
+headroom, reserves A+ for scores of 95 or higher, constrains the composite when
+measured reserve is lower, and automatically saves complete runs to private
+authenticated history. See `20_BENCHMARK_V6_3_CALIBRATION_AND_HISTORY.md` for
+the complete rules.
 
 
 ---

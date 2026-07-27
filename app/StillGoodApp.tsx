@@ -275,6 +275,23 @@ type ThoroughResult = {
   profileVersion: string;
   raw: unknown;
 };
+type SavedRunSummary = {
+  id: string;
+  createdAt: string;
+  startedAt: string;
+  profileVersion: string;
+  grade: string;
+  score: number;
+  confidence: string;
+  browser: string;
+  platform: string;
+  logicalProcessors: number | null;
+  elapsedMs: number;
+  responsivenessLabel: string;
+  responsivenessScore: number | null;
+  headroomLabel: string;
+  headroomScore: number;
+};
 
 const stages: Array<{
   id: StageId;
@@ -539,6 +556,26 @@ async function measureIdleBaseline(durationMs = 2200) {
   };
 }
 
+function resultEnvelope(result: ThoroughResult) {
+  return {
+    schemaVersion: "stillgood-result.v6.3",
+    result,
+    disclosure:
+      "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
+  };
+}
+
+function downloadJsonFile(payload: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 function friendlyProgressLevel(id: string) {
   return (
     {
@@ -652,16 +689,27 @@ export function StillGoodApp() {
   const [result, setResult] = useState<ThoroughResult | null>(null);
   const [notice, setNotice] = useState("");
   const [showGuide, setShowGuide] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [savedRuns, setSavedRuns] = useState<SavedRunSummary[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const cancelledRef = useRef(false);
   const workersRef = useRef<Worker[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!showGuide) return;
+    if (!showGuide && !showHistory) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowGuide(false);
+      if (event.key === "Escape") {
+        setShowGuide(false);
+        setShowHistory(false);
+      }
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -669,7 +717,7 @@ export function StillGoodApp() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [showGuide]);
+  }, [showGuide, showHistory]);
   const stage = stages[stageIndex] ?? stages[0];
 
   function stop() {
@@ -683,6 +731,52 @@ export function StillGoodApp() {
     setPhase("home");
     setNotice("Test stopped safely. Temporary data was removed.");
     indexedDB.deleteDatabase("stillgood-thorough-check");
+  }
+
+  async function saveResultAutomatically(completedResult: ThoroughResult) {
+    setSaveStatus("saving");
+    try {
+      const response = await fetch("/api/results", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(resultEnvelope(completedResult)),
+      });
+      if (!response.ok) throw new Error("Automatic save failed");
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  }
+
+  async function openSavedRuns() {
+    setShowHistory(true);
+    setHistoryStatus("loading");
+    try {
+      const response = await fetch("/api/results", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load saved runs");
+      const payload = (await response.json()) as { runs?: SavedRunSummary[] };
+      setSavedRuns(Array.isArray(payload.runs) ? payload.runs : []);
+      setHistoryStatus("ready");
+    } catch {
+      setHistoryStatus("error");
+    }
+  }
+
+  async function downloadSavedRun(run: SavedRunSummary) {
+    try {
+      const response = await fetch(
+        `/api/results?id=${encodeURIComponent(run.id)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) throw new Error("Could not download saved run");
+      const payload = await response.json();
+      downloadJsonFile(
+        payload,
+        `stillgood-saved-check-${new Date(run.startedAt).getTime()}.json`,
+      );
+    } catch {
+      setHistoryStatus("error");
+    }
   }
 
   async function measureJourney(
@@ -1375,7 +1469,7 @@ export function StillGoodApp() {
         baselineUnsettled: finalBaseline.unsettled,
       });
 
-      setResult({
+      const completedResult: ThoroughResult = {
         ...summary,
         browser: browserLabel(),
         platform: navigator.platform || "Platform not reported",
@@ -1385,7 +1479,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.2.0-consistency-and-headroom",
+        profileVersion: "6.3.0-calibrated-headroom-and-history",
         raw: {
           preflightBaseline: {
             first: firstBaseline,
@@ -1418,9 +1512,11 @@ export function StillGoodApp() {
           longAnimationFrameDurations: longFrames,
           measuredActiveMs: performance.now() - measurementStart,
         },
-      });
+      };
+      setResult(completedResult);
       setProgress(100);
       setPhase("result");
+      void saveResultAutomatically(completedResult);
     } finally {
       workersRef.current.forEach((worker) => worker.terminate());
       workersRef.current = [];
@@ -1431,35 +1527,23 @@ export function StillGoodApp() {
 
   function downloadResult() {
     if (!result) return;
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            schemaVersion: "stillgood-result.v6.2",
-            result,
-            disclosure:
-              "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
-          },
-          null,
-          2,
-        ),
-      ],
-      { type: "application/json" },
+    downloadJsonFile(
+      resultEnvelope(result),
+      `stillgood-everyday-check-${Date.now()}.json`,
     );
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `stillgood-everyday-check-${Date.now()}.json`;
-    link.click();
-    URL.revokeObjectURL(link.href);
   }
 
   if (phase === "home") {
     return (
+      <>
       <main className="simple-shell">
         <header className="simple-header">
           <a className="simple-brand" href="#" aria-label="StillGood home">
             <span>S</span> StillGood
           </a>
+          <button className="header-link" onClick={openSavedRuns}>
+            Saved runs
+          </button>
         </header>
         {notice && (
           <p className="simple-notice" role="status">
@@ -1496,9 +1580,18 @@ export function StillGoodApp() {
           </p>
         </details>
         <footer className="simple-footer">
-          <span>Private by design · local workloads · exportable results</span>
+          <span>Private by design · local workloads · results saved automatically</span>
         </footer>
       </main>
+      {showHistory && (
+        <SavedRunsDialog
+          runs={savedRuns}
+          status={historyStatus}
+          onClose={() => setShowHistory(false)}
+          onDownload={downloadSavedRun}
+        />
+      )}
+      </>
     );
   }
 
@@ -1622,7 +1715,12 @@ export function StillGoodApp() {
         >
           <span>S</span> StillGood
         </button>
-        <span className="status-label">Confidence: {result.confidence}</span>
+        <div className="header-actions">
+          <button className="header-link" onClick={openSavedRuns}>
+            Saved runs
+          </button>
+          <span className="status-label">Confidence: {result.confidence}</span>
+        </div>
       </header>
       <section className="clear-answer">
         <div className="answer-grade answer-grade-wide">{result.grade}</div>
@@ -1707,6 +1805,9 @@ export function StillGoodApp() {
           >
             Detailed report
           </button>
+          <button className="secondary-action" onClick={openSavedRuns}>
+            Saved runs
+          </button>
           <button className="primary-action" onClick={downloadResult}>
             Export full result
           </button>
@@ -1723,7 +1824,10 @@ export function StillGoodApp() {
       <p className="plain-result-note">
         This is a practical check of this browser and computer together.
         Different browsers and desktop applications can behave differently.
-        Full measurements remain available in the exported result.
+        {saveStatus === "saving" && " Saving this run automatically…"}
+        {saveStatus === "saved" && " This run was saved automatically."}
+        {saveStatus === "error" &&
+          " Automatic saving was unavailable; use Export full result for this run."}
       </p>
     </main>
     {showGuide && (
@@ -1871,7 +1975,106 @@ export function StillGoodApp() {
         </section>
       </div>
     )}
+    {showHistory && (
+      <SavedRunsDialog
+        runs={savedRuns}
+        status={historyStatus}
+        onClose={() => setShowHistory(false)}
+        onDownload={downloadSavedRun}
+      />
+    )}
     </>
+  );
+}
+
+function SavedRunsDialog({
+  runs,
+  status,
+  onClose,
+  onDownload,
+}: {
+  runs: SavedRunSummary[];
+  status: "idle" | "loading" | "ready" | "error";
+  onClose: () => void;
+  onDownload: (run: SavedRunSummary) => void;
+}) {
+  return (
+    <div
+      className="guide-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        className="saved-runs-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="saved-runs-title"
+      >
+        <button
+          className="guide-close"
+          onClick={onClose}
+          aria-label="Close saved runs"
+        >
+          ×
+        </button>
+        <header>
+          <p className="kicker">Private run history</p>
+          <h2 id="saved-runs-title">Saved runs</h2>
+          <p>
+            Completed tests are saved to your authenticated account. Download
+            any full log from whichever computer you are using.
+          </p>
+        </header>
+        {status === "loading" && (
+          <p className="history-message">Loading saved runs…</p>
+        )}
+        {status === "error" && (
+          <p className="history-message">
+            Saved runs are temporarily unavailable. Existing local exports are
+            unaffected.
+          </p>
+        )}
+        {status === "ready" && runs.length === 0 && (
+          <p className="history-message">
+            No automatically saved runs yet. Your next completed test will
+            appear here.
+          </p>
+        )}
+        {status === "ready" && runs.length > 0 && (
+          <div className="saved-runs-list">
+            {runs.map((run) => (
+              <article key={run.id}>
+                <div className="saved-run-grade">
+                  <strong>{run.grade}</strong>
+                  <span>{run.score}</span>
+                </div>
+                <div className="saved-run-copy">
+                  <strong>
+                    {new Intl.DateTimeFormat(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(run.startedAt))}
+                  </strong>
+                  <span>
+                    {run.browser} · {run.platform}
+                    {run.logicalProcessors
+                      ? ` · ${run.logicalProcessors} logical processors`
+                      : ""}
+                  </span>
+                  <small>
+                    {run.responsivenessLabel} · {run.headroomLabel} reserve ·{" "}
+                    {run.confidence} confidence
+                  </small>
+                </div>
+                <button onClick={() => onDownload(run)}>Download log</button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 

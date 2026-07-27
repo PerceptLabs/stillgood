@@ -8,6 +8,7 @@ import {
   percentile,
   qualifiesForHeadroom,
   summarizeGraphicsFrames,
+  summarizeHeadroom,
   summarizeLatencyTiers,
   summarizeResponsivenessConsistency,
   summarizeThoroughRun,
@@ -94,7 +95,8 @@ test("normalization interpolates and clamps", () => {
 });
 
 test("grade bands provide useful extra strata", () => {
-  assert.equal(gradeForScore(94).grade, "A+");
+  assert.equal(gradeForScore(94).grade, "A");
+  assert.equal(gradeForScore(95).grade, "A+");
   assert.equal(gradeForScore(86).grade, "A");
   assert.equal(gradeForScore(78).grade, "B+");
   assert.equal(gradeForScore(70).grade, "B");
@@ -216,6 +218,48 @@ test("headroom metadata distinguishes a found limit from an open ceiling", () =>
   assert.equal(open.testedHeadroom, true);
   assert.equal(open.limitFound, false);
   assert.equal(open.headroomCeiling, true);
+});
+
+test("usable maximum tiers preserve measured reserve differences", () => {
+  const category = (score) => ({
+    score: 95,
+    testedHeadroom: true,
+    headroomCeiling: true,
+    tiers: [
+      { id: "headroom", status: "comfortable", score: 95 },
+      { id: "limit", status: "usable", score },
+    ],
+  });
+  const workstation = summarizeHeadroom(
+    [category(82), category(91), category(86), category(95)],
+    { score: 100 },
+    { score: 100, everydayScore: 100 },
+  );
+  const lowPowerLaptop = summarizeHeadroom(
+    [category(72), category(83), category(77), category(91)],
+    { score: 95 },
+    { score: 89, everydayScore: 98 },
+  );
+
+  assert.equal(workstation.label, "Very high");
+  assert.equal(lowPowerLaptop.label, "High");
+  assert.ok(workstation.score > lowPowerLaptop.score);
+  assert.ok(lowPowerLaptop.score < 88);
+});
+
+test("good everyday speed cannot conceal a lower-power reserve ceiling", () => {
+  const metrics = fullMetrics([
+    [55, 58, 62],
+    [70, 75, 80],
+    [95, 105, 115],
+    [130, 145, 160],
+    [410, 440, 470],
+  ]);
+  const result = summarizeThoroughRun(metrics);
+
+  assert.ok(result.headroom.score < 88);
+  assert.ok(result.score <= result.headroom.score + 7);
+  assert.notEqual(result.grade, "A+");
 });
 
 function latencyTiers(values) {

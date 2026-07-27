@@ -37,6 +37,8 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 
 20. `19_BENCHMARK_V6_2_CONSISTENCY_AND_HEADROOM.md` — action-tail, hitch, preflight, continuous graphics, and reserve rules
 
+21. `20_BENCHMARK_V6_3_CALIBRATION_AND_HISTORY.md` — corrected adaptive reserve scoring and authenticated automatic run history
+
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
@@ -61,6 +63,10 @@ graphics scheduling and refresh-rate comparison method.
 Benchmark v6.2 keeps v6.1's workloads and display normalization but supersedes
 its action-tail interpretation, graphics scoring, preflight stability, and
 performance-reserve reporting.
+
+Benchmark v6.3 keeps v6.2's workloads and measurements but supersedes its
+adaptive-headroom ceiling, A+ threshold, and result-storage behavior for the
+authenticated internal deployment.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
