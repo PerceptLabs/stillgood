@@ -2,6 +2,18 @@
 
 > Combined on 2026-07-26. Individual source files remain authoritative.
 
+## Current benchmark addendum: v6.5 memory and persistent storage
+
+The authoritative current profile is
+`6.5.0-memory-and-persistent-storage`. It preserves v6.4's workloads and
+practical grade ladder while adding controlled memory-pressure responsiveness,
+strict IndexedDB commits, and OPFS write/flush/reopen/read evidence. A B+ now
+requires a measured performance-reserve score of at least 88. See
+`22_BENCHMARK_V6_5_MEMORY_AND_PERSISTENT_STORAGE.md` for the complete rules.
+
+The v6.5 addendum supersedes the v6.4 section immediately below where they
+conflict.
+
 ## Current benchmark addendum: v6.4 practical grade ladder
 
 The authoritative current profile is

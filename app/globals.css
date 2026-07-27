@@ -1092,6 +1092,34 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   transition: height 180ms ease;
 }
 .storage-visual span.filled i { height: 72%; }
+
+.memory-visual {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(26px, 1fr));
+  gap: 14px;
+  align-content: center;
+  padding: 54px;
+}
+
+.memory-visual span {
+  aspect-ratio: 1;
+  border: 2px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.memory-visual span.active {
+  background: var(--accent);
+  transform: scale(.9);
+}
+
+.memory-visual strong {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  text-align: center;
+  color: var(--muted);
+}
 .run-steps {
   width: min(820px, calc(100% - 40px));
   margin: 0 auto;

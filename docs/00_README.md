@@ -41,6 +41,8 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 
 22. `21_BENCHMARK_V6_4_PRACTICAL_GRADE_LADDER.md` — stricter modern-performance grade bands
 
+23. `22_BENCHMARK_V6_5_MEMORY_AND_PERSISTENT_STORAGE.md` — controlled memory-pressure and durable browser-storage checks
+
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
@@ -73,6 +75,10 @@ authenticated internal deployment.
 Benchmark v6.4 keeps v6.3's measurements, continuous index, headroom rules, and
 private history but supersedes its letter-grade thresholds and result wording.
 
+Benchmark v6.5 keeps v6.4's balanced everyday workloads and grade ladder while
+adding browser-observable memory-pressure and persistent-save evidence. It also
+requires a reserve score of at least 88 for B+.
+
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
 ## Product principles
@@ -90,8 +96,8 @@ private history but supersedes its letter-grade thresholds and result wording.
 The primary public MVP is a static progressive web app that:
 
 - runs one unattended test in roughly two to four minutes, ending heavy tiers early when necessary;
-- presents eight understandable checks while retaining repeated measurements internally;
-- measures web browsing, email, documents, spreadsheets, smoothness, multitasking, video, and local browser storage;
+- presents nine understandable checks while retaining repeated measurements internally;
+- measures web browsing, email, documents, spreadsheets, smoothness, multitasking, video, responsiveness under memory pressure, and persistent browser storage;
 - produces an A–E Second-Life Rating;
 - assigns clear role badges;
 - explains bottlenecks as observed symptoms, not hardware diagnoses;

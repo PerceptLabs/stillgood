@@ -10,7 +10,9 @@ import {
   summarizeGraphicsFrames,
   summarizeHeadroom,
   summarizeLatencyTiers,
+  summarizeMemory,
   summarizeResponsivenessConsistency,
+  summarizeStorage,
   summarizeThoroughRun,
 } from "../lib/scoring.mjs";
 
@@ -92,6 +94,94 @@ test("normalization interpolates and clamps", () => {
   assert.equal(normalizeLower(50, points), 100);
   assert.equal(normalizeLower(1000, points), 0);
   assert.equal(normalizeLower(200, points), 75);
+});
+
+test("memory pressure scoring exposes catch-up hitches instead of a RAM claim", () => {
+  const steady = summarizeMemory([
+    {
+      id: "memory-256",
+      label: "256 MB active",
+      probeP95Ms: 8,
+      probeWorstMs: 35,
+      copyRoundTripMs: 150,
+    },
+  ]);
+  const hitchy = summarizeMemory([
+    {
+      id: "memory-256",
+      label: "256 MB active",
+      probeP95Ms: 180,
+      probeWorstMs: 900,
+      copyRoundTripMs: 1300,
+    },
+  ]);
+
+  assert.equal(steady.available, true);
+  assert.equal(steady.tiers[0].status, "comfortable");
+  assert.ok(hitchy.score < 48);
+  assert.ok(steady.score > hitchy.score);
+});
+
+test("persistent storage scoring distinguishes quick and delayed durable saves", () => {
+  const bulk = [
+    { id: "1", label: "1 MB", writeMs: 40, readMs: 10 },
+    { id: "8", label: "8 MB", writeMs: 180, readMs: 40 },
+    { id: "32", label: "32 MB", writeMs: 700, readMs: 120 },
+  ];
+  const quick = summarizeStorage(
+    bulk,
+    [
+      {
+        id: "strict-24",
+        label: "24 small saves",
+        p95CommitMs: 8,
+        worstCommitMs: 18,
+        verified: true,
+      },
+    ],
+    [
+      {
+        id: "opfs-16",
+        label: "16 MB persistent file",
+        sizeMB: 16,
+        randomReads: 128,
+        writeMs: 140,
+        flushMs: 18,
+        randomReadMs: 24,
+        verified: true,
+        available: true,
+      },
+    ],
+  );
+  const delayed = summarizeStorage(
+    bulk,
+    [
+      {
+        id: "strict-24",
+        label: "24 small saves",
+        p95CommitMs: 420,
+        worstCommitMs: 1400,
+        verified: true,
+      },
+    ],
+    [
+      {
+        id: "opfs-16",
+        label: "16 MB persistent file",
+        sizeMB: 16,
+        randomReads: 128,
+        writeMs: 4500,
+        flushMs: 1800,
+        randomReadMs: 5000,
+        verified: true,
+        available: true,
+      },
+    ],
+  );
+
+  assert.equal(quick.opfsAvailable, true);
+  assert.ok(quick.score > delayed.score);
+  assert.ok(delayed.score < 58);
 });
 
 test("grade bands provide useful extra strata", () => {

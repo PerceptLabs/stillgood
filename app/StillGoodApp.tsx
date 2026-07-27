@@ -42,6 +42,7 @@ type StageId =
   | "graphics"
   | "video"
   | "multitasking"
+  | "memory"
   | "storage";
 type Tier = {
   id: string;
@@ -193,6 +194,43 @@ type StorageTierResult = {
   writeMs: number;
   readMs: number;
 };
+type StrictStorageTierResult = {
+  id: string;
+  label: string;
+  transactionCount: number;
+  payloadKB: number;
+  medianCommitMs: number;
+  p95CommitMs: number;
+  worstCommitMs: number;
+  readbackMs: number;
+  verified: boolean;
+};
+type OpfsStorageTierResult = {
+  id: string;
+  label: string;
+  sizeMB: number;
+  randomReads: number;
+  writeMs: number;
+  flushMs: number;
+  reopenMs: number;
+  randomReadMs: number;
+  verified: boolean;
+  available: boolean;
+  error?: string;
+};
+type MemoryTierResult = {
+  id: string;
+  label: string;
+  targetMB: number;
+  retainedMB: number;
+  allocationMs: number;
+  scanMs: number;
+  copyRoundTripMs: number;
+  probeP95Ms: number;
+  probeWorstMs: number;
+  probeSamples: number[];
+  checksum: number;
+};
 type TierSummary = {
   id: string;
   label: string;
@@ -256,6 +294,7 @@ type ThoroughResult = {
   multitasking: LatencyCategory;
   graphics: SimpleCategory;
   video: SimpleCategory;
+  memory: SimpleCategory;
   storage: SimpleCategory;
   responsiveness: ResponsivenessSummary;
   headroom: HeadroomSummary;
@@ -342,10 +381,16 @@ const stages: Array<{
     detail: "Checks whether the computer stays responsive when work overlaps.",
   },
   {
+    id: "memory",
+    name: "Memory",
+    title: "Responsiveness under memory pressure",
+    detail: "Keeps larger working sets active and watches for catch-up pauses.",
+  },
+  {
     id: "storage",
     name: "Storage",
-    title: "Browser storage and recovery",
-    detail: "Saves temporary browser data, reopens it, and checks recovery.",
+    title: "Persistent browser storage",
+    detail: "Commits small changes, flushes local files, reopens them, and verifies the data.",
   },
 ];
 
@@ -558,7 +603,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.4",
+    schemaVersion: "stillgood-result.v6.5",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -618,17 +663,22 @@ const categoryDescriptions: Record<string, string> = {
   Documents: "Typing, formatting, tables, and changing page layout.",
   Spreadsheets: "Formulas, sorting, filtering, pasting, and scrolling.",
   "Using several things": "Staying responsive while work overlaps.",
+  "Responsiveness under memory pressure":
+    "Keeping larger working sets active without catch-up pauses.",
   "Scrolling and visuals": "Keeping movement and animated pages smooth.",
   "Video playback": "Playing common video sizes without interruptions.",
-  "Saving browser data": "Saving and reopening information in the browser.",
+  "Persistent saves":
+    "Committing, flushing, reopening, and verifying local browser data.",
 };
 
 async function openStorageDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("stillgood-thorough-check", 1);
+    const request = indexedDB.open("stillgood-thorough-check", 2);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains("blocks"))
         request.result.createObjectStore("blocks");
+      if (!request.result.objectStoreNames.contains("commits"))
+        request.result.createObjectStore("commits");
     };
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
@@ -672,6 +722,210 @@ async function runStorageTier(
     sizeMB,
     writeMs,
     readMs,
+  };
+}
+
+function percentileValue(values: number[], percentile: number) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[
+    Math.min(sorted.length - 1, Math.ceil(sorted.length * percentile) - 1)
+  ];
+}
+
+async function runStrictStorageTier(
+  database: IDBDatabase,
+  transactionCount: number,
+  payloadKB: number,
+  tierIndex: number,
+): Promise<StrictStorageTierResult> {
+  const payload = new Uint8Array(payloadKB * 1024);
+  for (let offset = 0; offset < payload.length; offset += 4096)
+    payload[offset] = (tierIndex * 37 + offset) & 255;
+  const commits: number[] = [];
+
+  for (let index = 0; index < transactionCount; index += 1) {
+    const started = performance.now();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(
+        "commits",
+        "readwrite",
+        { durability: "strict" },
+      );
+      transaction
+        .objectStore("commits")
+        .put(payload, `${tierIndex}-${index}`);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.oncomplete = () => resolve();
+    });
+    commits.push(performance.now() - started);
+  }
+
+  let verified = true;
+  const readbackStart = performance.now();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction("commits", "readonly");
+    const store = transaction.objectStore("commits");
+    for (let index = 0; index < transactionCount; index += 1) {
+      const request = store.get(`${tierIndex}-${index}`);
+      request.onsuccess = () => {
+        verified =
+          verified &&
+          request.result instanceof Uint8Array &&
+          request.result.byteLength === payload.byteLength;
+      };
+    }
+    transaction.onerror = () => reject(transaction.error);
+    transaction.oncomplete = () => resolve();
+  });
+
+  return {
+    id: `strict-${transactionCount}`,
+    label: `${transactionCount} small saves`,
+    transactionCount,
+    payloadKB,
+    medianCommitMs: median(commits),
+    p95CommitMs: percentileValue(commits, 0.95),
+    worstCommitMs: Math.max(...commits, 0),
+    readbackMs: performance.now() - readbackStart,
+    verified,
+  };
+}
+
+async function requestWorkerResult<T>(
+  worker: Worker,
+  message: Record<string, unknown>,
+  expectedType: string,
+  timeoutMs: number,
+) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error(`${expectedType} timed out`));
+    }, timeoutMs);
+    const onMessage = (event: MessageEvent<T & { type?: string }>) => {
+      if (event.data?.type !== expectedType) return;
+      cleanup();
+      resolve(event.data);
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error(`${expectedType} worker failed`));
+    };
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      worker.removeEventListener("message", onMessage);
+      worker.removeEventListener("error", onError);
+    };
+    worker.addEventListener("message", onMessage);
+    worker.addEventListener("error", onError);
+    worker.postMessage(message);
+  });
+}
+
+async function measureForegroundLag(durationMs = 900) {
+  const samples: number[] = [];
+  const started = performance.now();
+  while (
+    performance.now() - started < durationMs &&
+    !document.hidden
+  ) {
+    const probe = performance.now();
+    await sleep(25);
+    samples.push(Math.max(0, performance.now() - probe - 25));
+  }
+  return samples;
+}
+
+async function runMemoryTier(
+  worker: Worker,
+  targetMB: number,
+  tierIndex: number,
+): Promise<MemoryTierResult> {
+  const copyBuffer = new Uint8Array(8 * 1024 * 1024);
+  for (let offset = 0; offset < copyBuffer.length; offset += 4096)
+    copyBuffer[offset] = (tierIndex * 31 + offset) & 255;
+  const requestId = `memory-${tierIndex}-${Date.now()}`;
+  const roundTripStart = performance.now();
+  let copyRoundTripMs = 0;
+  const workerMeasurement = requestWorkerResult<{
+    type: string;
+    retainedMB: number;
+    allocationMs: number;
+    scanMs: number;
+    checksum: number;
+  }>(
+    worker,
+    {
+      type: "memory-pressure",
+      requestId,
+      targetMB,
+      chunkMB: 8,
+      scanDurationMs: 1100,
+      seed: 900 + tierIndex,
+      copyBuffer: copyBuffer.buffer,
+    },
+    "memory-complete",
+    25000,
+  ).then((measured) => {
+    copyRoundTripMs = performance.now() - roundTripStart;
+    return measured;
+  });
+  const [measured, probeSamples] = await Promise.all([
+    workerMeasurement,
+    measureForegroundLag(1200),
+  ]);
+
+  return {
+    id: `memory-${targetMB}`,
+    label: `${targetMB} MB active`,
+    targetMB,
+    retainedMB: measured.retainedMB,
+    allocationMs: measured.allocationMs,
+    scanMs: measured.scanMs,
+    copyRoundTripMs,
+    probeP95Ms: percentileValue(probeSamples, 0.95),
+    probeWorstMs: Math.max(...probeSamples, 0),
+    probeSamples,
+    checksum: measured.checksum,
+  };
+}
+
+async function runOpfsStorageTier(
+  worker: Worker,
+  sizeMB: number,
+  randomReads: number,
+  tierIndex: number,
+): Promise<OpfsStorageTierResult> {
+  const requestId = `opfs-${tierIndex}-${Date.now()}`;
+  const measured = await requestWorkerResult<
+    Omit<OpfsStorageTierResult, "id" | "label"> & {
+      type: string;
+    }
+  >(
+    worker,
+    {
+      type: "opfs-storage",
+      requestId,
+      sizeMB,
+      randomReads,
+      seed: 1200 + tierIndex,
+    },
+    "opfs-complete",
+    30000,
+  );
+  return {
+    id: `opfs-${sizeMB}`,
+    label: `${sizeMB} MB persistent file`,
+    sizeMB,
+    randomReads,
+    writeMs: measured.writeMs ?? 0,
+    flushMs: measured.flushMs ?? 0,
+    reopenMs: measured.reopenMs ?? 0,
+    randomReadMs: measured.randomReadMs ?? 0,
+    verified: measured.verified ?? false,
+    available: measured.available,
+    error: measured.error,
   };
 }
 
@@ -1257,13 +1511,13 @@ export function StillGoodApp() {
         "browsing",
         browsingTiers,
         2,
-        16,
+        15,
       );
       if (cancelledRef.current) return;
 
       setStageIndex(1);
       await nextPaint();
-      const emailResults = await runLatencySection("email", emailTiers, 16, 28);
+      const emailResults = await runLatencySection("email", emailTiers, 15, 27);
       if (cancelledRef.current) return;
 
       setStageIndex(2);
@@ -1271,8 +1525,8 @@ export function StillGoodApp() {
       const writingResults = await runLatencySection(
         "writing",
         writingTiers,
-        28,
-        40,
+        27,
+        39,
       );
       if (cancelledRef.current) return;
 
@@ -1281,8 +1535,8 @@ export function StillGoodApp() {
       const spreadsheetResults = await runLatencySection(
         "spreadsheets",
         spreadsheetTiers,
-        40,
-        52,
+        39,
+        50,
       );
       if (cancelledRef.current) return;
 
@@ -1301,7 +1555,7 @@ export function StillGoodApp() {
         graphicsTiers.push(
           await runGraphicsTier(id, label, complexity, cadenceMs),
         );
-        setProgress(52 + ((index + 1) / graphicsLevels.length) * 10);
+        setProgress(50 + ((index + 1) / graphicsLevels.length) * 9);
       }
       if (cancelledRef.current) return;
 
@@ -1312,7 +1566,7 @@ export function StillGoodApp() {
         setStatus(`Playing ${videoTiers[index].label} H.264 video`);
         const measured = await runVideoTier(videoTiers[index]);
         measuredVideoTiers.push(measured);
-        setProgress(62 + ((index + 1) / videoTiers.length) * 10);
+        setProgress(59 + ((index + 1) / videoTiers.length) * 9);
         if (
           !measured.valid ||
           measured.droppedRatio > 0.15 ||
@@ -1387,7 +1641,7 @@ export function StillGoodApp() {
           worker.terminate();
         });
         workersRef.current = [];
-        setProgress(72 + ((level + 1) / 4) * 20);
+        setProgress(68 + ((level + 1) / 4) * 15);
         if (median(samples.map((sample) => sample.durationMs)) > 3000) {
           for (let remaining = level + 1; remaining < 4; remaining += 1) {
             const skipped = workloadTiers[remaining + 1];
@@ -1413,30 +1667,149 @@ export function StillGoodApp() {
 
       setStageIndex(7);
       await nextPaint();
+      const memoryTiers: MemoryTierResult[] = [];
+      let memorySupported = true;
+      const memoryWorker = new Worker("/benchmark-worker.js");
+      workersRef.current.push(memoryWorker);
+      try {
+        const reportedMemory =
+          (navigator as Navigator & { deviceMemory?: number }).deviceMemory ??
+          4;
+        const mobile = detectFormFactor() === "mobile";
+        const maximumMemoryMB = mobile
+          ? 256
+          : reportedMemory >= 8
+            ? 512
+            : reportedMemory >= 4
+              ? 384
+              : 256;
+        const memoryLevels = [...new Set([64, 128, 256, maximumMemoryMB])]
+          .filter((value) => value <= maximumMemoryMB)
+          .sort((a, b) => a - b);
+        for (const [index, targetMB] of memoryLevels.entries()) {
+          setStatus(`Keeping ${targetMB} MB active while checking responsiveness`);
+          const measured = await runMemoryTier(
+            memoryWorker,
+            targetMB,
+            index,
+          );
+          memoryTiers.push(measured);
+          setProgress(83 + ((index + 1) / memoryLevels.length) * 8);
+          if (
+            measured.probeP95Ms > 300 ||
+            measured.probeWorstMs > 1200 ||
+            measured.copyRoundTripMs > 4000
+          ) {
+            break;
+          }
+        }
+      } catch {
+        memorySupported = false;
+      } finally {
+        try {
+          await requestWorkerResult(
+            memoryWorker,
+            {
+              type: "memory-release",
+              requestId: `release-${Date.now()}`,
+            },
+            "memory-released",
+            3000,
+          );
+        } catch {
+          // Terminating the worker below also releases retained memory.
+        }
+        memoryWorker.terminate();
+        workersRef.current = workersRef.current.filter(
+          (worker) => worker !== memoryWorker,
+        );
+      }
+      if (cancelledRef.current) return;
+
+      setStageIndex(8);
+      await nextPaint();
       const storageTiers: StorageTierResult[] = [];
+      const strictStorageTiers: StrictStorageTierResult[] = [];
+      const opfsStorageTiers: OpfsStorageTierResult[] = [];
+      let storageAvailable = true;
+      let strictStorageAvailable = true;
       let database: IDBDatabase | null = null;
       try {
         database = await openStorageDatabase();
         for (const [index, size] of [1, 8, 32].entries()) {
-          setStatus("Saving and reopening temporary browser data");
+          setStatus("Saving and reopening ordinary browser data");
           storageTiers.push(await runStorageTier(database, size, index));
-          setProgress(92 + ((index + 1) / 3) * 6);
+          setProgress(91 + ((index + 1) / 3) * 2);
+        }
+        for (
+          const [index, transactionCount] of [8, 24, 64].entries()
+        ) {
+          setStatus("Committing small changes to persistent browser storage");
+          try {
+            strictStorageTiers.push(
+              await runStrictStorageTier(
+                database,
+                transactionCount,
+                16,
+                index,
+              ),
+            );
+          } catch {
+            strictStorageAvailable = false;
+            break;
+          }
+          setProgress(93 + ((index + 1) / 3) * 2);
         }
       } catch {
-        storageTiers.push(
-          { id: "1mb", label: "1 MB", sizeMB: 1, writeMs: 2000, readMs: 2000 },
-          { id: "8mb", label: "8 MB", sizeMB: 8, writeMs: 6000, readMs: 6000 },
-          {
-            id: "32mb",
-            label: "32 MB",
-            sizeMB: 32,
-            writeMs: 12000,
-            readMs: 12000,
-          },
-        );
+        storageAvailable = false;
+        strictStorageAvailable = false;
       } finally {
         database?.close();
         indexedDB.deleteDatabase("stillgood-thorough-check");
+      }
+
+      const opfsWorker = new Worker("/benchmark-worker.js");
+      workersRef.current.push(opfsWorker);
+      try {
+        const opfsLevels = [
+          { sizeMB: 4, randomReads: 64 },
+          { sizeMB: 16, randomReads: 128 },
+          { sizeMB: 48, randomReads: 256 },
+        ];
+        for (const [index, level] of opfsLevels.entries()) {
+          setStatus("Flushing and reopening a persistent local browser file");
+          const measured = await runOpfsStorageTier(
+            opfsWorker,
+            level.sizeMB,
+            level.randomReads,
+            index,
+          );
+          opfsStorageTiers.push(measured);
+          setProgress(95 + ((index + 1) / opfsLevels.length) * 3);
+          if (!measured.available) break;
+        }
+      } catch (error) {
+        opfsStorageTiers.push({
+          id: "persistent-file-unavailable",
+          label: "Persistent file",
+          sizeMB: 0,
+          randomReads: 0,
+          writeMs: 0,
+          flushMs: 0,
+          reopenMs: 0,
+          randomReadMs: 0,
+          verified: false,
+          available: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Persistent file timing unavailable",
+        });
+      } finally {
+        opfsWorker.terminate();
+        workersRef.current = workersRef.current.filter(
+          (worker) => worker !== opfsWorker,
+        );
       }
 
       setStatus("Measuring recovery and run stability");
@@ -1458,7 +1831,13 @@ export function StillGoodApp() {
         graphicsTiers,
         videoTiers: measuredVideoTiers,
         multitaskTiers,
+        memoryTiers,
+        memorySupported,
         storageTiers,
+        strictStorageTiers,
+        opfsStorageTiers,
+        storageAvailable,
+        strictStorageAvailable,
         recoveryMs,
         longTaskCount: longTasks.length,
         longAnimationFrameCount: longFrames.length,
@@ -1479,7 +1858,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.4.0-practical-grade-ladder",
+        profileVersion: "6.5.0-memory-and-persistent-storage",
         raw: {
           preflightBaseline: {
             first: firstBaseline,
@@ -1507,7 +1886,13 @@ export function StillGoodApp() {
           graphicsTiers,
           videoTiers: measuredVideoTiers,
           multitaskTiers,
+          memoryTiers,
+          memorySupported,
           storageTiers,
+          strictStorageTiers,
+          opfsStorageTiers,
+          storageAvailable,
+          strictStorageAvailable,
           longTaskDurations: longTasks,
           longAnimationFrameDurations: longFrames,
           measuredActiveMs: performance.now() - measurementStart,
@@ -1634,7 +2019,7 @@ export function StillGoodApp() {
             aria-label={`${Math.round(progress)} percent complete`}
           >
             <strong>{stageIndex + 1}</strong>
-            <span>of 8</span>
+            <span>of {stages.length}</span>
           </div>
           <div className="run-message">
             <p className="kicker">{stage.name}</p>
@@ -1686,7 +2071,8 @@ export function StillGoodApp() {
     ["Using several things", result.multitasking],
     ["Scrolling and visuals", result.graphics],
     ["Video playback", result.video],
-    ["Saving browser data", result.storage],
+    ["Responsiveness under memory pressure", result.memory],
+    ["Persistent saves", result.storage],
   ] as const;
   const verdict =
     result.formFactor === "mobile"
@@ -1775,7 +2161,7 @@ export function StillGoodApp() {
         </button>
       </section>
       <details className="result-breakdown">
-        <summary>See all eight test results</summary>
+        <summary>See all {categoryCards.length} test results</summary>
         <section className="check-results check-results-six">
           {categoryCards.map(([name, category]) => (
             <article key={name}>
@@ -2136,6 +2522,19 @@ function BenchmarkVisual({
             <i />
           </span>
         ))}
+      </div>
+    );
+  }
+  if (stage === "memory") {
+    return (
+      <div className="test-visual memory-visual">
+        {Array.from({ length: 12 }, (_, index) => (
+          <span
+            key={index}
+            className={index <= (tick * 2) % 12 ? "active" : ""}
+          />
+        ))}
+        <strong>Checking whether everyday actions stay responsive</strong>
       </div>
     );
   }

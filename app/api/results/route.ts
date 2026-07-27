@@ -33,9 +33,10 @@ function nestedObject(value: unknown) {
     : {};
 }
 
-function currentGradeForIndex(score: number) {
+function currentGradeForIndex(score: number, headroomScore: number) {
   if (score >= 98) return "A+";
   if (score >= 95) return "A";
+  if (score >= 88 && headroomScore < 88) return "B";
   if (score >= 88) return "B+";
   if (score >= 78) return "B";
   if (score >= 68) return "C+";
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
     return Response.json({
       runs: runs.map((run) => ({
         ...run,
-        grade: currentGradeForIndex(run.score),
+        grade: currentGradeForIndex(run.score, run.headroomScore),
       })),
     });
   } catch (error) {

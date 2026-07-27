@@ -46,5 +46,7 @@ test("server-renders the StillGood product shell", async () => {
   assert.match(html, /Editing, page layout, formatting, tables, and reopening documents/);
   assert.match(html, /Formulas, sorting, filtering, pasting, searching, and scrolling/);
   assert.match(html, /Local H\.264 clips at 480p, 720p, and 1080p/);
+  assert.match(html, /Keeps larger working sets active and watches for catch-up pauses/);
+  assert.match(html, /Commits small changes, flushes local files, reopens them, and verifies the data/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
