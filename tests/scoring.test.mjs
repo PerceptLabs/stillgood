@@ -9,6 +9,7 @@ import {
   qualifiesForHeadroom,
   summarizeGraphicsFrames,
   summarizeLatencyTiers,
+  summarizeResponsivenessConsistency,
   summarizeThoroughRun,
 } from "../lib/scoring.mjs";
 
@@ -126,6 +127,61 @@ test("continuous latency scoring separates devices inside the same status band",
   assert.equal(faster.tiers[0].status, "comfortable");
   assert.equal(slower.tiers[0].status, "comfortable");
   assert.ok(faster.score > slower.score);
+});
+
+test("action-level tails distinguish a consistently fast tier from a hitchy one", () => {
+  const sample = (journeyMs, actionDurations) => ({
+    durationMs: journeyMs,
+    workMs: journeyMs / 2,
+    presentationMs: journeyMs / 2,
+    actions: actionDurations.map((durationMs, index) => ({
+      name: `action-${index}`,
+      durationMs,
+      workMs: durationMs / 2,
+      presentationMs: durationMs / 2,
+    })),
+  });
+  const steady = summarizeLatencyTiers([
+    {
+      id: "everyday",
+      label: "Everyday",
+      samples: Array.from({ length: 5 }, () =>
+        sample(180, [24, 31, 38, 42, 48]),
+      ),
+    },
+  ]);
+  const hitchy = summarizeLatencyTiers([
+    {
+      id: "everyday",
+      label: "Everyday",
+      samples: Array.from({ length: 5 }, () =>
+        sample(180, [24, 31, 38, 42, 620]),
+      ),
+    },
+  ]);
+
+  assert.equal(steady.tiers[0].status, "comfortable");
+  assert.notEqual(hitchy.tiers[0].status, "comfortable");
+  assert.ok(steady.score > hitchy.score);
+  assert.equal(hitchy.tiers[0].actionP95Ms, 620);
+});
+
+test("responsiveness consistency exposes intermittent long-frame congestion", () => {
+  const actions = Array.from({ length: 100 }, (_, index) => ({
+    name: `action-${index}`,
+    durationMs: index < 94 ? 90 : 210,
+    workMs: 30,
+    presentationMs: index < 94 ? 60 : 180,
+  }));
+  const summary = summarizeResponsivenessConsistency({
+    tierGroups: [[{ id: "everyday", samples: [{ durationMs: 300, actions }] }]],
+    longAnimationFrameCount: 540,
+    activeMs: 120000,
+  });
+
+  assert.equal(summary.label, "Noticeable hitches");
+  assert.ok(summary.longFrameRatePerMinute > 250);
+  assert.ok(summary.score < 72);
 });
 
 test("early-stopped tiers are explicit and never masquerade as measured", () => {
@@ -252,7 +308,7 @@ test("only broadly fast and stable hardware reaches the ceiling", () => {
   assert.ok(result.score >= 84);
 });
 
-test("excellent office scores cannot hide visibly weak browsing smoothness", () => {
+test("a dense graphics stress tier reports headroom without capping everyday use", () => {
   const metrics = fullMetrics([
     [105, 110, 115],
     [110, 115, 120],
@@ -267,9 +323,28 @@ test("excellent office scores cannot hide visibly weak browsing smoothness", () 
     { id: "4", label: "Dense", onTimeRatio: 0.64, longFrameRatio: 0.25, frameCount: 100 },
   ];
   const result = summarizeThoroughRun(metrics);
-  assert.ok(result.graphics.score < 68);
-  assert.ok(result.score <= 75);
-  assert.notEqual(result.grade, "A");
+  assert.ok(result.graphics.score >= 68);
+  assert.ok(result.graphics.everydayScore >= 90);
+  assert.ok(result.score >= 84);
+});
+
+test("weak everyday graphics still limits an otherwise excellent result", () => {
+  const metrics = fullMetrics([
+    [105, 110, 115],
+    [110, 115, 120],
+    [115, 120, 125],
+    [125, 130, 140],
+    [145, 155, 165],
+  ]);
+  metrics.graphicsTiers = [
+    { id: "1", label: "Light", onTimeRatio: 0.8, longFrameRatio: 0.18, worstFrameMs: 120, frameCount: 80 },
+    { id: "2", label: "Medium", onTimeRatio: 0.7, longFrameRatio: 0.24, worstFrameMs: 180, frameCount: 70 },
+    { id: "3", label: "Busy", onTimeRatio: 0.55, longFrameRatio: 0.35, worstFrameMs: 260, frameCount: 55 },
+    { id: "4", label: "Dense", onTimeRatio: 0.4, longFrameRatio: 0.5, worstFrameMs: 500, frameCount: 40 },
+  ];
+  const result = summarizeThoroughRun(metrics);
+  assert.ok(result.graphics.everydayScore < 58);
+  assert.ok(result.score <= 67);
 });
 
 test("a zero-frame video tier is invalid and cannot earn a recommendation", () => {
@@ -327,4 +402,18 @@ test("intentional long tasks do not lower otherwise sound measurement confidence
   metrics.longTaskCount = 150;
   const result = summarizeThoroughRun(metrics);
   assert.equal(result.confidence, "High");
+});
+
+test("an unsettled preflight lowers confidence without inventing a correction", () => {
+  const metrics = fullMetrics([
+    [80, 82, 84],
+    [120, 125, 130],
+    [170, 180, 190],
+    [300, 320, 340],
+    [700, 760, 820],
+  ]);
+  metrics.baselineUnsettled = true;
+  const result = summarizeThoroughRun(metrics);
+  assert.equal(result.confidence, "Low");
+  assert.ok(result.integrityNotes.some((note) => note.includes("Background activity")));
 });

@@ -35,6 +35,8 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 18. `17_BENCHMARK_V6_ADAPTIVE_HEADROOM.md` — authoritative adaptive limit-finding revision
 19. `18_BENCHMARK_V6_1_REFRESH_NORMALIZATION.md` — authoritative high-refresh graphics correction
 
+20. `19_BENCHMARK_V6_2_CONSISTENCY_AND_HEADROOM.md` — action-tail, hitch, preflight, continuous graphics, and reserve rules
+
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
@@ -55,6 +57,10 @@ progression, weighting, and practical-limit reporting.
 
 Benchmark v6.1 keeps v6's categories and headroom behavior but supersedes its
 graphics scheduling and refresh-rate comparison method.
+
+Benchmark v6.2 keeps v6.1's workloads and display normalization but supersedes
+its action-tail interpretation, graphics scoring, preflight stability, and
+performance-reserve reporting.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 

@@ -1181,7 +1181,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .result-at-a-glance {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border-bottom: 1px solid var(--line);
 }
 .result-at-a-glance article {
@@ -1471,7 +1471,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .flyer-levels {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   border-bottom: 1px solid var(--line);
   background: white;
 }

@@ -55,7 +55,12 @@ type TimedSample = {
   workMs: number;
   presentationMs: number;
   checksum: number;
-  actions: Array<{ name: string; durationMs: number; workMs: number }>;
+  actions: Array<{
+    name: string;
+    durationMs: number;
+    workMs: number;
+    presentationMs: number;
+  }>;
 };
 type BrowsingView = {
   actionName: string;
@@ -209,6 +214,27 @@ type LatencyCategory = {
   headroomCeiling?: boolean;
   limitFound?: boolean;
 };
+type ResponsivenessSummary = {
+  available: boolean;
+  score: number | null;
+  label: string;
+  actionCount: number;
+  p50Ms: number | null;
+  p75Ms: number | null;
+  p95Ms: number | null;
+  p99Ms: number | null;
+  worstMs: number | null;
+  hitch250Ratio: number | null;
+  hitch500Ratio: number | null;
+  longFrameRatePerMinute: number | null;
+  blockingBurdenRatio: number | null;
+};
+type HeadroomSummary = {
+  score: number;
+  label: string;
+  openCeilings: number;
+  extendedCategories: number;
+};
 type SimpleCategory = {
   score: number;
   available?: boolean;
@@ -231,6 +257,8 @@ type ThoroughResult = {
   graphics: SimpleCategory;
   video: SimpleCategory;
   storage: SimpleCategory;
+  responsiveness: ResponsivenessSummary;
+  headroom: HeadroomSummary;
   recoveryMs: number;
   longTaskCount: number;
   longAnimationFrameCount: number;
@@ -488,6 +516,29 @@ async function measureRenderedAction<T>(
   });
 }
 
+async function measureIdleBaseline(durationMs = 2200) {
+  const lags: number[] = [];
+  const started = performance.now();
+  while (performance.now() - started < durationMs) {
+    const probe = performance.now();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+    lags.push(Math.max(0, performance.now() - probe - 50));
+  }
+  const sorted = [...lags].sort((a, b) => a - b);
+  const p95 =
+    sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] ??
+    0;
+  const worst = Math.max(...lags, 0);
+  const hitchCount = lags.filter((lag) => lag > 50).length;
+  return {
+    sampleCount: lags.length,
+    p95LagMs: p95,
+    worstLagMs: worst,
+    hitchCount,
+    unsettled: p95 > 35 || worst > 180 || hitchCount >= 3,
+  };
+}
+
 function friendlyProgressLevel(id: string) {
   return (
     {
@@ -653,8 +704,7 @@ export function StillGoodApp() {
         : stageId === "spreadsheets"
           ? spreadsheetActionNames
           : emailActionNames;
-    const actions: Array<{ name: string; durationMs: number; workMs: number }> =
-      [];
+    const actions: TimedSample["actions"] = [];
     let durationMs = 0;
     let workMs = 0;
     let checksum = 0;
@@ -713,6 +763,7 @@ export function StillGoodApp() {
         name: actionNames[actionIndex],
         durationMs: measured.durationMs,
         workMs: measured.workMs,
+        presentationMs: Math.max(0, measured.durationMs - measured.workMs),
       });
       setVisualTick((value) => value + 1);
     }
@@ -1067,6 +1118,17 @@ export function StillGoodApp() {
     });
     const cadenceMs = median(cadenceSamples.slice(5)) || 16.67;
 
+    setStatus("Checking whether the computer has settled");
+    const firstBaseline = await measureIdleBaseline();
+    let finalBaseline = firstBaseline;
+    let warmupExtended = false;
+    if (firstBaseline.unsettled) {
+      warmupExtended = true;
+      setStatus("Background work detected · allowing a little more time");
+      await sleep(800);
+      finalBaseline = await measureIdleBaseline();
+    }
+
     const longTasks: number[] = [];
     const longFrames: number[] = [];
     const observers: PerformanceObserver[] = [];
@@ -1085,6 +1147,7 @@ export function StillGoodApp() {
         // Unsupported collectors lower detail, never invent measurements.
       }
     }
+    const measurementStart = performance.now();
 
     let interruptionCount = 0;
     const onVisibility = () => {
@@ -1305,7 +1368,11 @@ export function StillGoodApp() {
         recoveryMs,
         longTaskCount: longTasks.length,
         longAnimationFrameCount: longFrames.length,
+        longTaskDurations: longTasks,
+        longAnimationFrameDurations: longFrames,
+        measuredActiveMs: performance.now() - measurementStart,
         interruptionCount,
+        baselineUnsettled: finalBaseline.unsettled,
       });
 
       setResult({
@@ -1318,8 +1385,13 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.1.0-refresh-normalized-graphics",
+        profileVersion: "6.2.0-consistency-and-headroom",
         raw: {
+          preflightBaseline: {
+            first: firstBaseline,
+            final: finalBaseline,
+            warmupExtended,
+          },
           headroomPolicy: {
             baseRepetitions: 5,
             headroomRepetitions: 3,
@@ -1342,6 +1414,9 @@ export function StillGoodApp() {
           videoTiers: measuredVideoTiers,
           multitaskTiers,
           storageTiers,
+          longTaskDurations: longTasks,
+          longAnimationFrameDurations: longFrames,
+          measuredActiveMs: performance.now() - measurementStart,
         },
       });
       setProgress(100);
@@ -1360,7 +1435,7 @@ export function StillGoodApp() {
       [
         JSON.stringify(
           {
-            schemaVersion: "stillgood-result.v6",
+            schemaVersion: "stillgood-result.v6.2",
             result,
             disclosure:
               "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1558,11 +1633,12 @@ export function StillGoodApp() {
               : `${result.formFactor === "mobile" ? "Mobile result · " : ""}${result.label}`}
           </p>
           <h1>{verdict}</h1>
-          <p>
-            Browsing: <strong>{guide.browsingLabel}</strong>. Office:{" "}
-            <strong>{guide.officeLabel}</strong>. Multitasking:{" "}
-            <strong>{guide.multitaskingLabel}</strong>.
-          </p>
+           <p>
+             Browsing: <strong>{guide.browsingLabel}</strong>. Office:{" "}
+             <strong>{guide.officeLabel}</strong>. Multitasking:{" "}
+             <strong>{guide.multitaskingLabel}</strong>. Responsiveness:{" "}
+             <strong>{result.responsiveness.label.toLowerCase()}</strong>.
+           </p>
         </div>
       </section>
       <section className="result-at-a-glance" aria-label="Result at a glance">
@@ -1574,10 +1650,18 @@ export function StillGoodApp() {
           <span>Office work</span>
           <strong>{guide.officeLabel}</strong>
         </article>
-        <article>
-          <span>Multitasking</span>
-          <strong>{guide.multitaskingLabel}</strong>
-        </article>
+         <article>
+           <span>Multitasking</span>
+           <strong>{guide.multitaskingLabel}</strong>
+         </article>
+         <article>
+           <span>Responsiveness</span>
+           <strong>{result.responsiveness.label}</strong>
+         </article>
+         <article>
+           <span>Performance reserve</span>
+           <strong>{result.headroom.label}</strong>
+         </article>
       </section>
       <section className="guide-invite">
         <div>
@@ -1689,10 +1773,18 @@ export function StillGoodApp() {
                <span>Video playback</span>
                <strong>{guide.videoLabel}</strong>
              </article>
-            <article>
-              <span>Multitasking</span>
-              <strong>{guide.multitaskingLabel}</strong>
-            </article>
+             <article>
+               <span>Multitasking</span>
+               <strong>{guide.multitaskingLabel}</strong>
+             </article>
+             <article>
+               <span>Responsiveness</span>
+               <strong>{result.responsiveness.label}</strong>
+             </article>
+             <article>
+               <span>Performance reserve</span>
+               <strong>{result.headroom.label}</strong>
+             </article>
           </div>
            <section className="report-measurements">
              <div className="report-section-heading">
@@ -1752,7 +1844,7 @@ export function StillGoodApp() {
                 <strong>{result.browser}</strong>
               </article>
                <article>
-                 <span>System</span>
+                 <span>Browser-reported platform</span>
                  <strong>{result.platform}</strong>
                </article>
                <article>
