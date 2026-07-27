@@ -622,7 +622,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.6",
+    schemaVersion: "stillgood-result.v6.7",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1947,7 +1947,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.6.0-adaptive-memory-and-storage-tails",
+        profileVersion: "6.7.0-granular-grade-ladder",
         raw: {
           preflightBaseline: {
             first: firstBaseline,
@@ -2167,20 +2167,24 @@ export function StillGoodApp() {
     result.formFactor === "mobile"
       ? result.grade === "A+"
         ? "Excellent browser performance on this mobile device."
-        : result.grade === "A"
+        : result.grade.startsWith("A")
           ? "Strong browser performance on this mobile device."
           : "This mobile result shows where browser performance begins to slow."
       : result.grade === "A+"
         ? "Fast enough to feel modern in this browser."
         : result.grade === "A"
           ? "Fast for everyday browser-based computing."
+          : result.grade === "A-"
+            ? "Very capable for everyday browser-based computing."
           : result.grade === "B+"
             ? "Comfortable for everyday use, with limits under heavier work."
             : result.grade === "B"
-            ? "A genuinely useful second-life computer."
-            : result.grade.startsWith("C")
-              ? "Useful for focused, lighter work."
-              : "Best assigned one simple job at a time.";
+              ? "A genuinely useful second-life computer."
+              : result.grade === "B-"
+                ? "Useful for everyday basics with lighter multitasking."
+                : result.grade.startsWith("C")
+                  ? "Useful for focused, lighter work."
+                  : "Best assigned one simple job at a time.";
 
   return (
     <>

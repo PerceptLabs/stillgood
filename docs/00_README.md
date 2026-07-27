@@ -85,6 +85,11 @@ Benchmark v6.6 keeps v6.5's checks but supersedes its memory ladder, OPFS file
 sizes and repetition policy, storage aggregation, reserve contribution, and
 large-save result wording.
 
+Benchmark v6.7 keeps every v6.6 workload, measurement, score, cap, and penalty
+unchanged while replacing broad letter bands with a more granular grade ladder.
+This prevents scores near opposite ends of adjacent ten-point bands from
+appearing nearly equivalent.
+
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
 ## Product principles

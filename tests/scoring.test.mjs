@@ -221,13 +221,24 @@ test("a large flush stall is not hidden by fast small storage operations", () =>
 
 test("grade bands provide useful extra strata", () => {
   assert.equal(gradeForScore(98).grade, "A+");
+  assert.equal(gradeForScore(97).grade, "A");
   assert.equal(gradeForScore(95).grade, "A");
-  assert.equal(gradeForScore(92).grade, "B+");
-  assert.equal(gradeForScore(88).grade, "B+");
-  assert.equal(gradeForScore(78).grade, "B");
+  assert.equal(gradeForScore(94).grade, "A");
+  assert.equal(gradeForScore(93).grade, "A-");
+  assert.equal(gradeForScore(90).grade, "A-");
+  assert.equal(gradeForScore(89).grade, "B+");
+  assert.equal(gradeForScore(86).grade, "B+");
+  assert.equal(gradeForScore(85).grade, "B");
+  assert.equal(gradeForScore(82).grade, "B");
+  assert.equal(gradeForScore(81).grade, "B-");
+  assert.equal(gradeForScore(78).grade, "B-");
+  assert.equal(gradeForScore(77).grade, "C+");
   assert.equal(gradeForScore(75).grade, "C+");
-  assert.equal(gradeForScore(68).grade, "C+");
-  assert.equal(gradeForScore(58).grade, "C");
+  assert.equal(gradeForScore(74).grade, "C+");
+  assert.equal(gradeForScore(73).grade, "C");
+  assert.equal(gradeForScore(68).grade, "C");
+  assert.equal(gradeForScore(67).grade, "C-");
+  assert.equal(gradeForScore(58).grade, "C-");
   assert.equal(gradeForScore(45).grade, "D");
   assert.equal(gradeForScore(40).grade, "E");
   assert.equal(gradeForScore(20).grade, "E");
@@ -448,7 +459,7 @@ test("a strong second-life profile is separated from modern-fast hardware", () =
       [850, 930, 1050],
     ]),
   );
-  assert.ok(["B+", "B"].includes(result.grade));
+  assert.ok(result.grade.startsWith("B"));
   assert.equal(result.ceilingReached, false);
 });
 

@@ -2,6 +2,17 @@
 
 > Combined on 2026-07-26. Individual source files remain authoritative.
 
+## Current benchmark addendum: v6.7 granular grade ladder
+
+The authoritative current profile is `6.7.0-granular-grade-ladder`. It keeps
+all v6.6 workloads, measurements, continuous scores, caps, and penalties
+unchanged. It adds A-, B-, and C- and narrows the middle grade bands so a
+17-point score difference is represented by more than one adjacent label. See
+`24_BENCHMARK_V6_7_GRANULAR_GRADE_LADDER.md`.
+
+The v6.7 addendum supersedes only the grade labels and thresholds from earlier
+profiles.
+
 ## Current benchmark addendum: v6.6 adaptive memory and storage tails
 
 The authoritative current profile is
