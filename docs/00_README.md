@@ -39,6 +39,8 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 
 21. `20_BENCHMARK_V6_3_CALIBRATION_AND_HISTORY.md` — corrected adaptive reserve scoring and authenticated automatic run history
 
+22. `21_BENCHMARK_V6_4_PRACTICAL_GRADE_LADDER.md` — stricter modern-performance grade bands
+
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
@@ -67,6 +69,9 @@ performance-reserve reporting.
 Benchmark v6.3 keeps v6.2's workloads and measurements but supersedes its
 adaptive-headroom ceiling, A+ threshold, and result-storage behavior for the
 authenticated internal deployment.
+
+Benchmark v6.4 keeps v6.3's measurements, continuous index, headroom rules, and
+private history but supersedes its letter-grade thresholds and result wording.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 

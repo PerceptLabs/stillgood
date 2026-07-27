@@ -2,16 +2,14 @@
 
 > Combined on 2026-07-26. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.3 calibrated headroom and run history
+## Current benchmark addendum: v6.4 practical grade ladder
 
 The authoritative current profile is
-`6.3.0-calibrated-headroom-and-history`. It preserves v6.2's balanced automated
-workload ladder, action-tail evidence, preflight, and 60 fps-normalized graphics
-schedule. It stops treating a merely usable maximum adaptive tier as perfect
-headroom, reserves A+ for scores of 95 or higher, constrains the composite when
-measured reserve is lower, and automatically saves complete runs to private
-authenticated history. See `20_BENCHMARK_V6_3_CALIBRATION_AND_HISTORY.md` for
-the complete rules.
+`6.4.0-practical-grade-ladder`. It preserves v6.3's workloads, measurements,
+continuous index, headroom constraints, and authenticated run history. It
+reserves A+ for 98–100, A for 95–97, and places a useful but lower-reserve
+system in the B or C range according to measured behavior. See
+`21_BENCHMARK_V6_4_PRACTICAL_GRADE_LADDER.md` for the complete rules.
 
 
 ---

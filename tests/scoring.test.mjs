@@ -95,14 +95,16 @@ test("normalization interpolates and clamps", () => {
 });
 
 test("grade bands provide useful extra strata", () => {
-  assert.equal(gradeForScore(94).grade, "A");
-  assert.equal(gradeForScore(95).grade, "A+");
-  assert.equal(gradeForScore(86).grade, "A");
-  assert.equal(gradeForScore(78).grade, "B+");
-  assert.equal(gradeForScore(70).grade, "B");
-  assert.equal(gradeForScore(60).grade, "C+");
-  assert.equal(gradeForScore(50).grade, "C");
-  assert.equal(gradeForScore(40).grade, "D");
+  assert.equal(gradeForScore(98).grade, "A+");
+  assert.equal(gradeForScore(95).grade, "A");
+  assert.equal(gradeForScore(92).grade, "B+");
+  assert.equal(gradeForScore(88).grade, "B+");
+  assert.equal(gradeForScore(78).grade, "B");
+  assert.equal(gradeForScore(75).grade, "C+");
+  assert.equal(gradeForScore(68).grade, "C+");
+  assert.equal(gradeForScore(58).grade, "C");
+  assert.equal(gradeForScore(45).grade, "D");
+  assert.equal(gradeForScore(40).grade, "E");
   assert.equal(gradeForScore(20).grade, "E");
 });
 

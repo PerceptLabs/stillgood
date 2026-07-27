@@ -33,6 +33,17 @@ function nestedObject(value: unknown) {
     : {};
 }
 
+function currentGradeForIndex(score: number) {
+  if (score >= 98) return "A+";
+  if (score >= 95) return "A";
+  if (score >= 88) return "B+";
+  if (score >= 78) return "B";
+  if (score >= 68) return "C+";
+  if (score >= 58) return "C";
+  if (score >= 45) return "D";
+  return "E";
+}
+
 export async function GET(request: Request) {
   const userEmail = authenticatedEmail(request);
   if (!userEmail)
@@ -81,7 +92,12 @@ export async function GET(request: Request) {
       .orderBy(desc(benchmarkRuns.createdAt), desc(benchmarkRuns.startedAt))
       .limit(100);
 
-    return Response.json({ runs });
+    return Response.json({
+      runs: runs.map((run) => ({
+        ...run,
+        grade: currentGradeForIndex(run.score),
+      })),
+    });
   } catch (error) {
     return Response.json(
       {
@@ -185,4 +201,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

@@ -558,7 +558,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.3",
+    schemaVersion: "stillgood-result.v6.4",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1479,7 +1479,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.3.0-calibrated-headroom-and-history",
+        profileVersion: "6.4.0-practical-grade-ladder",
         raw: {
           preflightBaseline: {
             first: firstBaseline,
@@ -1698,8 +1698,10 @@ export function StillGoodApp() {
       : result.grade === "A+"
         ? "Fast enough to feel modern in this browser."
         : result.grade === "A"
-          ? "Comfortable for everyday browser-based computing."
-          : result.grade.startsWith("B")
+          ? "Fast for everyday browser-based computing."
+          : result.grade === "B+"
+            ? "Comfortable for everyday use, with limits under heavier work."
+            : result.grade === "B"
             ? "A genuinely useful second-life computer."
             : result.grade.startsWith("C")
               ? "Useful for focused, lighter work."
@@ -2048,7 +2050,7 @@ function SavedRunsDialog({
               <article key={run.id}>
                 <div className="saved-run-grade">
                   <strong>{run.grade}</strong>
-                  <span>{run.score}</span>
+                  <span>Index {run.score}</span>
                 </div>
                 <div className="saved-run-copy">
                   <strong>
