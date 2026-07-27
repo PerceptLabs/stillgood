@@ -214,6 +214,17 @@ type OpfsStorageTierResult = {
   flushMs: number;
   reopenMs: number;
   randomReadMs: number;
+  flushP95Ms: number;
+  flushWorstMs: number;
+  foregroundP95Ms: number;
+  foregroundWorstMs: number;
+  samples: Array<{
+    writeMs: number;
+    flushMs: number;
+    reopenMs: number;
+    randomReadMs: number;
+    verified: boolean;
+  }>;
   verified: boolean;
   available: boolean;
   error?: string;
@@ -225,6 +236,8 @@ type MemoryTierResult = {
   retainedMB: number;
   allocationMs: number;
   scanMs: number;
+  scannedMB: number;
+  sweepMBps: number;
   copyRoundTripMs: number;
   probeP95Ms: number;
   probeWorstMs: number;
@@ -279,6 +292,12 @@ type SimpleCategory = {
   invalidTierCount?: number;
   highestComfortable?: string;
   highestUsable?: string;
+  largeSaveScore?: number | null;
+  largeSaveStatus?: string;
+  largeSaveLabel?: string;
+  largeFlushMs?: number | null;
+  largeFlushWorstMs?: number | null;
+  saveForegroundP95Ms?: number | null;
   tiers: Array<{ id: string; label: string; status: string }>;
 };
 type ThoroughResult = {
@@ -603,7 +622,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.5",
+    schemaVersion: "stillgood-result.v6.6",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -744,7 +763,7 @@ async function runStrictStorageTier(
     payload[offset] = (tierIndex * 37 + offset) & 255;
   const commits: number[] = [];
 
-  for (let index = 0; index < transactionCount; index += 1) {
+  for (let index = -3; index < transactionCount; index += 1) {
     const started = performance.now();
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(
@@ -758,7 +777,7 @@ async function runStrictStorageTier(
       transaction.onerror = () => reject(transaction.error);
       transaction.oncomplete = () => resolve();
     });
-    commits.push(performance.now() - started);
+    if (index >= 0) commits.push(performance.now() - started);
   }
 
   let verified = true;
@@ -837,6 +856,33 @@ async function measureForegroundLag(durationMs = 900) {
   return samples;
 }
 
+async function measureForegroundLagUntil(
+  operation: Promise<unknown>,
+  maximumMs = 30000,
+) {
+  let finished = false;
+  void operation.then(
+    () => {
+      finished = true;
+    },
+    () => {
+      finished = true;
+    },
+  );
+  const samples: number[] = [];
+  const started = performance.now();
+  while (
+    !finished &&
+    performance.now() - started < maximumMs &&
+    !document.hidden
+  ) {
+    const probe = performance.now();
+    await sleep(25);
+    samples.push(Math.max(0, performance.now() - probe - 25));
+  }
+  return samples;
+}
+
 async function runMemoryTier(
   worker: Worker,
   targetMB: number,
@@ -853,6 +899,8 @@ async function runMemoryTier(
     retainedMB: number;
     allocationMs: number;
     scanMs: number;
+    scannedMB: number;
+    sweepMBps: number;
     checksum: number;
   }>(
     worker,
@@ -862,6 +910,7 @@ async function runMemoryTier(
       targetMB,
       chunkMB: 8,
       scanDurationMs: 1100,
+      scanStride: 64,
       seed: 900 + tierIndex,
       copyBuffer: copyBuffer.buffer,
     },
@@ -883,6 +932,8 @@ async function runMemoryTier(
     retainedMB: measured.retainedMB,
     allocationMs: measured.allocationMs,
     scanMs: measured.scanMs,
+    scannedMB: measured.scannedMB,
+    sweepMBps: measured.sweepMBps,
     copyRoundTripMs,
     probeP95Ms: percentileValue(probeSamples, 0.95),
     probeWorstMs: Math.max(...probeSamples, 0),
@@ -898,9 +949,13 @@ async function runOpfsStorageTier(
   tierIndex: number,
 ): Promise<OpfsStorageTierResult> {
   const requestId = `opfs-${tierIndex}-${Date.now()}`;
-  const measured = await requestWorkerResult<
-    Omit<OpfsStorageTierResult, "id" | "label"> & {
+  const workerMeasurement = requestWorkerResult<
+    {
       type: string;
+      available: boolean;
+      samples?: OpfsStorageTierResult["samples"];
+      verified?: boolean;
+      error?: string;
     }
   >(
     worker,
@@ -909,20 +964,36 @@ async function runOpfsStorageTier(
       requestId,
       sizeMB,
       randomReads,
+      warmupCount: 1,
+      repetitionCount: 3,
       seed: 1200 + tierIndex,
     },
     "opfs-complete",
-    30000,
+    60000,
   );
+  const [measured, foregroundSamples] = await Promise.all([
+    workerMeasurement,
+    measureForegroundLagUntil(workerMeasurement, 55000),
+  ]);
+  const samples = measured.samples ?? [];
+  const writeValues = samples.map((sample) => sample.writeMs);
+  const flushValues = samples.map((sample) => sample.flushMs);
+  const reopenValues = samples.map((sample) => sample.reopenMs);
+  const randomReadValues = samples.map((sample) => sample.randomReadMs);
   return {
     id: `opfs-${sizeMB}`,
     label: `${sizeMB} MB persistent file`,
     sizeMB,
     randomReads,
-    writeMs: measured.writeMs ?? 0,
-    flushMs: measured.flushMs ?? 0,
-    reopenMs: measured.reopenMs ?? 0,
-    randomReadMs: measured.randomReadMs ?? 0,
+    writeMs: median(writeValues),
+    flushMs: median(flushValues),
+    reopenMs: median(reopenValues),
+    randomReadMs: median(randomReadValues),
+    flushP95Ms: percentileValue(flushValues, 0.95),
+    flushWorstMs: Math.max(...flushValues, 0),
+    foregroundP95Ms: percentileValue(foregroundSamples, 0.95),
+    foregroundWorstMs: Math.max(...foregroundSamples, 0),
+    samples,
     verified: measured.verified ?? false,
     available: measured.available,
     error: measured.error,
@@ -1676,16 +1747,17 @@ export function StillGoodApp() {
           (navigator as Navigator & { deviceMemory?: number }).deviceMemory ??
           4;
         const mobile = detectFormFactor() === "mobile";
-        const maximumMemoryMB = mobile
-          ? 256
+        const memoryLevels = mobile
+          ? reportedMemory >= 4
+            ? [64, 128, 256, 512]
+            : [64, 128, 256, 384]
           : reportedMemory >= 8
-            ? 512
+            ? [128, 256, 512, 1024]
             : reportedMemory >= 4
-              ? 384
-              : 256;
-        const memoryLevels = [...new Set([64, 128, 256, maximumMemoryMB])]
-          .filter((value) => value <= maximumMemoryMB)
-          .sort((a, b) => a - b);
+              ? [128, 256, 512, 768]
+              : reportedMemory > 0
+                ? [64, 128, 256, 384]
+                : [128, 256, 512, 768];
         for (const [index, targetMB] of memoryLevels.entries()) {
           setStatus(`Keeping ${targetMB} MB active while checking responsiveness`);
           const measured = await runMemoryTier(
@@ -1771,11 +1843,18 @@ export function StillGoodApp() {
       const opfsWorker = new Worker("/benchmark-worker.js");
       workersRef.current.push(opfsWorker);
       try {
-        const opfsLevels = [
-          { sizeMB: 4, randomReads: 64 },
-          { sizeMB: 16, randomReads: 128 },
-          { sizeMB: 48, randomReads: 256 },
-        ];
+        const opfsLevels =
+          detectFormFactor() === "mobile"
+            ? [
+                { sizeMB: 8, randomReads: 96 },
+                { sizeMB: 32, randomReads: 192 },
+                { sizeMB: 64, randomReads: 320 },
+              ]
+            : [
+                { sizeMB: 16, randomReads: 128 },
+                { sizeMB: 64, randomReads: 256 },
+                { sizeMB: 128, randomReads: 384 },
+              ];
         for (const [index, level] of opfsLevels.entries()) {
           setStatus("Flushing and reopening a persistent local browser file");
           const measured = await runOpfsStorageTier(
@@ -1786,7 +1865,12 @@ export function StillGoodApp() {
           );
           opfsStorageTiers.push(measured);
           setProgress(95 + ((index + 1) / opfsLevels.length) * 3);
-          if (!measured.available) break;
+          if (
+            !measured.available ||
+            measured.flushWorstMs > 5000 ||
+            measured.foregroundWorstMs > 1000
+          )
+            break;
         }
       } catch (error) {
         opfsStorageTiers.push({
@@ -1798,6 +1882,11 @@ export function StillGoodApp() {
           flushMs: 0,
           reopenMs: 0,
           randomReadMs: 0,
+          flushP95Ms: 0,
+          flushWorstMs: 0,
+          foregroundP95Ms: 0,
+          foregroundWorstMs: 0,
+          samples: [],
           verified: false,
           available: false,
           error:
@@ -1858,7 +1947,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.5.0-memory-and-persistent-storage",
+        profileVersion: "6.6.0-adaptive-memory-and-storage-tails",
         raw: {
           preflightBaseline: {
             first: firstBaseline,
@@ -2148,6 +2237,10 @@ export function StillGoodApp() {
            <span>Performance reserve</span>
            <strong>{result.headroom.label}</strong>
          </article>
+         <article>
+           <span>Large saves</span>
+           <strong>{guide.largeSaveLabel}</strong>
+         </article>
       </section>
       <section className="guide-invite">
         <div>
@@ -2167,7 +2260,12 @@ export function StillGoodApp() {
             <article key={name}>
               <div>
                 <strong>{name}</strong>
-                <span>{categoryOutcome(category)}</span>
+                <span>
+                  {name === "Persistent saves" &&
+                  (result.storage.largeFlushMs ?? 0) >= 250
+                    ? guide.largeSaveLabel
+                    : categoryOutcome(category)}
+                </span>
               </div>
               <p>{categoryDescriptions[name]}</p>
             </article>
@@ -2276,6 +2374,10 @@ export function StillGoodApp() {
              <article>
                <span>Performance reserve</span>
                <strong>{result.headroom.label}</strong>
+             </article>
+             <article>
+               <span>Large saves</span>
+               <strong>{guide.largeSaveLabel}</strong>
              </article>
           </div>
            <section className="report-measurements">

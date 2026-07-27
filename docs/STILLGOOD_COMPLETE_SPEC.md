@@ -2,6 +2,19 @@
 
 > Combined on 2026-07-26. Individual source files remain authoritative.
 
+## Current benchmark addendum: v6.6 adaptive memory and storage tails
+
+The authoritative current profile is
+`6.6.0-adaptive-memory-and-storage-tails`. It expands safe active-memory tiers,
+repeats larger OPFS workloads, verifies sampled contents, scores flush-tail and
+foreground delays, and presents large-save pauses in practical language.
+Memory and storage can lower a result when poor but no longer inflate
+performance reserve merely by being fast. See
+`23_BENCHMARK_V6_6_ADAPTIVE_MEMORY_AND_STORAGE_TAILS.md`.
+
+The v6.6 addendum supersedes the v6.5 section immediately below where they
+conflict.
+
 ## Current benchmark addendum: v6.5 memory and persistent storage
 
 The authoritative current profile is

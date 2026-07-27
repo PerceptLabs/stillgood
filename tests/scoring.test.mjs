@@ -184,6 +184,41 @@ test("persistent storage scoring distinguishes quick and delayed durable saves",
   assert.ok(delayed.score < 58);
 });
 
+test("a large flush stall is not hidden by fast small storage operations", () => {
+  const bulk = [
+    { id: "1", label: "1 MB", writeMs: 5, readMs: 2 },
+    { id: "8", label: "8 MB", writeMs: 10, readMs: 4 },
+    { id: "32", label: "32 MB", writeMs: 30, readMs: 12 },
+  ];
+  const strict = [
+    {
+      id: "strict-64",
+      label: "64 small saves",
+      p95CommitMs: 8,
+      worstCommitMs: 15,
+      verified: true,
+    },
+  ];
+  const persistentTier = (flushMs) => ({
+    id: "opfs-48",
+    label: "48 MB persistent file",
+    sizeMB: 48,
+    randomReads: 256,
+    writeMs: 360,
+    flushMs,
+    randomReadMs: 6,
+    verified: true,
+    available: true,
+  });
+  const hpLike = summarizeStorage(bulk, strict, [persistentTier(119)]);
+  const lenovoLike = summarizeStorage(bulk, strict, [persistentTier(678)]);
+
+  assert.ok(hpLike.largeSaveScore - lenovoLike.largeSaveScore >= 25);
+  assert.ok(hpLike.score - lenovoLike.score >= 15);
+  assert.equal(lenovoLike.largeSaveStatus, "usable");
+  assert.equal(lenovoLike.largeFlushMs, 678);
+});
+
 test("grade bands provide useful extra strata", () => {
   assert.equal(gradeForScore(98).grade, "A+");
   assert.equal(gradeForScore(95).grade, "A");

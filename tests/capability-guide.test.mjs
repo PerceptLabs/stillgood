@@ -55,3 +55,26 @@ test("a light-use result becomes a concrete practical guide", () => {
     "One main task plus a few light background tasks",
   );
 });
+
+test("large save stalls become prominent practical advice", () => {
+  const guide = buildCapabilityGuide({
+    ...chromebookResult,
+    responsiveness: { label: "Occasional pauses" },
+    memory: { available: true, score: 92 },
+    storage: {
+      available: true,
+      score: 88,
+      largeFlushMs: 678,
+    },
+  });
+
+  assert.equal(guide.largeSaveLabel, "Noticeable pause");
+  assert.ok(
+    guide.cautions.some(
+      (item) => item.title === "Large saves can cause a clear pause",
+    ),
+  );
+  assert.ok(
+    guide.cautions.some((item) => item.title === "Occasional catch-up pauses"),
+  );
+});

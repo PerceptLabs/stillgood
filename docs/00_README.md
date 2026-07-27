@@ -43,6 +43,8 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 
 23. `22_BENCHMARK_V6_5_MEMORY_AND_PERSISTENT_STORAGE.md` — controlled memory-pressure and durable browser-storage checks
 
+24. `23_BENCHMARK_V6_6_ADAPTIVE_MEMORY_AND_STORAGE_TAILS.md` — larger active-memory tiers, repeated persistent-file tests, and tail-aware practical scoring
+
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
@@ -78,6 +80,10 @@ private history but supersedes its letter-grade thresholds and result wording.
 Benchmark v6.5 keeps v6.4's balanced everyday workloads and grade ladder while
 adding browser-observable memory-pressure and persistent-save evidence. It also
 requires a reserve score of at least 88 for B+.
+
+Benchmark v6.6 keeps v6.5's checks but supersedes its memory ladder, OPFS file
+sizes and repetition policy, storage aggregation, reserve contribution, and
+large-save result wording.
 
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 

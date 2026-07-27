@@ -73,10 +73,15 @@ async function runMemoryPressure(data) {
 
   const scanStart = performance.now();
   const scanDeadline = scanStart + Math.max(0, data.scanDurationMs || 0);
+  const scanStride = Math.max(64, data.scanStride || 64);
+  let scannedBytes = 0;
   do {
     for (const block of retainedMemoryBlocks) {
-      for (let offset = 0; offset < block.length; offset += 4096) {
-        checksum = (checksum ^ block[offset]) >>> 0;
+      for (let offset = 0; offset < block.length; offset += scanStride) {
+        const value = (block[offset] + 1) & 255;
+        block[offset] = value;
+        checksum = (checksum ^ value) >>> 0;
+        scannedBytes += scanStride;
       }
     }
     if (data.copyBuffer) {
@@ -93,6 +98,8 @@ async function runMemoryPressure(data) {
     performance.now() < scanDeadline
   );
   const scanMs = performance.now() - scanStart;
+  const sweepMBps =
+    scanMs > 0 ? scannedBytes / (1024 * 1024) / (scanMs / 1000) : 0;
 
   self.postMessage({
     type: "memory-complete",
@@ -100,6 +107,8 @@ async function runMemoryPressure(data) {
     retainedMB: retainedBytes / (1024 * 1024),
     allocationMs,
     scanMs,
+    scannedMB: scannedBytes / (1024 * 1024),
+    sweepMBps,
     checksum,
   });
 }
@@ -119,45 +128,72 @@ async function runOpfsStorage(data) {
       // A previous temporary file usually does not exist.
     }
     const fileHandle = await root.getFileHandle(filename, { create: true });
-    accessHandle = await fileHandle.createSyncAccessHandle();
     const totalBytes = Math.max(1, data.sizeMB) * 1024 * 1024;
     const block = new Uint8Array(256 * 1024);
+    const warmupCount = Math.max(0, data.warmupCount || 0);
+    const repetitionCount = Math.max(1, data.repetitionCount || 1);
+    const samples = [];
     let checksum = 0;
-    let written = 0;
-    const writeStart = performance.now();
-    while (written < totalBytes && !cancelled) {
-      const bytes = Math.min(block.length, totalBytes - written);
-      for (let offset = 0; offset < bytes; offset += 4096) {
-        const value = (written + offset + data.seed * 17) & 255;
-        block[offset] = value;
-        checksum = (checksum + value) >>> 0;
-      }
-      written += accessHandle.write(block.subarray(0, bytes), { at: written });
-    }
-    const writeMs = performance.now() - writeStart;
-    const flushStart = performance.now();
-    accessHandle.flush();
-    const flushMs = performance.now() - flushStart;
-    accessHandle.close();
-    accessHandle = null;
+    let verified = true;
 
-    const reopenStart = performance.now();
-    accessHandle = await fileHandle.createSyncAccessHandle();
-    const reopenMs = performance.now() - reopenStart;
-    const readBuffer = new Uint8Array(4096);
-    let randomState = (data.seed || 1) >>> 0;
-    const randomReadStart = performance.now();
-    for (let operation = 0; operation < data.randomReads; operation += 1) {
-      randomState = (randomState * 1664525 + 1013904223) >>> 0;
-      const blockCount = Math.max(1, Math.floor(totalBytes / 4096));
-      const at = (randomState % blockCount) * 4096;
-      accessHandle.read(readBuffer, { at });
-      checksum = (checksum ^ readBuffer[0]) >>> 0;
+    for (
+      let repetition = -warmupCount;
+      repetition < repetitionCount && !cancelled;
+      repetition += 1
+    ) {
+      const sampleSeed = (data.seed || 1) + repetition + warmupCount;
+      for (let offset = 0; offset < block.length; offset += 1)
+        block[offset] = (offset * 31 + sampleSeed * 17) & 255;
+
+      accessHandle = await fileHandle.createSyncAccessHandle();
+      accessHandle.truncate(0);
+      let written = 0;
+      const writeStart = performance.now();
+      while (written < totalBytes && !cancelled) {
+        const bytes = Math.min(block.length, totalBytes - written);
+        const amount = accessHandle.write(block.subarray(0, bytes), {
+          at: written,
+        });
+        if (amount <= 0) throw new Error("OPFS partial write");
+        written += amount;
+      }
+      const writeMs = performance.now() - writeStart;
+      const flushStart = performance.now();
+      accessHandle.flush();
+      const flushMs = performance.now() - flushStart;
+      accessHandle.close();
+      accessHandle = null;
+
+      const reopenStart = performance.now();
+      accessHandle = await fileHandle.createSyncAccessHandle();
+      const reopenMs = performance.now() - reopenStart;
+      const readBuffer = new Uint8Array(4096);
+      let randomState = sampleSeed >>> 0;
+      let sampleVerified = accessHandle.getSize() === totalBytes;
+      const randomReadStart = performance.now();
+      for (let operation = 0; operation < data.randomReads; operation += 1) {
+        randomState = (randomState * 1664525 + 1013904223) >>> 0;
+        const maximumOffset = Math.max(0, totalBytes - readBuffer.length);
+        const at = maximumOffset ? randomState % maximumOffset : 0;
+        const read = accessHandle.read(readBuffer, { at });
+        const expected = ((at % block.length) * 31 + sampleSeed * 17) & 255;
+        sampleVerified =
+          sampleVerified && read === readBuffer.length && readBuffer[0] === expected;
+        checksum = (checksum ^ readBuffer[0]) >>> 0;
+      }
+      const randomReadMs = performance.now() - randomReadStart;
+      accessHandle.close();
+      accessHandle = null;
+      verified = verified && sampleVerified;
+      if (repetition >= 0)
+        samples.push({
+          writeMs,
+          flushMs,
+          reopenMs,
+          randomReadMs,
+          verified: sampleVerified,
+        });
     }
-    const randomReadMs = performance.now() - randomReadStart;
-    const verified = accessHandle.getSize() === totalBytes;
-    accessHandle.close();
-    accessHandle = null;
     await root.removeEntry(filename);
 
     self.postMessage({
@@ -166,10 +202,7 @@ async function runOpfsStorage(data) {
       available: true,
       sizeMB: data.sizeMB,
       randomReads: data.randomReads,
-      writeMs,
-      flushMs,
-      reopenMs,
-      randomReadMs,
+      samples,
       verified,
       checksum,
     });
