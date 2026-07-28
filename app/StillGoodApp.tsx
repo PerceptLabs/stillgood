@@ -16,6 +16,7 @@ import {
 } from "@/lib/scoring.mjs";
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
+import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
 import {
   browsingActionNames,
   buildBrowsingDataset,
@@ -625,7 +626,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.8",
+    schemaVersion: "stillgood-result.v6.9",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1971,8 +1972,9 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.8.0-browser-neutral-media-and-headroom",
+        profileVersion: "6.9.0-browser-neutral-compatibility-adapters",
         raw: {
+          compatibilityAdapters: compatibilityAdapterProfile,
           preflightBaseline: {
             first: firstBaseline,
             final: finalBaseline,

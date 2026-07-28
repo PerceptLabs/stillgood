@@ -45,6 +45,16 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 
 24. `23_BENCHMARK_V6_6_ADAPTIVE_MEMORY_AND_STORAGE_TAILS.md` — larger active-memory tiers, repeated persistent-file tests, and tail-aware practical scoring
 
+25. `24_BENCHMARK_V6_7_GRANULAR_GRADE_LADDER.md` — narrower A–E grade strata
+
+26. `25_BENCHMARK_V6_8_BROWSER_NEUTRAL_MEDIA_AND_HEADROOM.md` — duration-based media stalls and separated everyday capability
+
+27. `26_V6_8_REFERENCE_REPLAY.md` — paired Chromium and Firefox regression replay
+
+28. `27_BENCHMARK_V6_9_COMPATIBILITY_ADAPTERS.md` — browser-neutral workload and measurement adaptation policy
+
+29. `STILLGOOD_METHODOLOGY_WHITEPAPER.md` — public methodology and validity explanation
+
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
@@ -93,6 +103,12 @@ appearing nearly equivalent.
 Benchmark v6.8 keeps the v6.7 grade ladder and all workload fixtures while
 measuring media waiting duration instead of event count and separating ordinary
 core capability from adaptive reserve tiers. It contains no browser-name checks.
+
+Benchmark v6.9 formalizes browser-neutral compatibility adapters. Fixed-locale
+alphabetical ranks are derived once for the fixture's unique labels, so timed
+large-array sorts preserve the intended ordering without repeatedly initializing
+collation. No adapter changes workload size, score thresholds, or results by
+browser name.
 
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and

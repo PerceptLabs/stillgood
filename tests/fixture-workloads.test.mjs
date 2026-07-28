@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   browsingActionNames,
@@ -16,6 +17,10 @@ import {
   spreadsheetActionNames,
   writingActionNames,
 } from "../lib/office-workloads.mjs";
+import {
+  compatibilityAdapterProfile,
+  createTextSortRanker,
+} from "../lib/benchmark-compatibility.mjs";
 
 test("browsing fixture covers articles, search, shopping, and busy pages", () => {
   const dataset = buildBrowsingDataset(31, 6500);
@@ -44,6 +49,20 @@ test("email fixture covers large-mailbox and rich-message journeys", () => {
   assert.equal(views[4].folder, "archive");
   assert.equal(views[5].activeMessage.kind, "newsletter");
   assert.ok(views.every((view) => view.rows.length <= 100));
+
+  const expectedSortedIds = messages
+    .filter((message) => message.folder === "inbox")
+    .sort(
+      (left, right) =>
+        left.sender.localeCompare(right.sender) ||
+        left.id - right.id,
+    )
+    .slice(0, 64)
+    .map((message) => message.id);
+  assert.deepEqual(
+    views[2].rows.map((message) => message.id),
+    expectedSortedIds,
+  );
 });
 
 test("writing fixture exercises long-document layout and reflow", () => {
@@ -89,4 +108,37 @@ test("office fixture generation is deterministic", () => {
     createSpreadsheetView(firstSheet, 1, 20, 8).checksum,
     createSpreadsheetView(secondSheet, 1, 20, 8).checksum,
   );
+});
+
+test("text sorting uses one deterministic browser-neutral compatibility adapter", () => {
+  const names = [
+    "Workshop Desk",
+    "alex morgan",
+    "Repair Fair",
+    "Alex Morgan",
+  ];
+  const ranker = createTextSortRanker(names);
+  assert.deepEqual(ranker.orderedValues, [
+    "alex morgan",
+    "Alex Morgan",
+    "Repair Fair",
+    "Workshop Desk",
+  ]);
+  assert.equal(ranker.rankFor("Repair Fair"), 2);
+  assert.equal(
+    compatibilityAdapterProfile.textSorting,
+    "precomputed-fixed-locale-ranks",
+  );
+  assert.equal(
+    compatibilityAdapterProfile.mediaWaiting,
+    "measured-duration",
+  );
+});
+
+test("compatibility adapters use capabilities rather than browser identity", async () => {
+  const source = await readFile(
+    new URL("../lib/benchmark-compatibility.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /userAgent|Firefox|Chrom(?:e|ium)|Safari|Gecko/i);
 });

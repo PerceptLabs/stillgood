@@ -83,7 +83,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.8</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.9</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -93,9 +93,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.8.0</span>
+            <span>Profile 6.9.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.8.md" download>
+            <a href="/stillgood-methodology-v6.9.md" download>
               Download Markdown
             </a>
           </div>
@@ -255,7 +255,7 @@ export default function MethodologyPage() {
             </article>
           </div>
 
-          <h3>Browser-neutral media correction in v6.8</h3>
+          <h3>Browser-neutral compatibility adapters</h3>
           <p>
             Browsers can emit media lifecycle events at slightly different
             moments. StillGood records the total and longest period between a
@@ -263,6 +263,15 @@ export default function MethodologyPage() {
             event under 100 milliseconds does not become a visible stall by
             itself. Dropped frames, media-time advancement, completion, and
             delivered-frame counts remain independent checks.
+          </p>
+          <p>
+            Repeated user-facing text sorts derive alphabetical ranks once
+            from the fixture&apos;s unique labels using a fixed-locale
+            <code>Intl.Collator</code>. Timed large-array sorts compare those
+            ranks. This avoids repeatedly initializing collation while
+            preserving the same ordering, data, actions, and scoring thresholds
+            in every browser. Adapters correct invocation or observation
+            differences; they never multiply a score based on the browser name.
           </p>
 
           <h3>Everyday capability and performance reserve</h3>
@@ -390,6 +399,14 @@ export default function MethodologyPage() {
               {" "}— focus, profiles, background work, power, and thermal state.
             </li>
             <li>
+              <a href="https://browserbench.org/announcements/speedometer3.1/">Speedometer 3.1 corrections</a>
+              {" "}— equal work across browsers and complete measurement of asynchronous work.
+            </li>
+            <li>
+              <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/localeCompare">Locale-aware sorting guidance</a>
+              {" "}— reuse an <code>Intl.Collator</code> when sorting large arrays.
+            </li>
+            <li>
               <a href="https://web.dev/articles/inp">Interaction to Next Paint</a>
               {" "}— visible responsiveness and 200/500 ms reference anchors.
             </li>
@@ -420,7 +437,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.8</strong>
+            <strong>StillGood methodology v6.9</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

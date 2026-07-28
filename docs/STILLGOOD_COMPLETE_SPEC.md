@@ -2,9 +2,23 @@
 
 > Combined on 2026-07-26. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.8 browser-neutral media and headroom
+## Current benchmark addendum: v6.9 browser-neutral compatibility adapters
 
-The authoritative current profile is
+The current benchmark profile is
+`6.9.0-browser-neutral-compatibility-adapters`. Compatibility adapters may
+equalize how equivalent work is invoked or observed across browser engines, but
+must never change the workload, thresholds, or score based on browser identity.
+Repeated locale-aware text sorts derive fixed-locale ranks once for the
+fixture's unique labels, then compare those ranks inside timed large-array
+sorts. This preserves the intended ordering while avoiding repeated collation
+setup inside the timed action.
+
+The v6.9 addendum supersedes only the repeated locale-aware sort implementation.
+The v6.8 media-duration and everyday-versus-reserve corrections remain active.
+
+## Previous benchmark addendum: v6.8 browser-neutral media and headroom
+
+The v6.8 profile is
 `6.8.0-browser-neutral-media-and-headroom`. It measures cumulative and longest
 video waiting duration rather than equating event counts with visible stalls.
 It also exposes a normal-through-demanding everyday score so adaptive reserve
@@ -19,9 +33,9 @@ The public methodology explanation is
 The v6.8 addendum supersedes only the media-stall interpretation and
 core-minimum input from v6.7 and earlier.
 
-## Current benchmark addendum: v6.7 granular grade ladder
+## Previous benchmark addendum: v6.7 granular grade ladder
 
-The authoritative current profile is `6.7.0-granular-grade-ladder`. It keeps
+The v6.7 profile is `6.7.0-granular-grade-ladder`. It keeps
 all v6.6 workloads, measurements, continuous scores, caps, and penalties
 unchanged. It adds A-, B-, and C- and narrows the middle grade bands so a
 17-point score difference is represented by more than one adjacent label. See

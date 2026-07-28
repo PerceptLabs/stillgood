@@ -1,7 +1,7 @@
 # StillGood methodology whitepaper
 
 **Title:** Measuring what a computer is still good for
-**Benchmark profile:** `6.8.0-browser-neutral-media-and-headroom`
+**Benchmark profile:** `6.9.0-browser-neutral-compatibility-adapters`
 **Published:** July 2026
 
 ## Abstract
@@ -106,6 +106,14 @@ Video uses `getVideoPlaybackQuality()` for delivered and dropped frames, with
 duration of post-start waiting periods rather than treating every `waiting`
 event as an equally visible stall.
 
+Version 6.9 introduces a compatibility-adapter policy. An adapter may make the
+same operation observable or invocable across engines, but it must not change
+the workload, thresholds, or score according to browser identity. The first
+adapter derives fixed-locale alphabetical ranks once for the fixture's unique
+labels, then compares those ranks inside repeated large-array sorts. This
+follows platform guidance to avoid repeated locale-service initialization and
+keeps that setup outside the timed action.
+
 Persistent storage uses asynchronous IndexedDB transactions and, where
 available, origin-private synchronous access handles inside a worker. Files
 contain deterministic non-empty data and are flushed, closed, reopened, sampled
@@ -197,6 +205,8 @@ comfort ratings remain the ultimate external validation target.
 
 - [Speedometer 3 methodology](https://browserbench.org/Speedometer3.0/about.html)
 - [Speedometer test instructions](https://browserbench.org/Speedometer3.0/instructions.html)
+- [Speedometer 3.1 cross-browser corrections](https://browserbench.org/announcements/speedometer3.1/)
+- [Locale-aware sorting guidance](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/localeCompare)
 - [Interaction to Next Paint](https://web.dev/articles/inp)
 - [W3C Long Tasks API](https://www.w3.org/TR/longtasks-1/)
 - [W3C Long Animation Frames](https://www.w3.org/TR/long-animation-frames/)
