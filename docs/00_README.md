@@ -90,6 +90,14 @@ unchanged while replacing broad letter bands with a more granular grade ladder.
 This prevents scores near opposite ends of adjacent ten-point bands from
 appearing nearly equivalent.
 
+Benchmark v6.8 keeps the v6.7 grade ladder and all workload fixtures while
+measuring media waiting duration instead of event count and separating ordinary
+core capability from adaptive reserve tiers. It contains no browser-name checks.
+
+`STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
+the benchmark's goals, protocol, workloads, measurement, scoring, validity, and
+limitations.
+
 `STILLGOOD_COMPLETE_SPEC.md` combines the documents into one file for tools that work better with a single context document.
 
 ## Product principles

@@ -14,6 +14,7 @@ import {
   summarizeResponsivenessConsistency,
   summarizeStorage,
   summarizeThoroughRun,
+  summarizeVideo,
 } from "../lib/scoring.mjs";
 
 test("graphics evaluation uses the same 60 fps target on high-refresh displays", () => {
@@ -75,6 +76,51 @@ test("adaptive headroom runs only after fast, stable measurements", () => {
 test("second adaptive gate allows measured headroom without risking a runaway", () => {
   assert.equal(qualifiesForHeadroom([620, 690, 760], 1), true);
   assert.equal(qualifiesForHeadroom([700, 900, 2200], 1), false);
+});
+
+test("brief media waiting events do not masquerade as playback stalls", () => {
+  const noWait = summarizeVideo([
+    {
+      id: "1080p",
+      label: "1080p",
+      completed: true,
+      droppedRatio: 0,
+      stalls: 0,
+      stallDurationMs: 0,
+      longestStallMs: 0,
+      totalFrames: 135,
+    },
+  ]);
+  const briefWait = summarizeVideo([
+    {
+      id: "1080p",
+      label: "1080p",
+      completed: true,
+      droppedRatio: 0,
+      stalls: 1,
+      stallDurationMs: 24,
+      longestStallMs: 24,
+      totalFrames: 135,
+    },
+  ]);
+  const visibleWait = summarizeVideo([
+    {
+      id: "1080p",
+      label: "1080p",
+      completed: true,
+      droppedRatio: 0,
+      stalls: 1,
+      stallDurationMs: 720,
+      longestStallMs: 720,
+      totalFrames: 135,
+    },
+  ]);
+
+  assert.equal(noWait.score, 100);
+  assert.equal(noWait.score, briefWait.score);
+  assert.equal(briefWait.score, 100);
+  assert.equal(briefWait.highestComfortable, "1080p");
+  assert.equal(visibleWait.tiers[0].status, "limited");
 });
 
 test("statistics preserve median, tail, and variation", () => {
@@ -398,6 +444,44 @@ test("good everyday speed cannot conceal a lower-power reserve ceiling", () => {
   assert.ok(result.headroom.score < 88);
   assert.ok(result.score <= result.headroom.score + 7);
   assert.notEqual(result.grade, "A+");
+});
+
+test("adaptive reserve tiers do not redefine everyday capability", () => {
+  const metrics = fullMetrics([
+    [45, 48, 50],
+    [50, 54, 58],
+    [65, 70, 74],
+    [82, 88, 94],
+    [145, 155, 165],
+  ]);
+  metrics.emailTiers.push(
+    {
+      id: "headroom",
+      label: "Extended",
+      headroom: true,
+      samples: [700, 750, 800].map((durationMs) => ({ durationMs })),
+    },
+    {
+      id: "limit",
+      label: "Maximum",
+      headroom: true,
+      samples: [1400, 1500, 1600].map((durationMs) => ({ durationMs })),
+    },
+  );
+  metrics.videoTiers = metrics.videoTiers.map((tier) => ({
+    ...tier,
+    droppedRatio: 0,
+    stalls: 0,
+    stallDurationMs: 0,
+    longestStallMs: 0,
+  }));
+
+  const result = summarizeThoroughRun(metrics);
+
+  assert.ok(result.email.score < 86);
+  assert.ok(result.email.everydayScore >= 96);
+  assert.ok(result.score > 83);
+  assert.ok(result.score <= result.headroom.score + 7);
 });
 
 function latencyTiers(values) {

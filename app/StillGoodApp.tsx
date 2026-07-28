@@ -181,6 +181,8 @@ type VideoTierResult = {
   height: number;
   droppedRatio: number;
   stalls: number;
+  stallDurationMs: number;
+  longestStallMs: number;
   completed: boolean;
   totalFrames: number;
   valid: boolean;
@@ -256,6 +258,7 @@ type TierSummary = {
 };
 type LatencyCategory = {
   score: number;
+  everydayScore?: number;
   available?: boolean;
   invalidTierCount?: number;
   highestComfortable: string;
@@ -622,7 +625,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.7",
+    schemaVersion: "stillgood-result.v6.8",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1389,6 +1392,8 @@ export function StillGoodApp() {
         ...tier,
         droppedRatio: 1,
         stalls: 1,
+        stallDurationMs: 0,
+        longestStallMs: 0,
         completed: false,
         totalFrames: 0,
         valid: false,
@@ -1413,6 +1418,8 @@ export function StillGoodApp() {
         ...tier,
         droppedRatio: 1,
         stalls: 1,
+        stallDurationMs: 0,
+        longestStallMs: 0,
         completed: false,
         totalFrames: 0,
         valid: false,
@@ -1421,11 +1428,25 @@ export function StillGoodApp() {
       };
 
     let stalls = 0;
+    let stallDurationMs = 0;
+    let longestStallMs = 0;
+    let waitingStartedAt: number | null = null;
     let playbackStarted = false;
+    const finishWaitingPeriod = () => {
+      if (waitingStartedAt == null) return;
+      const duration = Math.max(0, performance.now() - waitingStartedAt);
+      stallDurationMs += duration;
+      longestStallMs = Math.max(longestStallMs, duration);
+      waitingStartedAt = null;
+    };
     const onWaiting = () => {
-      if (playbackStarted) stalls += 1;
+      if (playbackStarted && waitingStartedAt == null) {
+        stalls += 1;
+        waitingStartedAt = performance.now();
+      }
     };
     const onPlaying = () => {
+      if (playbackStarted) finishWaitingPeriod();
       playbackStarted = true;
     };
     video.addEventListener("waiting", onWaiting);
@@ -1456,6 +1477,7 @@ export function StillGoodApp() {
     } catch {
       completed = false;
     }
+    finishWaitingPeriod();
     video.pause();
     video.removeEventListener("waiting", onWaiting);
     video.removeEventListener("playing", onPlaying);
@@ -1493,6 +1515,8 @@ export function StillGoodApp() {
             ? 0
             : 1,
       stalls,
+      stallDurationMs,
+      longestStallMs,
       completed,
       totalFrames,
       valid,
@@ -1947,7 +1971,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.7.0-granular-grade-ladder",
+        profileVersion: "6.8.0-browser-neutral-media-and-headroom",
         raw: {
           preflightBaseline: {
             first: firstBaseline,
@@ -2015,9 +2039,14 @@ export function StillGoodApp() {
           <a className="simple-brand" href="#" aria-label="StillGood home">
             <span>S</span> StillGood
           </a>
-          <button className="header-link" onClick={openSavedRuns}>
-            Saved runs
-          </button>
+          <div className="header-actions">
+            <a className="header-link" href="/methodology">
+              Methodology
+            </a>
+            <button className="header-link" onClick={openSavedRuns}>
+              Saved runs
+            </button>
+          </div>
         </header>
         {notice && (
           <p className="simple-notice" role="status">
@@ -2055,6 +2084,7 @@ export function StillGoodApp() {
         </details>
         <footer className="simple-footer">
           <span>Private by design · local workloads · results saved automatically</span>
+          <a href="/methodology">Read the methodology</a>
         </footer>
       </main>
       {showHistory && (
@@ -2197,6 +2227,9 @@ export function StillGoodApp() {
           <span>S</span> StillGood
         </button>
         <div className="header-actions">
+          <a className="header-link" href="/methodology">
+            Methodology
+          </a>
           <button className="header-link" onClick={openSavedRuns}>
             Saved runs
           </button>

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
+    new Request(`http://localhost${path}`, {
       headers: { accept: "text/html" },
     }),
     {
@@ -48,5 +48,20 @@ test("server-renders the StillGood product shell", async () => {
   assert.match(html, /Local H\.264 clips at 480p, 720p, and 1080p/);
   assert.match(html, /Keeps larger working sets active and watches for catch-up pauses/);
   assert.match(html, /Commits small changes, flushes local files, reopens them, and verifies the data/);
+  assert.match(html, /href="\/methodology"/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
+});
+
+test("server-renders the public methodology whitepaper", async () => {
+  const response = await render("/methodology");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(html, /Measuring what a computer is still good for/);
+  assert.match(html, /Browser-neutral media correction in v6\.8/);
+  assert.match(html, /Everyday capability and performance reserve/);
+  assert.match(html, /What makes the result meaningful/);
+  assert.match(html, /stillgood-methodology-v6\.8\.md/);
+  assert.doesNotMatch(html, /Firefox-specific|Chromium-specific/i);
 });

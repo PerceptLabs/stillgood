@@ -2,6 +2,23 @@
 
 > Combined on 2026-07-26. Individual source files remain authoritative.
 
+## Current benchmark addendum: v6.8 browser-neutral media and headroom
+
+The authoritative current profile is
+`6.8.0-browser-neutral-media-and-headroom`. It measures cumulative and longest
+video waiting duration rather than equating event counts with visible stalls.
+It also exposes a normal-through-demanding everyday score so adaptive reserve
+tiers cannot alone trigger a hard core-usability cap. Complete category scores
+and performance reserve continue to include the extended tiers. No rule checks
+the browser name. See
+`25_BENCHMARK_V6_8_BROWSER_NEUTRAL_MEDIA_AND_HEADROOM.md`.
+
+The public methodology explanation is
+`STILLGOOD_METHODOLOGY_WHITEPAPER.md`.
+
+The v6.8 addendum supersedes only the media-stall interpretation and
+core-minimum input from v6.7 and earlier.
+
 ## Current benchmark addendum: v6.7 granular grade ladder
 
 The authoritative current profile is `6.7.0-granular-grade-ladder`. It keeps
