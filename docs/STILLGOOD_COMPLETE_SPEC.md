@@ -1,8 +1,24 @@
 # StillGood Complete Specification
 
-> Combined on 2026-07-26. Individual source files remain authoritative.
+> Combined on 2026-07-29. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.9 browser-neutral compatibility adapters
+## Current benchmark addendum: v6.10 isolated browser graphics
+
+The current benchmark profile is
+`6.10.0-isolated-browser-graphics-adapter`. When a browser lacks both detailed
+frame-blocking collectors and produces a severe graphics result isolated from
+strong core work and verified video, graphics remains reported as a browser
+limitation but does not determine the general computer grade.
+
+The rule uses measured capabilities and score relationships, never browser
+identity. It cannot change current Chromium runs. Reference replay preserves
+the HP Chromium result at B+ 87 and the Lenovo Chromium result at C 71. The
+Lenovo Firefox computer grade changes from C− 63 to C 73 while retaining its
+visual score of 28 and a prominent warning.
+
+See `28_BENCHMARK_V6_10_ISOLATED_GRAPHICS_ADAPTER.md`.
+
+## Previous benchmark addendum: v6.9 browser-neutral compatibility adapters
 
 The current benchmark profile is
 `6.9.0-browser-neutral-compatibility-adapters`. Compatibility adapters may

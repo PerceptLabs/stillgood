@@ -53,7 +53,9 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 
 28. `27_BENCHMARK_V6_9_COMPATIBILITY_ADAPTERS.md` — browser-neutral workload and measurement adaptation policy
 
-29. `STILLGOOD_METHODOLOGY_WHITEPAPER.md` — public methodology and validity explanation
+29. `28_BENCHMARK_V6_10_ISOLATED_GRAPHICS_ADAPTER.md` — capability-gated separation of an isolated browser graphics limitation
+
+30. `STILLGOOD_METHODOLOGY_WHITEPAPER.md` — public methodology and validity explanation
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -109,6 +111,12 @@ alphabetical ranks are derived once for the fixture's unique labels, so timed
 large-array sorts preserve the intended ordering without repeatedly initializing
 collation. No adapter changes workload size, score thresholds, or results by
 browser name.
+
+Benchmark v6.10 keeps every v6.9 workload and threshold while separating one
+narrow browser-graphics outlier from the computer grade. The rule requires
+limited frame telemetry, strong core evidence, verified video, and a graphics
+result at least 30 points below the core median. The visual result remains
+prominent. Chromium reference scores are unchanged.
 
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and

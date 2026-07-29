@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   coefficientOfVariation,
+  classifyIsolatedBrowserGraphics,
   gradeForScore,
   median,
   normalizeLower,
@@ -611,6 +612,53 @@ test("weak everyday graphics still limits an otherwise excellent result", () => 
   const result = summarizeThoroughRun(metrics);
   assert.ok(result.graphics.everydayScore < 58);
   assert.ok(result.score <= 67);
+});
+
+test("isolated graphics on a limited-telemetry browser is reported separately", () => {
+  const metrics = fullMetrics([
+    [105, 110, 115],
+    [110, 115, 120],
+    [115, 120, 125],
+    [125, 130, 140],
+    [145, 155, 165],
+  ]);
+  metrics.graphicsTiers = [
+    { id: "1", label: "Light", onTimeRatio: 0.62, longFrameRatio: 0.03, worstFrameMs: 466, frameCount: 68 },
+    { id: "2", label: "Medium", onTimeRatio: 0.68, longFrameRatio: 0, worstFrameMs: 50, frameCount: 74 },
+    { id: "3", label: "Busy", onTimeRatio: 0.32, longFrameRatio: 0.13, worstFrameMs: 100, frameCount: 35 },
+    { id: "4", label: "Dense", onTimeRatio: 0.12, longFrameRatio: 0.46, worstFrameMs: 266, frameCount: 13 },
+  ];
+  metrics.videoTiers = metrics.videoTiers.map((tier) => ({
+    ...tier,
+    droppedRatio: 0,
+    stalls: 0,
+    stallDurationMs: 0,
+    longestStallMs: 0,
+  }));
+  metrics.longTaskSupported = false;
+  metrics.longAnimationFrameSupported = false;
+  const result = summarizeThoroughRun(metrics);
+
+  assert.equal(result.browserCompatibility.isolatedGraphics, true);
+  assert.ok(result.graphics.everydayScore < 58);
+  assert.ok(result.score > 67);
+  assert.ok(
+    result.integrityNotes.some((note) =>
+      note.includes("isolated visual-rendering limitation"),
+    ),
+  );
+});
+
+test("the isolated graphics adapter cannot change a full-telemetry browser run", () => {
+  const classification = classifyIsolatedBrowserGraphics({
+    coreEverydayScores: [98, 98, 95, 92, 81],
+    graphics: { available: true, score: 28, everydayScore: 34 },
+    video: { available: true, score: 100 },
+    longTaskSupported: true,
+    longAnimationFrameSupported: true,
+  });
+
+  assert.equal(classification.isolatedGraphics, false);
 });
 
 test("a zero-frame video tier is invalid and cannot earn a recommendation", () => {

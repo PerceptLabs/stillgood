@@ -290,6 +290,14 @@ type HeadroomSummary = {
   openCeilings: number;
   extendedCategories: number;
 };
+type BrowserCompatibilitySummary = {
+  isolatedGraphics: boolean;
+  telemetryLimited: boolean;
+  coreEverydayMedian: number;
+  graphicsEverydayScore: number;
+  visualGap: number;
+  policy: string;
+};
 type SimpleCategory = {
   score: number;
   available?: boolean;
@@ -321,6 +329,7 @@ type ThoroughResult = {
   storage: SimpleCategory;
   responsiveness: ResponsivenessSummary;
   headroom: HeadroomSummary;
+  browserCompatibility: BrowserCompatibilitySummary;
   recoveryMs: number;
   longTaskCount: number;
   longAnimationFrameCount: number;
@@ -626,7 +635,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.9",
+    schemaVersion: "stillgood-result.v6.10",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1576,6 +1585,13 @@ export function StillGoodApp() {
     const longTasks: number[] = [];
     const longFrames: number[] = [];
     const observers: PerformanceObserver[] = [];
+    const supportedPerformanceEntries = new Set(
+      PerformanceObserver.supportedEntryTypes ?? [],
+    );
+    const longTaskSupported = supportedPerformanceEntries.has("longtask");
+    const longAnimationFrameSupported = supportedPerformanceEntries.has(
+      "long-animation-frame",
+    );
     for (const entryType of ["longtask", "long-animation-frame"]) {
       try {
         const observer = new PerformanceObserver((list) => {
@@ -1958,6 +1974,8 @@ export function StillGoodApp() {
         longTaskDurations: longTasks,
         longAnimationFrameDurations: longFrames,
         measuredActiveMs: performance.now() - measurementStart,
+        longTaskSupported,
+        longAnimationFrameSupported,
         interruptionCount,
         baselineUnsettled: finalBaseline.unsettled,
       });
@@ -1972,7 +1990,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.9.0-browser-neutral-compatibility-adapters",
+        profileVersion: "6.10.0-isolated-browser-graphics-adapter",
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
           preflightBaseline: {
@@ -2010,6 +2028,8 @@ export function StillGoodApp() {
           strictStorageAvailable,
           longTaskDurations: longTasks,
           longAnimationFrameDurations: longFrames,
+          longTaskSupported,
+          longAnimationFrameSupported,
           measuredActiveMs: performance.now() - measurementStart,
         },
       };

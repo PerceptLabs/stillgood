@@ -83,7 +83,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.9</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.10</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -93,9 +93,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.9.0</span>
+            <span>Profile 6.10.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.9.md" download>
+            <a href="/stillgood-methodology-v6.10.md" download>
               Download Markdown
             </a>
           </div>
@@ -273,6 +273,15 @@ export default function MethodologyPage() {
             in every browser. Adapters correct invocation or observation
             differences; they never multiply a score based on the browser name.
           </p>
+          <p>
+            A separate graphics safeguard applies only when a browser lacks
+            both detailed frame-blocking collectors and its visual result is
+            dramatically weaker than strong everyday work and verified video.
+            The visual score and warning remain in the report, but that isolated
+            browser limitation does not set the computer grade. The rule uses
+            measured capabilities and score relationships, never browser
+            identity.
+          </p>
 
           <h3>Everyday capability and performance reserve</h3>
           <p>
@@ -317,6 +326,12 @@ export default function MethodologyPage() {
             video, inconsistent response, limited reserve, and slow persistent
             saves. The exported report retains the underlying observations and
             profile version.
+          </p>
+          <p>
+            When the isolated-graphics safeguard applies, visuals remain a
+            separate measured limitation and are omitted only from the computer
+            grade and reserve calculation. Broadly weak graphics still receives
+            its normal weight and caps.
           </p>
 
           <div className="methodology-table-wrap compact-table">
@@ -403,6 +418,14 @@ export default function MethodologyPage() {
               {" "}— equal work across browsers and complete measurement of asynchronous work.
             </li>
             <li>
+              <a href="https://www.principledtechnologies.com/benchmarkxprt/webxprt/faq">WebXPRT FAQ</a>
+              {" "}— repeated scenarios, confidence, and device-and-browser interpretation.
+            </li>
+            <li>
+              <a href="https://browserbench.org/MotionMark/about.html">MotionMark methodology</a>
+              {" "}— adaptive graphics complexity and browser-dependent frame scheduling.
+            </li>
+            <li>
               <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/localeCompare">Locale-aware sorting guidance</a>
               {" "}— reuse an <code>Intl.Collator</code> when sorting large arrays.
             </li>
@@ -437,7 +460,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.9</strong>
+            <strong>StillGood methodology v6.10</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>
