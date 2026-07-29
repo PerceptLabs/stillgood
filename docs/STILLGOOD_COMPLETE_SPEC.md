@@ -2,9 +2,27 @@
 
 > Combined on 2026-07-29. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.10 isolated browser graphics
+## Current benchmark addendum: v6.11 telemetry-limited open ceiling
 
 The current benchmark profile is
+`6.11.0-telemetry-limited-open-ceiling-adapter`. When a browser lacks both
+detailed congestion collectors, every ordinary core score is at least 96, and
+all four adaptive categories complete the maximum test tier without finding a
+limit, a headroom result below 88 uses the proportional `headroom + 7` cap
+without the general hard B+ ceiling.
+
+This removes an eight-point threshold cliff while preserving the measured
+reserve difference. It does not alter workload execution, category evidence,
+headroom scoring, grade bands, or the full-telemetry Chromium path. Reference
+replay leaves Chromium at A+ 98 and changes the paired Firefox workstation run
+from B+ 87 to A- 92. Earlier HP and Lenovo results do not qualify and remain
+unchanged under this new rule.
+
+See `29_BENCHMARK_V6_11_OPEN_CEILING_HEADROOM_ADAPTER.md`.
+
+## Previous benchmark addendum: v6.10 isolated browser graphics
+
+The v6.10 benchmark profile is
 `6.10.0-isolated-browser-graphics-adapter`. When a browser lacks both detailed
 frame-blocking collectors and produces a severe graphics result isolated from
 strong core work and verified video, graphics remains reported as a browser

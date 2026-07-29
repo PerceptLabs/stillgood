@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   coefficientOfVariation,
   classifyIsolatedBrowserGraphics,
+  classifyTelemetryLimitedOpenCeiling,
   gradeForScore,
   median,
   normalizeLower,
@@ -659,6 +660,50 @@ test("the isolated graphics adapter cannot change a full-telemetry browser run",
   });
 
   assert.equal(classification.isolatedGraphics, false);
+});
+
+test("a telemetry-limited browser with four open reserve ceilings uses a proportional cap", () => {
+  const classification = classifyTelemetryLimitedOpenCeiling({
+    coreEverydayScores: [100, 100, 100, 100, 99],
+    headroom: {
+      score: 85,
+      extendedCategories: 4,
+      openCeilings: 4,
+    },
+    telemetryLimited: true,
+  });
+
+  assert.equal(classification.openCeilingHeadroom, true);
+  assert.equal(classification.proportionalHeadroomCap, 92);
+});
+
+test("the open-ceiling adapter cannot change a full-telemetry browser run", () => {
+  const classification = classifyTelemetryLimitedOpenCeiling({
+    coreEverydayScores: [100, 100, 100, 100, 99],
+    headroom: {
+      score: 85,
+      extendedCategories: 4,
+      openCeilings: 4,
+    },
+    telemetryLimited: false,
+  });
+
+  assert.equal(classification.openCeilingHeadroom, false);
+  assert.equal(classification.proportionalHeadroomCap, null);
+});
+
+test("the open-ceiling adapter does not lift a limited older-device profile", () => {
+  const classification = classifyTelemetryLimitedOpenCeiling({
+    coreEverydayScores: [97, 94, 91, 87, 81],
+    headroom: {
+      score: 66,
+      extendedCategories: 4,
+      openCeilings: 1,
+    },
+    telemetryLimited: true,
+  });
+
+  assert.equal(classification.openCeilingHeadroom, false);
 });
 
 test("a zero-frame video tier is invalid and cannot earn a recommendation", () => {

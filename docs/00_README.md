@@ -118,6 +118,12 @@ limited frame telemetry, strong core evidence, verified video, and a graphics
 result at least 30 points below the core median. The visual result remains
 prominent. Chromium reference scores are unchanged.
 
+Benchmark v6.11 removes a separate reserve-scoring cliff for a
+telemetry-limited browser that completes every maximum adaptive tier while all
+ordinary work remains excellent. Reserve still caps the result proportionally,
+but it no longer forces B+ solely because the headroom score fell one point
+below 88. The full-telemetry Chromium path is unchanged.
+
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and
 limitations.

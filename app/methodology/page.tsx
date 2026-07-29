@@ -83,7 +83,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.10</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.11</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -93,9 +93,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.10.0</span>
+            <span>Profile 6.11.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.10.md" download>
+            <a href="/stillgood-methodology-v6.11.md" download>
               Download Markdown
             </a>
           </div>
@@ -282,6 +282,15 @@ export default function MethodologyPage() {
             measured capabilities and score relationships, never browser
             identity.
           </p>
+          <p>
+            A second safeguard handles an open reserve ceiling in a browser
+            without those detailed congestion collectors. If every ordinary
+            activity scores at least 96 and all four maximum adaptive tiers
+            complete without finding the computer&apos;s limit, reserve still
+            caps the result proportionally. It does not also impose the general
+            hard B+ ceiling. This removes a score cliff without erasing the
+            measured browser difference.
+          </p>
 
           <h3>Everyday capability and performance reserve</h3>
           <p>
@@ -332,6 +341,12 @@ export default function MethodologyPage() {
             separate measured limitation and are omitted only from the computer
             grade and reserve calculation. Broadly weak graphics still receives
             its normal weight and caps.
+          </p>
+          <p>
+            When the telemetry-limited open-ceiling safeguard applies, the
+            measured reserve score is unchanged and the result remains capped
+            at seven points above it. Browsers with complete telemetry retain
+            the original scoring path.
           </p>
 
           <div className="methodology-table-wrap compact-table">
@@ -460,7 +475,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.10</strong>
+            <strong>StillGood methodology v6.11</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

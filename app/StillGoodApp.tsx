@@ -293,9 +293,13 @@ type HeadroomSummary = {
 type BrowserCompatibilitySummary = {
   isolatedGraphics: boolean;
   telemetryLimited: boolean;
+  openCeilingHeadroom: boolean;
   coreEverydayMedian: number;
+  coreEverydayMinimum: number;
   graphicsEverydayScore: number;
   visualGap: number;
+  openCeilings: number;
+  proportionalHeadroomCap: number | null;
   policy: string;
 };
 type SimpleCategory = {
@@ -635,7 +639,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.10",
+    schemaVersion: "stillgood-result.v6.11",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1990,7 +1994,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.10.0-isolated-browser-graphics-adapter",
+        profileVersion: "6.11.0-telemetry-limited-open-ceiling-adapter",
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
           preflightBaseline: {

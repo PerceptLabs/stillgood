@@ -64,6 +64,6 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /separate graphics safeguard/);
   assert.match(html, /Everyday capability and performance reserve/);
   assert.match(html, /What makes the result meaningful/);
-  assert.match(html, /stillgood-methodology-v6\.10\.md/);
+  assert.match(html, /stillgood-methodology-v6\.11\.md/);
   assert.doesNotMatch(html, /Firefox-specific|Chromium-specific/i);
 });
