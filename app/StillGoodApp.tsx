@@ -17,6 +17,7 @@ import {
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
+import { browserNormalizationProfile } from "@/lib/browser-normalization.mjs";
 import {
   browsingActionNames,
   buildBrowsingDataset,
@@ -290,17 +291,23 @@ type HeadroomSummary = {
   openCeilings: number;
   extendedCategories: number;
 };
-type BrowserCompatibilitySummary = {
-  isolatedGraphics: boolean;
-  telemetryLimited: boolean;
-  openCeilingHeadroom: boolean;
-  coreEverydayMedian: number;
-  coreEverydayMinimum: number;
-  graphicsEverydayScore: number;
-  visualGap: number;
-  openCeilings: number;
-  proportionalHeadroomCap: number | null;
-  policy: string;
+type BrowserNormalizationSummary = {
+  applied: boolean;
+  browserFamily: string;
+  profileVersion: string;
+  referenceBrowser: string;
+  calibrationPairs: number;
+  rawGraphicsScore: number;
+  normalizedGraphicsScore: number;
+  rawGraphicsEverydayScore: number;
+  normalizedGraphicsEverydayScore: number;
+  rawHeadroomScore: number;
+  normalizedHeadroomScore: number;
+  factors: {
+    graphicsScore: number;
+    graphicsEveryday: number;
+    headroom: number;
+  };
 };
 type SimpleCategory = {
   score: number;
@@ -333,7 +340,7 @@ type ThoroughResult = {
   storage: SimpleCategory;
   responsiveness: ResponsivenessSummary;
   headroom: HeadroomSummary;
-  browserCompatibility: BrowserCompatibilitySummary;
+  browserNormalization: BrowserNormalizationSummary;
   recoveryMs: number;
   longTaskCount: number;
   longAnimationFrameCount: number;
@@ -573,6 +580,14 @@ function browserLabel() {
   return "Current browser";
 }
 
+function browserFamily() {
+  const ua = navigator.userAgent;
+  if (ua.includes("Firefox/")) return "firefox";
+  if (ua.includes("Edg/") || ua.includes("Chrome/")) return "chromium";
+  if (ua.includes("Safari/")) return "safari";
+  return "unknown";
+}
+
 function detectFormFactor(): "mobile" | "computer" | "unknown" {
   const uaData = (
     navigator as Navigator & { userAgentData?: { mobile?: boolean } }
@@ -639,7 +654,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.11",
+    schemaVersion: "stillgood-result.v6.12",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1958,6 +1973,7 @@ export function StillGoodApp() {
       const recoveryMs = performance.now() - recoveryStart;
       const formFactor = detectFormFactor();
       const summary = summarizeThoroughRun({
+        browserFamily: browserFamily(),
         browsingTiers: browsingResults,
         emailTiers: emailResults,
         writingTiers: writingResults,
@@ -1994,9 +2010,10 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.11.0-telemetry-limited-open-ceiling-adapter",
+        profileVersion: "6.12.0-firefox-reference-calibration",
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
+          browserNormalization: browserNormalizationProfile,
           preflightBaseline: {
             first: firstBaseline,
             final: finalBaseline,

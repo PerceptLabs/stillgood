@@ -2,9 +2,29 @@
 
 > Combined on 2026-07-29. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.11 telemetry-limited open ceiling
+## Current benchmark addendum: v6.12 Firefox reference calibration
 
 The current benchmark profile is
+`6.12.0-firefox-reference-calibration`. Chromium is the frozen reference path
+and receives identity factors. Firefox graphics and aggregate headroom are
+mapped to the reference scale with provisional multiplicative factors derived
+from matched HP and Dell physical-device runs.
+
+The calibration is applied before the final grade. Raw Firefox category scores,
+tier timings, normalization factors, profile version, and calibration pair
+count remain in the export. Browsing, email, documents, spreadsheets,
+multitasking, video, memory, storage, responsiveness, recovery, grade bands,
+and practical penalties are unchanged.
+
+Reference replay leaves Chromium results at A+ 98, B+ 87, and C 71. The paired
+Dell Firefox grade is A 96, the HP Firefox grade is B+ 87, and the hitch-prone
+Lenovo Firefox result remains C- 63.
+
+See `30_BENCHMARK_V6_12_FIREFOX_REFERENCE_CALIBRATION.md`.
+
+## Previous benchmark addendum: v6.11 telemetry-limited open ceiling
+
+The v6.11 benchmark profile was
 `6.11.0-telemetry-limited-open-ceiling-adapter`. When a browser lacks both
 detailed congestion collectors, every ordinary core score is at least 96, and
 all four adaptive categories complete the maximum test tier without finding a

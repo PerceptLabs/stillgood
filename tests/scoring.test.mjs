@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   coefficientOfVariation,
-  classifyIsolatedBrowserGraphics,
-  classifyTelemetryLimitedOpenCeiling,
   gradeForScore,
   median,
   normalizeLower,
@@ -615,7 +613,7 @@ test("weak everyday graphics still limits an otherwise excellent result", () => 
   assert.ok(result.score <= 67);
 });
 
-test("isolated graphics on a limited-telemetry browser is reported separately", () => {
+test("Firefox graphics normalization preserves a weak raw visual result", () => {
   const metrics = fullMetrics([
     [105, 110, 115],
     [110, 115, 120],
@@ -636,74 +634,76 @@ test("isolated graphics on a limited-telemetry browser is reported separately", 
     stallDurationMs: 0,
     longestStallMs: 0,
   }));
-  metrics.longTaskSupported = false;
-  metrics.longAnimationFrameSupported = false;
+  metrics.browserFamily = "firefox";
   const result = summarizeThoroughRun(metrics);
 
-  assert.equal(result.browserCompatibility.isolatedGraphics, true);
+  assert.equal(result.browserNormalization.applied, true);
   assert.ok(result.graphics.everydayScore < 58);
-  assert.ok(result.score > 67);
+  assert.ok(
+    result.browserNormalization.normalizedGraphicsEverydayScore >
+      result.browserNormalization.rawGraphicsEverydayScore,
+  );
+  assert.ok(result.score <= 67);
   assert.ok(
     result.integrityNotes.some((note) =>
-      note.includes("isolated visual-rendering limitation"),
+      note.includes("Firefox reference calibration"),
     ),
   );
 });
 
-test("the isolated graphics adapter cannot change a full-telemetry browser run", () => {
-  const classification = classifyIsolatedBrowserGraphics({
-    coreEverydayScores: [98, 98, 95, 92, 81],
-    graphics: { available: true, score: 28, everydayScore: 34 },
-    video: { available: true, score: 100 },
-    longTaskSupported: true,
-    longAnimationFrameSupported: true,
-  });
+test("Chromium uses identity browser normalization", () => {
+  const metrics = fullMetrics([
+    [45, 48, 50],
+    [50, 54, 58],
+    [65, 70, 74],
+    [82, 88, 94],
+    [145, 155, 165],
+  ]);
+  const unchangedReference = summarizeThoroughRun(metrics);
+  metrics.browserFamily = "chromium";
+  const result = summarizeThoroughRun(metrics);
 
-  assert.equal(classification.isolatedGraphics, false);
+  assert.equal(result.score, unchangedReference.score);
+  assert.equal(result.grade, unchangedReference.grade);
+  assert.equal(result.headroom.score, unchangedReference.headroom.score);
+  assert.equal(result.browserNormalization.applied, false);
+  assert.equal(
+    result.browserNormalization.rawGraphicsScore,
+    result.browserNormalization.normalizedGraphicsScore,
+  );
+  assert.equal(
+    result.browserNormalization.rawHeadroomScore,
+    result.browserNormalization.normalizedHeadroomScore,
+  );
+  assert.deepEqual(result.browserNormalization.factors, {
+    graphicsScore: 1,
+    graphicsEveryday: 1,
+    headroom: 1,
+  });
 });
 
-test("a telemetry-limited browser with four open reserve ceilings uses a proportional cap", () => {
-  const classification = classifyTelemetryLimitedOpenCeiling({
-    coreEverydayScores: [100, 100, 100, 100, 99],
-    headroom: {
-      score: 85,
-      extendedCategories: 4,
-      openCeilings: 4,
-    },
-    telemetryLimited: true,
-  });
+test("Firefox normalization is monotonic and bounded", () => {
+  const metrics = fullMetrics([
+    [55, 58, 62],
+    [70, 75, 80],
+    [95, 105, 115],
+    [130, 145, 160],
+    [410, 440, 470],
+  ]);
+  metrics.browserFamily = "firefox";
+  const result = summarizeThoroughRun(metrics);
 
-  assert.equal(classification.openCeilingHeadroom, true);
-  assert.equal(classification.proportionalHeadroomCap, 92);
-});
-
-test("the open-ceiling adapter cannot change a full-telemetry browser run", () => {
-  const classification = classifyTelemetryLimitedOpenCeiling({
-    coreEverydayScores: [100, 100, 100, 100, 99],
-    headroom: {
-      score: 85,
-      extendedCategories: 4,
-      openCeilings: 4,
-    },
-    telemetryLimited: false,
-  });
-
-  assert.equal(classification.openCeilingHeadroom, false);
-  assert.equal(classification.proportionalHeadroomCap, null);
-});
-
-test("the open-ceiling adapter does not lift a limited older-device profile", () => {
-  const classification = classifyTelemetryLimitedOpenCeiling({
-    coreEverydayScores: [97, 94, 91, 87, 81],
-    headroom: {
-      score: 66,
-      extendedCategories: 4,
-      openCeilings: 1,
-    },
-    telemetryLimited: true,
-  });
-
-  assert.equal(classification.openCeilingHeadroom, false);
+  assert.equal(result.browserNormalization.applied, true);
+  assert.ok(
+    result.browserNormalization.normalizedGraphicsScore >=
+      result.browserNormalization.rawGraphicsScore,
+  );
+  assert.ok(result.browserNormalization.normalizedGraphicsScore <= 100);
+  assert.ok(
+    result.browserNormalization.normalizedHeadroomScore >=
+      result.browserNormalization.rawHeadroomScore,
+  );
+  assert.ok(result.browserNormalization.normalizedHeadroomScore <= 100);
 });
 
 test("a zero-frame video tier is invalid and cannot earn a recommendation", () => {

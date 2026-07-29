@@ -133,6 +133,10 @@ test("text sorting uses one deterministic browser-neutral compatibility adapter"
     compatibilityAdapterProfile.mediaWaiting,
     "measured-duration",
   );
+  assert.equal(
+    compatibilityAdapterProfile.scoreNormalization,
+    "external-versioned-browser-profile",
+  );
 });
 
 test("compatibility adapters use capabilities rather than browser identity", async () => {

@@ -124,6 +124,12 @@ ordinary work remains excellent. Reserve still caps the result proportionally,
 but it no longer forces B+ solely because the headroom score fell one point
 below 88. The full-telemetry Chromium path is unchanged.
 
+Benchmark v6.12 replaces the conditional v6.10 and v6.11 scoring exceptions
+with a versioned Firefox reference calibration. Chromium is the frozen
+reference path and receives identity factors. Firefox graphics and aggregate
+headroom are transformed with provisional multiplicative factors derived from
+matched HP and Dell runs. Raw Firefox evidence remains exported and visible.
+
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and
 limitations.

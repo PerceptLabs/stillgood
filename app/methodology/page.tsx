@@ -83,7 +83,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.11</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.12</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -93,9 +93,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.11.0</span>
+            <span>Profile 6.12.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.11.md" download>
+            <a href="/stillgood-methodology-v6.12.md" download>
               Download Markdown
             </a>
           </div>
@@ -273,23 +273,21 @@ export default function MethodologyPage() {
             in every browser. Adapters correct invocation or observation
             differences; they never multiply a score based on the browser name.
           </p>
+          <h3>Firefox reference calibration</h3>
           <p>
-            A separate graphics safeguard applies only when a browser lacks
-            both detailed frame-blocking collectors and its visual result is
-            dramatically weaker than strong everyday work and verified video.
-            The visual score and warning remain in the report, but that isolated
-            browser limitation does not set the computer grade. The rule uses
-            measured capabilities and score relationships, never browser
-            identity.
+            Chromium is the unchanged reference path. Firefox graphics and
+            aggregate reserve are mapped to that reference scale with
+            versioned, multiplicative factors derived from matched physical
+            systems. The raw Firefox measurements, factors, calibration sample
+            count, and profile version remain in the exported report.
           </p>
           <p>
-            A second safeguard handles an open reserve ceiling in a browser
-            without those detailed congestion collectors. If every ordinary
-            activity scores at least 96 and all four maximum adaptive tiers
-            complete without finding the computer&apos;s limit, reserve still
-            caps the result proportionally. It does not also impose the general
-            hard B+ ceiling. This removes a score cliff without erasing the
-            measured browser difference.
+            The first calibration profile uses paired HP and Dell runs and is
+            explicitly provisional. It does not transform browsing, email,
+            documents, spreadsheets, multitasking, video, memory, storage,
+            responsiveness, recovery, grade boundaries, or practical
+            penalties. Additional paired devices are required before the
+            factors can be considered final.
           </p>
 
           <h3>Everyday capability and performance reserve</h3>
@@ -337,16 +335,11 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            When the isolated-graphics safeguard applies, visuals remain a
-            separate measured limitation and are omitted only from the computer
-            grade and reserve calculation. Broadly weak graphics still receives
-            its normal weight and caps.
-          </p>
-          <p>
-            When the telemetry-limited open-ceiling safeguard applies, the
-            measured reserve score is unchanged and the result remains capped
-            at seven points above it. Browsers with complete telemetry retain
-            the original scoring path.
+            Firefox calibration is applied to graphics and aggregate headroom
+            before the weighted computer grade. Raw browser-visible category
+            results still drive the detailed cautions, so normalization cannot
+            hide weak visual behavior. Chromium records identity factors and
+            follows the original calculation without transformation.
           </p>
 
           <div className="methodology-table-wrap compact-table">
@@ -437,6 +430,10 @@ export default function MethodologyPage() {
               {" "}— repeated scenarios, confidence, and device-and-browser interpretation.
             </li>
             <li>
+              <a href="https://www.principledtechnologies.com/benchmarkxprt/counter.php?inline=true&amp;redirect=%2Fbenchmarkxprt%2Fwhitepapers%2Fwebxprt%2FWebXPRT-4-results-calculation.pdf">WebXPRT results calculation</a>
+              {" "}— ratios to a fixed calibration system, geometric means, outlier handling, and confidence intervals.
+            </li>
+            <li>
               <a href="https://browserbench.org/MotionMark/about.html">MotionMark methodology</a>
               {" "}— adaptive graphics complexity and browser-dependent frame scheduling.
             </li>
@@ -475,7 +472,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.11</strong>
+            <strong>StillGood methodology v6.12</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

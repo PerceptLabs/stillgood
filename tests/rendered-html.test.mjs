@@ -61,9 +61,9 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /Measuring what a computer is still good for/);
   assert.match(html, /Browser-neutral compatibility adapters/);
   assert.match(html, /derive alphabetical ranks once/);
-  assert.match(html, /separate graphics safeguard/);
+  assert.match(html, /Firefox reference calibration/);
   assert.match(html, /Everyday capability and performance reserve/);
   assert.match(html, /What makes the result meaningful/);
-  assert.match(html, /stillgood-methodology-v6\.11\.md/);
-  assert.doesNotMatch(html, /Firefox-specific|Chromium-specific/i);
+  assert.match(html, /stillgood-methodology-v6\.12\.md/);
+  assert.doesNotMatch(html, /flat browser bonus|user-agent bonus/i);
 });
