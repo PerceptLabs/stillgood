@@ -17,7 +17,7 @@ import {
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
-import { browserNormalizationProfile } from "@/lib/browser-normalization.mjs";
+import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
 import {
   browsingActionNames,
   buildBrowsingDataset,
@@ -291,22 +291,26 @@ type HeadroomSummary = {
   openCeilings: number;
   extendedCategories: number;
 };
-type BrowserNormalizationSummary = {
-  applied: boolean;
-  browserFamily: string;
+type BrowserSupportSummary = {
+  level: "reference" | "experimental" | "unvalidated";
+  label: string;
+  detail: string;
+};
+type EvidenceGroupsSummary = {
   profileVersion: string;
-  referenceBrowser: string;
-  calibrationPairs: number;
-  rawGraphicsScore: number;
-  normalizedGraphicsScore: number;
-  rawGraphicsEverydayScore: number;
-  normalizedGraphicsEverydayScore: number;
-  rawHeadroomScore: number;
-  normalizedHeadroomScore: number;
-  factors: {
-    graphicsScore: number;
-    graphicsEveryday: number;
-    headroom: number;
+  postScoreNormalizationApplied: false;
+  webExperience: {
+    score: number;
+    label: string;
+    preserveBrowserDifferences: true;
+    categories: readonly string[];
+  };
+  resourceResilience: {
+    score: number;
+    label: string;
+    preserveBrowserDifferences: false;
+    treatment: string;
+    categories: readonly string[];
   };
 };
 type SimpleCategory = {
@@ -340,7 +344,8 @@ type ThoroughResult = {
   storage: SimpleCategory;
   responsiveness: ResponsivenessSummary;
   headroom: HeadroomSummary;
-  browserNormalization: BrowserNormalizationSummary;
+  evidenceGroups: EvidenceGroupsSummary;
+  browserSupport: BrowserSupportSummary;
   recoveryMs: number;
   longTaskCount: number;
   longAnimationFrameCount: number;
@@ -654,7 +659,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.12",
+    schemaVersion: "stillgood-result.v6.13",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -2010,10 +2015,10 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.12.0-firefox-reference-calibration",
+        profileVersion: "6.13.0-browser-evidence-boundary",
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
-          browserNormalization: browserNormalizationProfile,
+          browserEvidencePolicy: browserEvidenceProfile,
           preflightBaseline: {
             first: firstBaseline,
             final: finalBaseline,
@@ -2123,6 +2128,7 @@ export function StillGoodApp() {
           <p className="scope-note">
             It measures this browser and computer together. It cannot inspect
             battery health, temperature, total RAM use, or every desktop app.
+            Chromium is the reference browser; Firefox support is experimental.
           </p>
         </details>
         <footer className="simple-footer">
@@ -2309,14 +2315,14 @@ export function StillGoodApp() {
            <span>Multitasking</span>
            <strong>{guide.multitaskingLabel}</strong>
          </article>
-         <article>
-           <span>Responsiveness</span>
-           <strong>{result.responsiveness.label}</strong>
-         </article>
-         <article>
-           <span>Performance reserve</span>
-           <strong>{result.headroom.label}</strong>
-         </article>
+        <article>
+          <span>Web experience in {result.browser.split(" ")[0]}</span>
+          <strong>{result.evidenceGroups.webExperience.label}</strong>
+        </article>
+        <article>
+          <span>Memory, saves &amp; recovery</span>
+          <strong>{result.evidenceGroups.resourceResilience.label}</strong>
+        </article>
          <article>
            <span>Large saves</span>
            <strong>{guide.largeSaveLabel}</strong>
@@ -2390,6 +2396,8 @@ export function StillGoodApp() {
       <p className="plain-result-note">
         This is a practical check of this browser and computer together.
         Different browsers and desktop applications can behave differently.
+        {result.browserSupport.level === "experimental" &&
+          " Firefox support is experimental; its web results are reported as measured without a browser-specific score adjustment."}
         {saveStatus === "saving" && " Saving this run automatically…"}
         {saveStatus === "saved" && " This run was saved automatically."}
         {saveStatus === "error" &&
@@ -2448,11 +2456,15 @@ export function StillGoodApp() {
                <strong>{guide.multitaskingLabel}</strong>
              </article>
              <article>
-               <span>Responsiveness</span>
-               <strong>{result.responsiveness.label}</strong>
+               <span>Web experience in {result.browser.split(" ")[0]}</span>
+               <strong>{result.evidenceGroups.webExperience.label}</strong>
              </article>
              <article>
-               <span>Performance reserve</span>
+               <span>Memory, saves &amp; recovery</span>
+               <strong>{result.evidenceGroups.resourceResilience.label}</strong>
+             </article>
+             <article>
+               <span>Web workload reserve</span>
                <strong>{result.headroom.label}</strong>
              </article>
              <article>

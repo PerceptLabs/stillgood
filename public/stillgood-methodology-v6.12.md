@@ -1,5 +1,10 @@
 # StillGood methodology whitepaper
 
+> Archived profile. See [StillGood methodology
+> v6.13](./stillgood-methodology-v6.13.md). Version 6.13 retires the
+> provisional browser score factors and separates Web Experience from
+> Resource Resilience.
+
 **Title:** Measuring what a computer is still good for
 **Benchmark profile:** `6.12.0-firefox-reference-calibration`
 **Published:** July 2026

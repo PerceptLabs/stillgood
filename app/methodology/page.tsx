@@ -83,7 +83,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.12</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.13</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -93,9 +93,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.12.0</span>
+            <span>Profile 6.13.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.12.md" download>
+            <a href="/stillgood-methodology-v6.13.md" download>
               Download Markdown
             </a>
           </div>
@@ -273,21 +273,19 @@ export default function MethodologyPage() {
             in every browser. Adapters correct invocation or observation
             differences; they never multiply a score based on the browser name.
           </p>
-          <h3>Firefox reference calibration</h3>
+          <h3>Browser evidence boundary</h3>
           <p>
-            Chromium is the unchanged reference path. Firefox graphics and
-            aggregate reserve are mapped to that reference scale with
-            versioned, multiplicative factors derived from matched physical
-            systems. The raw Firefox measurements, factors, calibration sample
-            count, and profile version remain in the exported report.
+            Browser-visible work remains part of the measured Web Experience.
+            Browsing, webmail, documents, spreadsheets, multitasking, visuals,
+            video, consistency, and web workload reserve can therefore differ
+            between Firefox and Chromium when the actual experience differs.
           </p>
           <p>
-            The first calibration profile uses paired HP and Dell runs and is
-            explicitly provisional. It does not transform browsing, email,
-            documents, spreadsheets, multitasking, video, memory, storage,
-            responsiveness, recovery, grade boundaries, or practical
-            penalties. Additional paired devices are required before the
-            factors can be considered final.
+            Active-memory pressure, persistent storage, and recovery form
+            Resource Resilience. Compatibility adapters may ensure equal work
+            or equivalent observation, but no browser receives a multiplier,
+            offset, cap exception, or threshold change after measurement.
+            Chromium is the reference path; Firefox support is experimental.
           </p>
 
           <h3>Everyday capability and performance reserve</h3>
@@ -335,11 +333,10 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Firefox calibration is applied to graphics and aggregate headroom
-            before the weighted computer grade. Raw browser-visible category
-            results still drive the detailed cautions, so normalization cannot
-            hide weak visual behavior. Chromium records identity factors and
-            follows the original calculation without transformation.
+            Version 6.13 applies no post-score browser normalization. Web
+            Experience keeps real browser differences, while Resource
+            Resilience uses equal-work compatibility methods. Changing only a
+            stored browser-family label cannot change the result.
           </p>
 
           <div className="methodology-table-wrap compact-table">
@@ -472,7 +469,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.12</strong>
+            <strong>StillGood methodology v6.13</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

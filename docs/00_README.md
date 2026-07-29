@@ -57,6 +57,12 @@ This pack is designed to be placed in a repository and given to Codex as the sou
 
 30. `STILLGOOD_METHODOLOGY_WHITEPAPER.md` — public methodology and validity explanation
 
+Additional current-profile documents:
+
+- `29_BENCHMARK_V6_11_OPEN_CEILING_HEADROOM_ADAPTER.md` — archived telemetry-limited reserve rule
+- `30_BENCHMARK_V6_12_FIREFOX_REFERENCE_CALIBRATION.md` — archived provisional Firefox calibration
+- `31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md` — current browser-sensitive and equal-work evidence policy
+
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
 precedence.
@@ -129,6 +135,13 @@ with a versioned Firefox reference calibration. Chromium is the frozen
 reference path and receives identity factors. Firefox graphics and aggregate
 headroom are transformed with provisional multiplicative factors derived from
 matched HP and Dell runs. Raw Firefox evidence remains exported and visible.
+
+Benchmark v6.13 retires those provisional Firefox score factors. Real
+browser-visible differences remain in a Web Experience evidence group, while
+memory pressure, persistent storage, and recovery form a Resource Resilience
+group governed by equal-work compatibility adapters. No browser name can
+change a score after measurement. Chromium remains the reference browser and
+Firefox support remains experimental.
 
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and

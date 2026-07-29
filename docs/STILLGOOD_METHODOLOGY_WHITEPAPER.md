@@ -1,7 +1,7 @@
 # StillGood methodology whitepaper
 
 **Title:** Measuring what a computer is still good for
-**Benchmark profile:** `6.12.0-firefox-reference-calibration`
+**Benchmark profile:** `6.13.0-browser-evidence-boundary`
 **Published:** July 2026
 
 ## Abstract
@@ -141,6 +141,12 @@ grade is calculated. Raw Firefox scores, tier timings, factors, profile
 version, and calibration sample count remain in the export. No other category
 or scoring rule is transformed.
 
+Version 6.13 retires those provisional score factors. Browser-visible work is
+now explicitly classified as Web Experience and remains raw. Active-memory
+pressure, persistent storage, and recovery form Resource Resilience and use
+equal-work compatibility adapters only. No browser name can multiply, offset,
+cap, or otherwise change a result after measurement.
+
 Persistent storage uses asynchronous IndexedDB transactions and, where
 available, origin-private synchronous access handles inside a worker. Files
 contain deterministic non-empty data and are flushed, closed, reopened, sampled
@@ -192,24 +198,22 @@ result, but fast behavior does not inflate the base score. Additional caps
 cover weak core activities, poor everyday graphics or video, inconsistent
 response, limited reserve, and slow large-file saves.
 
-An isolated visual-rendering limitation that passes every v6.10 compatibility
-gate is reported separately rather than included in the computer grade. Broadly
-weak graphics, weak graphics accompanied by weak core work, and all current
-Chromium paths retain the original graphics weight and caps.
+Version 6.13 groups the evidence without changing Chromium's established
+calculation:
 
-When the v6.11 open-ceiling rule applies, the measured headroom score remains
-unchanged and caps the result at `headroom + 7`. It removes only the general
-hard B+ ceiling. Browsers with complete telemetry, runs that find a limit, and
-older-device profiles with weaker ordinary work retain the original rule.
+- **Web Experience** includes browsing, webmail, documents, spreadsheets,
+  multitasking, graphics, video, response consistency, and web workload
+  reserve. Differences between browsers remain because they describe the
+  experience the user actually receives.
+- **Resource Resilience** includes active-memory pressure, persistent browser
+  storage, and recovery after load. Compatibility adapters may ensure equal
+  work or equivalent observation, but they cannot apply a browser-specific
+  score adjustment.
 
-In v6.12 the v6.10 and v6.11 conditional grade rules are superseded by the
-Firefox calibration profile. The provisional factors are 1.067367 for graphics,
-1.070983 for everyday graphics, and 1.092412 for aggregate headroom. They are
-geometric means of the matched Chromium-to-Firefox ratios from two physical
-systems. Multiplicative factors preserve ordering and proportional differences
-better than a flat point bonus, but two systems are not sufficient for final
-calibration. Future profiles must add paired devices, publish uncertainty, and
-be validated on held-out hardware.
+The overall practical grade continues to combine raw browser-visible
+performance with memory, storage, recovery, and practical-limit rules.
+Chromium remains the most thoroughly validated reference browser. Firefox is
+experimental and is reported as measured, without post-score calibration.
 
 | Score | Grade | Meaning |
 |---:|:---:|---|

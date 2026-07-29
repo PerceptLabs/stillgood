@@ -2,25 +2,26 @@
 
 > Combined on 2026-07-29. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.12 Firefox reference calibration
+## Current benchmark addendum: v6.13 browser evidence boundary
 
 The current benchmark profile is
-`6.12.0-firefox-reference-calibration`. Chromium is the frozen reference path
-and receives identity factors. Firefox graphics and aggregate headroom are
-mapped to the reference scale with provisional multiplicative factors derived
-from matched HP and Dell physical-device runs.
+`6.13.0-browser-evidence-boundary`. Browser-visible work remains raw in the
+Web Experience evidence group. Active-memory pressure, persistent storage, and
+recovery form Resource Resilience and use equal-work compatibility adapters
+only. No browser receives a score multiplier, offset, cap exception, or
+threshold change after measurement.
 
-The calibration is applied before the final grade. Raw Firefox category scores,
-tier timings, normalization factors, profile version, and calibration pair
-count remain in the export. Browsing, email, documents, spreadsheets,
-multitasking, video, memory, storage, responsiveness, recovery, grade bands,
-and practical penalties are unchanged.
+Chromium remains the most thoroughly validated reference browser. Firefox
+support is experimental. Changing only the browser-family label cannot change
+a score; cross-browser differences must originate in the measurements.
 
-Reference replay leaves Chromium results at A+ 98, B+ 87, and C 71. The paired
-Dell Firefox grade is A 96, the HP Firefox grade is B+ 87, and the hitch-prone
-Lenovo Firefox result remains C- 63.
+See `31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md`.
 
-See `30_BENCHMARK_V6_12_FIREFOX_REFERENCE_CALIBRATION.md`.
+## Previous benchmark addendum: v6.12 Firefox reference calibration
+
+Version 6.12 used provisional Firefox graphics and aggregate-headroom
+calibration factors derived from two paired systems. Version 6.13 retires those
+factors.
 
 ## Previous benchmark addendum: v6.11 telemetry-limited open ceiling
 
@@ -229,6 +230,29 @@ stillgood/
 ├─ package.json
 └─ README.md
 ```
+
+---
+
+# Addendum — benchmark v6.13 browser evidence boundary
+
+Version 6.13 retires the provisional Firefox graphics and aggregate-headroom
+score factors introduced in v6.12.
+
+Browser-visible work is now classified as **Web Experience**. Browsing,
+webmail, web documents, spreadsheets, multitasking, visual smoothness, video,
+response consistency, and web workload reserve remain raw measurements from
+the tested browser. A real Firefox/Chromium difference is therefore preserved
+because it describes the experience the user receives.
+
+Active-memory pressure, persistent browser storage, and recovery form
+**Resource Resilience**. Compatibility adapters may ensure equal work or
+equivalent observation, but no browser receives a name-based multiplier,
+offset, cap exception, or threshold change.
+
+Chromium remains the reference and most thoroughly validated path. Firefox
+support is experimental. The result schema is `stillgood-result.v6.13`, the
+profile is `6.13.0-browser-evidence-boundary`, and the evidence policy is
+`browser-evidence-v1.0`.
 
 # Addendum: Benchmark v6 adaptive headroom
 

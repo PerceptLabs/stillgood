@@ -613,7 +613,7 @@ test("weak everyday graphics still limits an otherwise excellent result", () => 
   assert.ok(result.score <= 67);
 });
 
-test("Firefox graphics normalization preserves a weak raw visual result", () => {
+test("Firefox preserves weak browser-visible graphics without a score adjustment", () => {
   const metrics = fullMetrics([
     [105, 110, 115],
     [110, 115, 120],
@@ -637,21 +637,18 @@ test("Firefox graphics normalization preserves a weak raw visual result", () => 
   metrics.browserFamily = "firefox";
   const result = summarizeThoroughRun(metrics);
 
-  assert.equal(result.browserNormalization.applied, true);
   assert.ok(result.graphics.everydayScore < 58);
-  assert.ok(
-    result.browserNormalization.normalizedGraphicsEverydayScore >
-      result.browserNormalization.rawGraphicsEverydayScore,
-  );
   assert.ok(result.score <= 67);
+  assert.equal(result.evidenceGroups.postScoreNormalizationApplied, false);
+  assert.equal(result.browserSupport.level, "experimental");
   assert.ok(
     result.integrityNotes.some((note) =>
-      note.includes("Firefox reference calibration"),
+      note.includes("no browser-specific score multiplier"),
     ),
   );
 });
 
-test("Chromium uses identity browser normalization", () => {
+test("browser identity alone cannot change a raw score", () => {
   const metrics = fullMetrics([
     [45, 48, 50],
     [50, 54, 58],
@@ -661,28 +658,29 @@ test("Chromium uses identity browser normalization", () => {
   ]);
   const unchangedReference = summarizeThoroughRun(metrics);
   metrics.browserFamily = "chromium";
-  const result = summarizeThoroughRun(metrics);
+  const chromiumResult = summarizeThoroughRun(metrics);
+  metrics.browserFamily = "firefox";
+  const firefoxResult = summarizeThoroughRun(metrics);
 
-  assert.equal(result.score, unchangedReference.score);
-  assert.equal(result.grade, unchangedReference.grade);
-  assert.equal(result.headroom.score, unchangedReference.headroom.score);
-  assert.equal(result.browserNormalization.applied, false);
+  assert.equal(chromiumResult.score, unchangedReference.score);
+  assert.equal(chromiumResult.grade, unchangedReference.grade);
+  assert.equal(firefoxResult.score, chromiumResult.score);
+  assert.equal(firefoxResult.grade, chromiumResult.grade);
+  assert.equal(firefoxResult.graphics.score, chromiumResult.graphics.score);
+  assert.equal(firefoxResult.headroom.score, chromiumResult.headroom.score);
   assert.equal(
-    result.browserNormalization.rawGraphicsScore,
-    result.browserNormalization.normalizedGraphicsScore,
+    firefoxResult.evidenceGroups.webExperience.score,
+    chromiumResult.evidenceGroups.webExperience.score,
   );
   assert.equal(
-    result.browserNormalization.rawHeadroomScore,
-    result.browserNormalization.normalizedHeadroomScore,
+    firefoxResult.evidenceGroups.resourceResilience.score,
+    chromiumResult.evidenceGroups.resourceResilience.score,
   );
-  assert.deepEqual(result.browserNormalization.factors, {
-    graphicsScore: 1,
-    graphicsEveryday: 1,
-    headroom: 1,
-  });
+  assert.equal(chromiumResult.browserSupport.level, "reference");
+  assert.equal(firefoxResult.browserSupport.level, "experimental");
 });
 
-test("Firefox normalization is monotonic and bounded", () => {
+test("evidence groups separate web behavior from equal-work resource evidence", () => {
   const metrics = fullMetrics([
     [55, 58, 62],
     [70, 75, 80],
@@ -693,17 +691,29 @@ test("Firefox normalization is monotonic and bounded", () => {
   metrics.browserFamily = "firefox";
   const result = summarizeThoroughRun(metrics);
 
-  assert.equal(result.browserNormalization.applied, true);
-  assert.ok(
-    result.browserNormalization.normalizedGraphicsScore >=
-      result.browserNormalization.rawGraphicsScore,
+  assert.equal(result.evidenceGroups.profileVersion, "browser-evidence-v1.0");
+  assert.equal(
+    result.evidenceGroups.webExperience.preserveBrowserDifferences,
+    true,
   );
-  assert.ok(result.browserNormalization.normalizedGraphicsScore <= 100);
-  assert.ok(
-    result.browserNormalization.normalizedHeadroomScore >=
-      result.browserNormalization.rawHeadroomScore,
+  assert.equal(
+    result.evidenceGroups.resourceResilience.preserveBrowserDifferences,
+    false,
   );
-  assert.ok(result.browserNormalization.normalizedHeadroomScore <= 100);
+  assert.equal(
+    result.evidenceGroups.resourceResilience.treatment,
+    "equal-work-adapters-only",
+  );
+  assert.ok(
+    result.evidenceGroups.webExperience.categories.includes("graphics"),
+  );
+  assert.ok(
+    result.evidenceGroups.resourceResilience.categories.includes("storage"),
+  );
+  assert.ok(result.evidenceGroups.webExperience.score >= 0);
+  assert.ok(result.evidenceGroups.webExperience.score <= 100);
+  assert.ok(result.evidenceGroups.resourceResilience.score >= 0);
+  assert.ok(result.evidenceGroups.resourceResilience.score <= 100);
 });
 
 test("a zero-frame video tier is invalid and cannot earn a recommendation", () => {
