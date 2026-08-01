@@ -1,6 +1,24 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "StillGood Sans";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/geist-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "StillGood Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/geist-mono-latin.woff2") format("woff2");
+}
+
 :root {
+  --font-geist-sans: "StillGood Sans";
+  --font-geist-mono: "StillGood Mono";
   --ink: #162033;
   --muted: #667085;
   --paper: #f6f7fb;
@@ -181,7 +199,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .quiet-instruction {
   margin: 28px 0 0;
-  color: #7a8496;
+  color: #5f697c;
   font-size: 12px;
 }
 .five-checks {
@@ -285,7 +303,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #7a8496;
+  color: #5f697c;
   font-size: 11px;
 }
 .simple-footer a {
@@ -1519,33 +1537,31 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 
 .privacy-paper {
-  width: min(860px, calc(100% - 40px));
+  width: min(760px, calc(100% - 40px));
 }
 
 .privacy-hero {
-  max-width: 780px;
+  max-width: 720px;
 }
 
 .privacy-hero h1 {
-  max-width: 760px;
-  font-size: clamp(44px, 6.4vw, 70px);
+  max-width: 700px;
+  font-size: clamp(38px, 5.4vw, 56px);
 }
 
 .privacy-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  margin-top: 54px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--line);
+  gap: 24px;
+  margin-top: 36px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .privacy-facts > div {
-  min-height: 150px;
-  padding: 22px;
-  background: rgba(255, 255, 255, 0.82);
+  min-height: 0;
+  padding: 0;
 }
 
 .privacy-facts span,
@@ -1554,16 +1570,13 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 
 .privacy-facts span {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 24px;
-  border-radius: 50%;
-  color: white;
-  background: var(--accent);
-  font-size: 9px;
+  width: auto;
+  height: auto;
+  margin-bottom: 8px;
+  color: var(--accent-dark);
+  font-size: 10px;
   font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .privacy-facts strong {
@@ -1571,42 +1584,42 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 
 .privacy-facts p {
-  margin: 8px 0 0;
+  margin: 5px 0 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
 }
 
 .privacy-paper > section {
-  max-width: 780px;
+  max-width: 720px;
   margin-top: 0;
-  padding: 58px 0;
+  padding: 40px 0;
   border-bottom: 1px solid var(--line);
 }
 
 .privacy-paper > section:first-of-type {
-  padding-top: 72px;
+  padding-top: 48px;
 }
 
 .privacy-paper h2 {
-  margin-bottom: 18px;
-  font-size: clamp(28px, 4vw, 40px);
+  margin-bottom: 14px;
+  font-size: clamp(27px, 3.6vw, 34px);
 }
 
 .privacy-paper section > p:not(.paper-number, .paper-note),
 .privacy-paper li {
   color: #526077;
   font-size: 15px;
-  line-height: 1.75;
+  line-height: 1.68;
 }
 
 .privacy-paper section > p + ul,
 .privacy-paper section > ul + p {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .privacy-callout {
-  margin-top: 58px;
+  margin-top: 40px;
 }
 
 .privacy-updated {
@@ -2115,8 +2128,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   }
   .privacy-facts span { grid-row: 1 / 3; margin: 0; }
   .privacy-facts p { margin-top: 4px; }
-  .privacy-paper > section { padding: 44px 0; }
-  .privacy-paper > section:first-of-type { padding-top: 54px; }
+  .privacy-paper > section { padding: 34px 0; }
+  .privacy-paper > section:first-of-type { padding-top: 40px; }
   .simple-footer, .fit-summary {
     align-items: flex-start;
     flex-direction: column;
@@ -2311,66 +2324,65 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 /* Methodology whitepaper */
 .methodology-shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 82% 4%, rgba(102, 54, 184, 0.09) 0 90px, transparent 91px),
-    var(--paper);
+  background: var(--paper);
 }
 .methodology-header {
   width: min(1120px, calc(100% - 40px));
   margin: 0 auto;
 }
 .methodology-paper {
-  width: min(920px, calc(100% - 40px));
+  width: min(820px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 78px 0 110px;
+  padding: 56px 0 80px;
 }
-.methodology-hero { max-width: 820px; }
+.methodology-hero { max-width: 760px; }
 .methodology-hero h1 {
-  max-width: 800px;
+  max-width: 740px;
   margin: 0;
-  font-size: clamp(46px, 7vw, 76px);
+  font-size: clamp(40px, 5.4vw, 60px);
   font-weight: 650;
   letter-spacing: -0.055em;
   line-height: 1.02;
 }
 .methodology-hero > p:not(.kicker) {
-  max-width: 760px;
-  margin: 28px 0 0;
+  max-width: 700px;
+  margin: 22px 0 0;
   color: var(--muted);
-  font-size: 19px;
-  line-height: 1.65;
+  font-size: 17px;
+  line-height: 1.6;
 }
 .methodology-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 30px;
+  gap: 16px;
+  margin-top: 24px;
 }
 .methodology-meta span,
 .methodology-meta a {
-  padding: 8px 11px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.65);
+  background: transparent;
   font-size: 11px;
   font-weight: 720;
   text-decoration: none;
 }
 .methodology-meta a {
   color: var(--accent-dark);
-  border-color: #cfc2e8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .methodology-toc {
   display: grid;
   grid-template-columns: 1.2fr repeat(7, auto);
   align-items: center;
-  gap: 14px;
-  margin: 64px 0 0;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.76);
+  gap: 12px;
+  margin: 42px 0 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
   font-size: 11px;
 }
 .methodology-toc a {
@@ -2378,47 +2390,47 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   text-decoration: none;
 }
 .methodology-paper > section {
-  margin-top: 92px;
+  margin-top: 64px;
   scroll-margin-top: 24px;
 }
 .paper-number {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  margin: 0 0 22px;
-  border-radius: 50%;
-  color: white;
-  background: var(--accent);
-  font-size: 11px;
+  width: auto;
+  height: auto;
+  display: block;
+  margin: 0 0 12px;
+  color: var(--accent-dark);
+  background: transparent;
+  font-size: 10px;
   font-weight: 800;
+  letter-spacing: 0.1em;
 }
 .methodology-paper h2 {
   max-width: 760px;
-  margin: 0 0 24px;
-  font-size: clamp(32px, 5vw, 52px);
+  margin: 0 0 18px;
+  font-size: clamp(28px, 4.2vw, 40px);
   font-weight: 660;
   letter-spacing: -0.045em;
   line-height: 1.06;
 }
 .methodology-paper h3 {
-  margin: 44px 0 12px;
-  font-size: 20px;
+  margin: 32px 0 10px;
+  font-size: 19px;
   letter-spacing: -0.025em;
 }
 .methodology-paper section > p:not(.paper-number, .paper-note) {
   max-width: 780px;
   color: #526077;
   font-size: 15px;
-  line-height: 1.75;
+  line-height: 1.68;
 }
 .paper-callout {
   max-width: 760px;
-  margin-top: 34px;
-  padding: 24px 26px;
-  border: 1px solid #cfc2e8;
-  border-radius: 14px;
-  background: var(--accent-soft);
+  margin-top: 26px;
+  padding: 16px 0 16px 20px;
+  border: 0;
+  border-left: 3px solid var(--accent);
+  border-radius: 0;
+  background: transparent;
 }
 .paper-callout strong {
   color: var(--accent-dark);
@@ -2434,18 +2446,18 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .methodology-steps {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  margin: 34px 0;
+  margin: 26px 0;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 8px;
   overflow: hidden;
   list-style: none;
   background: var(--line);
   gap: 1px;
 }
 .methodology-steps li {
-  min-height: 190px;
-  padding: 20px;
+  min-height: 150px;
+  padding: 16px;
   background: var(--surface);
 }
 .methodology-steps strong,
@@ -2458,10 +2470,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   line-height: 1.55;
 }
 .methodology-table-wrap {
-  margin: 34px 0;
+  margin: 26px 0;
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--surface);
 }
 .methodology-table {
@@ -2472,7 +2484,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .methodology-table th,
 .methodology-table td {
-  padding: 15px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
@@ -2494,14 +2506,14 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .evidence-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin: 34px 0;
+  gap: 10px;
+  margin: 26px 0;
 }
 .evidence-grid article {
-  min-height: 145px;
-  padding: 22px;
+  min-height: 120px;
+  padding: 18px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: 8px;
   background: var(--surface);
 }
 .evidence-grid strong { font-size: 13px; }
@@ -2515,14 +2527,14 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  margin: 34px 0 14px;
+  margin: 26px 0 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 8px;
   overflow: hidden;
   background: var(--line);
 }
 .score-weight-grid span {
-  padding: 17px;
+  padding: 14px;
   background: var(--surface);
   color: var(--muted);
   font-size: 12px;
@@ -2543,12 +2555,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .paper-list,
 .reference-list {
   max-width: 800px;
-  margin: 30px 0;
+  margin: 22px 0;
   padding-left: 20px;
 }
 .paper-list li,
 .reference-list li {
-  margin: 13px 0;
+  margin: 9px 0;
   padding-left: 6px;
   color: #526077;
   font-size: 14px;
@@ -2565,8 +2577,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-top: 92px;
-  padding-top: 32px;
+  margin-top: 64px;
+  padding-top: 24px;
   border-top: 1px solid var(--line);
 }
 .methodology-footer strong,
@@ -2593,10 +2605,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 @media (max-width: 620px) {
   .methodology-paper {
     width: min(100% - 28px, 920px);
-    padding-top: 54px;
+    padding-top: 40px;
   }
   .methodology-header { width: min(100% - 28px, 1120px); }
-  .methodology-hero h1 { font-size: 44px; }
+  .methodology-hero h1 { font-size: 38px; }
   .methodology-toc { grid-template-columns: repeat(2, 1fr); }
   .methodology-steps,
   .evidence-grid,
