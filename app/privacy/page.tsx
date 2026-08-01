@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="method-page privacy-page">
-      <header className="method-header">
+    <main className="methodology-shell privacy-page">
+      <header className="simple-header methodology-header">
         <Link className="simple-brand" href="/">
           <span>S</span> StillGood
         </Link>
@@ -19,14 +19,34 @@ export default function PrivacyPage() {
         </Link>
       </header>
 
-      <article className="method-article">
-        <p className="kicker">Privacy, in plain language</p>
-        <h1>Your results stay on your device by default.</h1>
-        <p className="method-lede">
-          StillGood needs no account. Completed results are stored in this
-          browser so you can reopen or export them. Nothing is shared with us
-          unless you turn on anonymous measurement sharing.
-        </p>
+      <article className="methodology-paper privacy-paper">
+        <header className="methodology-hero privacy-hero">
+          <p className="kicker">Privacy, in plain language</p>
+          <h1>Your results stay on your device by default.</h1>
+          <p>
+            StillGood needs no account. Completed results are stored in this
+            browser so you can reopen or export them. Nothing is shared with us
+            unless you turn on anonymous measurement sharing.
+          </p>
+        </header>
+
+        <div className="privacy-facts" aria-label="Privacy at a glance">
+          <div>
+            <span aria-hidden="true">01</span>
+            <strong>No account</strong>
+            <p>Run the test without signing in.</p>
+          </div>
+          <div>
+            <span aria-hidden="true">02</span>
+            <strong>Saved locally</strong>
+            <p>Your full results stay in this browser.</p>
+          </div>
+          <div>
+            <span aria-hidden="true">03</span>
+            <strong>Sharing is optional</strong>
+            <p>Anonymous measurements are off by default.</p>
+          </div>
+        </div>
 
         <section>
           <h2>What stays in your browser</h2>
@@ -84,7 +104,7 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <aside className="method-note">
+        <aside className="paper-callout privacy-callout">
           <strong>No third-party analytics</strong>
           <p>
             StillGood does not load advertising, tracking pixels, or third-party
