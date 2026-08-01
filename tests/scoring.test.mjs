@@ -850,3 +850,66 @@ test("an unsettled preflight lowers confidence without inventing a correction", 
   assert.equal(result.confidence, "Low");
   assert.ok(result.integrityNotes.some((note) => note.includes("Background activity")));
 });
+
+test("extended media headroom does not change the everyday video score", () => {
+  const everyday = ["480p", "720p", "1080p"].map((label) => ({
+    id: label,
+    label,
+    completed: true,
+    droppedRatio: 0,
+    stalls: 0,
+    totalFrames: 120,
+    valid: true,
+  }));
+  const baseline = summarizeVideo(everyday);
+  const extended = summarizeVideo([
+    ...everyday,
+    ...[
+      ["1080p60", "1080p60"],
+      ["1440p", "1440p"],
+      ["4k", "4K"],
+    ].map(([id, label]) => ({
+      id,
+      label,
+      headroom: true,
+      completed: true,
+      droppedRatio: 0,
+      stalls: 0,
+      totalFrames: 240,
+      valid: true,
+    })),
+  ]);
+  assert.equal(extended.score, baseline.score);
+  assert.equal(extended.highestComfortable, "4K");
+  assert.equal(extended.testedHeadroom, true);
+  assert.equal(extended.headroomCeiling, true);
+});
+
+test("skipped extended media tiers do not count as invalid measurements", () => {
+  const summary = summarizeVideo([
+    ...["480p", "720p", "1080p"].map((label) => ({
+      id: label,
+      label,
+      completed: true,
+      droppedRatio: 0,
+      stalls: 0,
+      totalFrames: 120,
+      valid: true,
+    })),
+    {
+      id: "4k",
+      label: "4K",
+      headroom: true,
+      skipped: true,
+      valid: false,
+      completed: false,
+      droppedRatio: 0,
+      stalls: 0,
+      totalFrames: 0,
+    },
+  ]);
+  assert.equal(summary.score, 100);
+  assert.equal(summary.invalidTierCount, 0);
+  assert.equal(summary.tiers.at(-1).status, "skipped");
+  assert.equal(summary.highestComfortable, "1080p");
+});

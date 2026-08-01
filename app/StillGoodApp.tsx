@@ -20,6 +20,10 @@ import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
 import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
 import { buildAnonymousTelemetry } from "@/lib/anonymous-telemetry.mjs";
 import {
+  shouldAttempt4k,
+  shouldAttemptExtendedVideo,
+} from "@/lib/video-headroom.mjs";
+import {
   clearLocalRuns,
   getLocalRun,
   listLocalRuns,
@@ -189,6 +193,14 @@ type VideoTierResult = {
   label: string;
   width: number;
   height: number;
+  frameRate: number;
+  bitrate: number;
+  headroom?: boolean;
+  skipped?: boolean;
+  skipReason?: string;
+  capabilitySupported?: boolean | null;
+  capabilitySmooth?: boolean | null;
+  capabilityPowerEfficient?: boolean | null;
   droppedRatio: number;
   stalls: number;
   stallDurationMs: number;
@@ -342,6 +354,9 @@ type SimpleCategory = {
   reportedMemoryLabel?: string;
   gradeCeiling?: number;
   topGradeEligible?: boolean;
+  testedHeadroom?: boolean;
+  headroomCeiling?: boolean;
+  limitFound?: boolean;
   tiers: Array<{ id: string; label: string; status: string }>;
 };
 type ThoroughResult = {
@@ -423,7 +438,8 @@ const stages: Array<{
     id: "video",
     name: "Video",
     title: "Real video playback",
-    detail: "Local H.264 clips at 480p, 720p, and 1080p.",
+    detail:
+      "SG-branded local video from 480p to 1080p, with adaptive higher-resolution headroom.",
   },
   {
     id: "multitasking",
@@ -541,12 +557,15 @@ const spreadsheetTiers: Tier[] = [
   },
 ];
 
-const videoTiers = [
+const ordinaryVideoTiers = [
   {
     id: "480p",
     label: "480p",
     width: 854,
     height: 480,
+    frameRate: 30,
+    bitrate: 1400000,
+    codec: "avc1.640028",
     src: "/benchmark-assets/video-480p.mp4",
     durationMs: 4500,
   },
@@ -555,6 +574,9 @@ const videoTiers = [
     label: "720p",
     width: 1280,
     height: 720,
+    frameRate: 30,
+    bitrate: 3100000,
+    codec: "avc1.640028",
     src: "/benchmark-assets/video-720p.mp4",
     durationMs: 4500,
   },
@@ -563,10 +585,114 @@ const videoTiers = [
     label: "1080p",
     width: 1920,
     height: 1080,
+    frameRate: 30,
+    bitrate: 6300000,
+    codec: "avc1.640028",
     src: "/benchmark-assets/video-1080p.mp4",
     durationMs: 4500,
   },
 ];
+
+const extendedVideoTiers = [
+  {
+    id: "1080p60",
+    label: "1080p60",
+    width: 1920,
+    height: 1080,
+    frameRate: 60,
+    bitrate: 8600000,
+    codec: "avc1.64002a",
+    src: "/benchmark-assets/video-1080p60.mp4",
+    durationMs: 4500,
+    headroom: true,
+  },
+  {
+    id: "1440p",
+    label: "1440p",
+    width: 2560,
+    height: 1440,
+    frameRate: 30,
+    bitrate: 10100000,
+    codec: "avc1.640032",
+    src: "/benchmark-assets/video-1440p.mp4",
+    durationMs: 4500,
+    headroom: true,
+  },
+  {
+    id: "4k",
+    label: "4K",
+    width: 3840,
+    height: 2160,
+    frameRate: 30,
+    bitrate: 21800000,
+    codec: "avc1.640033",
+    src: "/benchmark-assets/video-4k.mp4",
+    durationMs: 4500,
+    headroom: true,
+  },
+] as const;
+
+type VideoTier =
+  | (typeof ordinaryVideoTiers)[number]
+  | (typeof extendedVideoTiers)[number];
+type VideoCapability = {
+  supported: boolean | null;
+  smooth: boolean | null;
+  powerEfficient: boolean | null;
+};
+
+async function videoCapabilityFor(tier: VideoTier): Promise<VideoCapability> {
+  try {
+    if (!navigator.mediaCapabilities?.decodingInfo) {
+      return { supported: null, smooth: null, powerEfficient: null };
+    }
+    const capability = await navigator.mediaCapabilities.decodingInfo({
+      type: "file",
+      video: {
+        contentType: `video/mp4; codecs="${tier.codec}"`,
+        width: tier.width,
+        height: tier.height,
+        bitrate: tier.bitrate,
+        framerate: tier.frameRate,
+      },
+    });
+    return {
+      supported: capability.supported,
+      smooth: capability.smooth,
+      powerEfficient: capability.powerEfficient,
+    };
+  } catch {
+    return { supported: null, smooth: null, powerEfficient: null };
+  }
+}
+
+function skippedVideoTier(
+  tier: VideoTier,
+  skipReason: string,
+  capability: VideoCapability = {
+    supported: null,
+    smooth: null,
+    powerEfficient: null,
+  },
+): VideoTierResult {
+  return {
+    ...tier,
+    skipped: true,
+    skipReason,
+    capabilitySupported: capability.supported,
+    capabilitySmooth: capability.smooth,
+    capabilityPowerEfficient: capability.powerEfficient,
+    droppedRatio: 0,
+    stalls: 0,
+    stallDurationMs: 0,
+    longestStallMs: 0,
+    completed: false,
+    totalFrames: 0,
+    valid: false,
+    measurementSource: "unavailable",
+    mediaAdvancedMs: 0,
+  };
+}
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms));
@@ -662,7 +788,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.14",
+    schemaVersion: "stillgood-result.v6.15",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1454,7 +1580,12 @@ export function StillGoodApp() {
   }
 
   async function runVideoTier(
-    tier: (typeof videoTiers)[number],
+    tier: VideoTier,
+    capability: VideoCapability = {
+      supported: null,
+      smooth: null,
+      powerEfficient: null,
+    },
   ): Promise<VideoTierResult> {
     const video = videoRef.current;
     if (!video)
@@ -1578,6 +1709,12 @@ export function StillGoodApp() {
       label: tier.label,
       width: tier.width,
       height: tier.height,
+      frameRate: tier.frameRate,
+      bitrate: tier.bitrate,
+      ...("headroom" in tier ? { headroom: tier.headroom } : {}),
+      capabilitySupported: capability.supported,
+      capabilitySmooth: capability.smooth,
+      capabilityPowerEfficient: capability.powerEfficient,
       droppedRatio:
         qualityFrames > 0
           ? dropped / qualityFrames
@@ -1609,7 +1746,7 @@ export function StillGoodApp() {
     const testStart = performance.now();
 
     await Promise.allSettled(
-      videoTiers.map((tier) =>
+      ordinaryVideoTiers.map((tier) =>
         fetch(tier.src, { cache: "force-cache" }).then((response) => {
           if (!response.ok) throw new Error(`Missing ${tier.label} video`);
           return response.arrayBuffer();
@@ -1736,11 +1873,11 @@ export function StillGoodApp() {
       setStageIndex(5);
       await nextPaint();
       const measuredVideoTiers: VideoTierResult[] = [];
-      for (let index = 0; index < videoTiers.length; index += 1) {
-        setStatus(`Playing ${videoTiers[index].label} H.264 video`);
-        const measured = await runVideoTier(videoTiers[index]);
+      for (let index = 0; index < ordinaryVideoTiers.length; index += 1) {
+        setStatus(`Playing ${ordinaryVideoTiers[index].label} H.264 video`);
+        const measured = await runVideoTier(ordinaryVideoTiers[index]);
         measuredVideoTiers.push(measured);
-        setProgress(59 + ((index + 1) / videoTiers.length) * 9);
+        setProgress(59 + ((index + 1) / ordinaryVideoTiers.length) * 6);
         if (
           !measured.valid ||
           measured.droppedRatio > 0.15 ||
@@ -1748,13 +1885,15 @@ export function StillGoodApp() {
         ) {
           for (
             let remaining = index + 1;
-            remaining < videoTiers.length;
+            remaining < ordinaryVideoTiers.length;
             remaining += 1
           ) {
             measuredVideoTiers.push({
-              ...videoTiers[remaining],
+              ...ordinaryVideoTiers[remaining],
               droppedRatio: 1,
               stalls: 1,
+              stallDurationMs: 0,
+              longestStallMs: 0,
               completed: false,
               totalFrames: 0,
               valid: false,
@@ -1764,6 +1903,104 @@ export function StillGoodApp() {
           }
           break;
         }
+      }
+      const base1080p = measuredVideoTiers.find((tier) => tier.id === "1080p");
+      const extendedEligible = shouldAttemptExtendedVideo({
+        latencyGroups: [
+          browsingResults,
+          emailResults,
+          writingResults,
+          spreadsheetResults,
+        ],
+        graphicsTiers,
+        baseVideoTier: base1080p,
+      });
+
+      if (!extendedEligible) {
+        for (const tier of extendedVideoTiers) {
+          measuredVideoTiers.push(
+            skippedVideoTier(
+              tier,
+              "Everyday workload results did not justify an extended media check.",
+            ),
+          );
+        }
+        setStatus("Higher-resolution video was not needed for this result");
+        setProgress(68);
+      } else {
+        const firstExtendedTiers = extendedVideoTiers.slice(0, 2);
+        for (let index = 0; index < firstExtendedTiers.length; index += 1) {
+          const tier = firstExtendedTiers[index];
+          setStatus(`Checking optional ${tier.label} video headroom`);
+          const capability = await videoCapabilityFor(tier);
+          if (capability.supported === false) {
+            measuredVideoTiers.push(
+              skippedVideoTier(
+                tier,
+                "The browser reported that this video format is unsupported.",
+                capability,
+              ),
+            );
+          } else {
+            try {
+              const response = await fetch(tier.src, { cache: "force-cache" });
+              if (!response.ok) throw new Error("video unavailable");
+              await response.arrayBuffer();
+              measuredVideoTiers.push(await runVideoTier(tier, capability));
+            } catch {
+              measuredVideoTiers.push(
+                skippedVideoTier(
+                  tier,
+                  "The optional local video fixture was unavailable.",
+                  capability,
+                ),
+              );
+            }
+          }
+          setProgress(66 + index);
+        }
+
+        const ultraHdTier = extendedVideoTiers[2];
+        if (!shouldAttempt4k(measuredVideoTiers)) {
+          measuredVideoTiers.push(
+            skippedVideoTier(
+              ultraHdTier,
+              "The preceding high-resolution checks found the practical ceiling.",
+            ),
+          );
+        } else {
+          setStatus("Checking optional 4K video headroom");
+          const capability = await videoCapabilityFor(ultraHdTier);
+          if (capability.supported === false) {
+            measuredVideoTiers.push(
+              skippedVideoTier(
+                ultraHdTier,
+                "The browser reported that 4K H.264 is unsupported.",
+                capability,
+              ),
+            );
+          } else {
+            try {
+              const response = await fetch(ultraHdTier.src, {
+                cache: "force-cache",
+              });
+              if (!response.ok) throw new Error("video unavailable");
+              await response.arrayBuffer();
+              measuredVideoTiers.push(
+                await runVideoTier(ultraHdTier, capability),
+              );
+            } catch {
+              measuredVideoTiers.push(
+                skippedVideoTier(
+                  ultraHdTier,
+                  "The optional local 4K fixture was unavailable.",
+                  capability,
+                ),
+              );
+            }
+          }
+        }
+        setProgress(68);
       }
       if (cancelledRef.current) return;
 
@@ -2060,7 +2297,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.14.0-memory-reserve",
+        profileVersion: "6.15.0-adaptive-media-headroom",
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
           browserEvidencePolicy: browserEvidenceProfile,
@@ -2792,7 +3029,9 @@ function BenchmarkVisual({
     return (
       <div className="test-visual media-visual">
         <video ref={videoRef} muted playsInline preload="auto" />
-        <p className="video-caption">Local test media · network excluded</p>
+        <p className="video-caption">
+          StillGood SG test media · network excluded
+        </p>
       </div>
     );
   }

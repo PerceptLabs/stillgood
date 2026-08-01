@@ -34,6 +34,9 @@ for (const [name, width, height] of [
   ["video-480p.mp4", 854, 480],
   ["video-720p.mp4", 1280, 720],
   ["video-1080p.mp4", 1920, 1080],
+  ["video-1080p60.mp4", 1920, 1080],
+  ["video-1440p.mp4", 2560, 1440],
+  ["video-4k.mp4", 3840, 2160],
 ]) {
   test(`${name} is a fast-start six-second H.264 fixture`, async () => {
     const buffer = await readFile(

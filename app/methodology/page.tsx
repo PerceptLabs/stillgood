@@ -40,8 +40,8 @@ const modules = [
   },
   {
     name: "Video",
-    work: "Plays bundled H.264 clips at 480p, 720p, and 1080p without relying on the network.",
-    evidence: "Displayed and dropped frames, media progress, total waiting time, and longest interruption.",
+    work: "Plays SG-branded H.264 clips from 480p through 1080p, then checks 1080p60, 1440p, and 4K only when earlier results justify it.",
+    evidence: "Displayed and dropped frames, media progress, total waiting time, longest interruption, and the highest comfortable resolution.",
   },
   {
     name: "Memory pressure",
@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.14</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.15</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.14.0</span>
+            <span>Profile 6.15.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.14.md" download>
+            <a href="/stillgood-methodology-v6.15.md" download>
               Download Markdown
             </a>
             <a
@@ -282,6 +282,14 @@ export default function MethodologyPage() {
             delivered-frame counts remain independent checks.
           </p>
           <p>
+            The comparable everyday video score uses 480p, 720p, and 1080p at
+            30 fps. Strong earlier workload results and comfortable 1080p
+            playback unlock optional 1080p60 and 1440p checks. StillGood runs
+            4K only when both are comfortable. Skipped or unsuccessful
+            headroom tiers describe a practical ceiling without lowering the
+            everyday video score or confidence.
+          </p>
+          <p>
             Repeated user-facing text sorts derive alphabetical ranks once
             from the fixture&apos;s unique labels using a fixed-locale
             <code>Intl.Collator</code>. Timed large-array sorts compare those
@@ -366,7 +374,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.14 applies no post-score browser normalization. Web
+            Version 6.15 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -488,6 +496,10 @@ export default function MethodologyPage() {
               {" "}— total and dropped video-frame semantics.
             </li>
             <li>
+              <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaCapabilities/decodingInfo">Media Capabilities decoding information</a>
+              {" "}— an advisory preflight before optional high-resolution playback.
+            </li>
+            <li>
               <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLVideoElement/requestVideoFrameCallback">requestVideoFrameCallback</a>
               {" "}— observing frames sent to the compositor.
             </li>
@@ -512,7 +524,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.14</strong>
+            <strong>StillGood methodology v6.15</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

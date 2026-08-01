@@ -45,6 +45,8 @@ const TIER_NUMBER_FIELDS = new Set([
   "evaluationCadenceMs",
   "width",
   "height",
+  "frameRate",
+  "bitrate",
   "droppedRatio",
   "stalls",
   "stallDurationMs",
@@ -88,6 +90,11 @@ const TIER_BOOLEAN_FIELDS = new Set([
   "completed",
   "verified",
   "available",
+  "headroom",
+  "skipped",
+  "capabilitySupported",
+  "capabilitySmooth",
+  "capabilityPowerEfficient",
 ]);
 
 type JsonObject = Record<string, unknown>;
@@ -129,6 +136,10 @@ function sanitizeCategory(value: unknown) {
         : null,
     limitFound:
       typeof category.limitFound === "boolean" ? category.limitFound : null,
+    headroomCeiling:
+      typeof category.headroomCeiling === "boolean"
+        ? category.headroomCeiling
+        : null,
     tiers: tiers.slice(0, 12).map((value) => {
       const tier = objectValue(value);
       return {
