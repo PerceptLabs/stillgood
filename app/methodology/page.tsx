@@ -45,8 +45,8 @@ const modules = [
   },
   {
     name: "Memory pressure",
-    work: "Allocates, touches, and repeatedly sweeps bounded working sets in a worker while probing foreground response.",
-    evidence: "Allocation and sweep behavior, foreground tail latency, and recovery—not installed RAM.",
+    work: "Reads the browser's coarse 2, 4, or 8+ GB hint when available, then touches and revisits bounded WebAssembly working sets while object-heavy JavaScript creates garbage-collection pressure.",
+    evidence: "Usable browser reserve, allocation and revisit behavior, garbage-collection pauses, foreground tail latency, and recovery—not installed RAM.",
   },
   {
     name: "Persistent saves",
@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.13</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.14</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.13.0</span>
+            <span>Profile 6.14.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.13.md" download>
+            <a href="/stillgood-methodology-v6.14.md" download>
               Download Markdown
             </a>
             <a
@@ -313,6 +313,22 @@ export default function MethodologyPage() {
             they cannot alone trigger the hard minimum intended for everyday
             capability.
           </p>
+          <h3>Memory hint and measured reserve</h3>
+          <p>
+            When available, the Device Memory API supplies only a coarse,
+            privacy-limited 2, 4, or 8+ GB class. StillGood uses that quick hint
+            as a lower-memory guardrail, never as an exact inventory. Firefox
+            and other browsers that omit the hint use the measured path alone.
+          </p>
+          <p>
+            The measured path retains WebAssembly linear-memory blocks in
+            stages, touches their pages, revisits the live working set, and
+            creates object-heavy inbox and table records that must later be
+            reclaimed. Foreground probes continue throughout. The highest
+            steady stage becomes a browser-reserve class and controls
+            eligibility for the highest grades. Allocation success by itself
+            is not counted as proof of physical memory.
+          </p>
         </section>
 
         <section id="scoring">
@@ -350,7 +366,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.13 applies no post-score browser normalization. Web
+            Version 6.14 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -413,7 +429,9 @@ export default function MethodologyPage() {
             temperature, total operating-system memory pressure, raw physical
             disk throughput, every native desktop application, or internet
             quality. Browser storage is not presented as an SSD benchmark, and
-            an active-memory workload is not presented as installed RAM.
+            an active-memory workload is not presented as installed RAM. The
+            8+ GB browser hint is intentionally not interpreted as 8, 16, or
+            any larger exact capacity.
           </p>
           <p>
             Results can vary with browser engine, extensions, hardware
@@ -474,6 +492,14 @@ export default function MethodologyPage() {
               {" "}— observing frames sent to the compositor.
             </li>
             <li>
+              <a href="https://www.w3.org/TR/device-memory/">W3C Device Memory API</a>
+              {" "}— a deliberately coarse, privacy-limited memory hint rather than exact installed RAM.
+            </li>
+            <li>
+              <a href="https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Memory/grow">WebAssembly linear memory</a>
+              {" "}— cross-browser 64 KiB pages used for bounded, touched working sets.
+            </li>
+            <li>
               <a href="https://fs.spec.whatwg.org/">WHATWG File System Standard</a>
               {" "}— origin-private file access, flush, reopen, and verification.
             </li>
@@ -486,7 +512,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.13</strong>
+            <strong>StillGood methodology v6.14</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

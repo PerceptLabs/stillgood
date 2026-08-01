@@ -2,6 +2,79 @@ let cancelled = false;
 let runToken = 0;
 let retainedMemoryBlocks = [];
 
+function createRetainedMemoryBlock(bytes) {
+  const pageBytes = 64 * 1024;
+  if (
+    typeof WebAssembly !== "undefined" &&
+    typeof WebAssembly.Memory === "function"
+  ) {
+    try {
+      const pages = Math.max(1, Math.ceil(bytes / pageBytes));
+      const memory = new WebAssembly.Memory({
+        initial: pages,
+        maximum: pages,
+      });
+      return {
+        allocator: "webassembly",
+        byteLength: memory.buffer.byteLength,
+        memory,
+        view: new Uint8Array(memory.buffer),
+      };
+    } catch {
+      // A typed-array block preserves the test on older implementations.
+    }
+  }
+  const view = new Uint8Array(bytes);
+  return {
+    allocator: "typed-array",
+    byteLength: view.byteLength,
+    memory: null,
+    view,
+  };
+}
+
+async function runObjectChurn(data, token) {
+  const rounds = Math.max(4, data.gcRounds || 6);
+  const objectsPerRound = Math.min(
+    60000,
+    Math.max(12000, Math.round(data.targetMB * 45)),
+  );
+  const generations = [];
+  const roundTimes = [];
+  let checksum = 0;
+
+  for (
+    let round = 0;
+    round < rounds && !cancelled && token === runToken;
+    round += 1
+  ) {
+    const started = performance.now();
+    const records = new Array(objectsPerRound);
+    for (let index = 0; index < objectsPerRound; index += 1) {
+      const value = (data.seed * 2654435761 + round * 8191 + index) >>> 0;
+      records[index] = {
+        id: value,
+        sender: `person-${value & 4095}`,
+        subject: `message-${(value >>> 5).toString(36)}`,
+        cells: [value & 1023, (value >>> 10) & 1023, value % 97],
+        selected: (value & 7) === 0,
+      };
+      checksum = (checksum ^ value) >>> 0;
+    }
+    generations.push(records);
+    if (generations.length > 2) generations.shift();
+    roundTimes.push(performance.now() - started);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  return {
+    gcChurnMs: roundTimes.reduce((sum, value) => sum + value, 0),
+    gcWorstRoundMs: Math.max(...roundTimes, 0),
+    gcObjectsCreated: roundTimes.length * objectsPerRound,
+    checksum,
+  };
+}
+
 function seededWork(seed, workUnits) {
   let value = seed >>> 0;
   const rows = [];
@@ -45,12 +118,14 @@ function runChunked(data) {
 async function runMemoryPressure(data) {
   const token = ++runToken;
   const targetBytes = Math.max(0, data.targetMB) * 1024 * 1024;
-  const chunkBytes = Math.max(4, data.chunkMB || 8) * 1024 * 1024;
+  const chunkBytes = Math.max(8, data.chunkMB || 32) * 1024 * 1024;
   let retainedBytes = retainedMemoryBlocks.reduce(
     (total, block) => total + block.byteLength,
     0,
   );
+  const retainedBeforeBytes = retainedBytes;
   let checksum = 0;
+  let allocator = "webassembly";
   const allocationStart = performance.now();
 
   while (
@@ -59,10 +134,11 @@ async function runMemoryPressure(data) {
     token === runToken
   ) {
     const bytes = Math.min(chunkBytes, targetBytes - retainedBytes);
-    const block = new Uint8Array(bytes);
-    for (let offset = 0; offset < block.length; offset += 4096) {
+    const block = createRetainedMemoryBlock(bytes);
+    if (block.allocator !== "webassembly") allocator = "typed-array";
+    for (let offset = 0; offset < block.view.length; offset += 4096) {
       const value = (offset + retainedBytes + data.seed * 131) & 255;
-      block[offset] = value;
+      block.view[offset] = value;
       checksum = (checksum + value) >>> 0;
     }
     retainedMemoryBlocks.push(block);
@@ -77,9 +153,10 @@ async function runMemoryPressure(data) {
   let scannedBytes = 0;
   do {
     for (const block of retainedMemoryBlocks) {
-      for (let offset = 0; offset < block.length; offset += scanStride) {
-        const value = (block[offset] + 1) & 255;
-        block[offset] = value;
+      const view = block.view;
+      for (let offset = 0; offset < view.length; offset += scanStride) {
+        const value = (view[offset] + 1) & 255;
+        view[offset] = value;
         checksum = (checksum ^ value) >>> 0;
         scannedBytes += scanStride;
       }
@@ -100,15 +177,22 @@ async function runMemoryPressure(data) {
   const scanMs = performance.now() - scanStart;
   const sweepMBps =
     scanMs > 0 ? scannedBytes / (1024 * 1024) / (scanMs / 1000) : 0;
+  const gc = await runObjectChurn(data, token);
+  checksum = (checksum ^ gc.checksum) >>> 0;
 
   self.postMessage({
     type: "memory-complete",
     requestId: data.requestId,
     retainedMB: retainedBytes / (1024 * 1024),
+    addedMB: (retainedBytes - retainedBeforeBytes) / (1024 * 1024),
+    allocator,
     allocationMs,
     scanMs,
     scannedMB: scannedBytes / (1024 * 1024),
     sweepMBps,
+    gcChurnMs: gc.gcChurnMs,
+    gcWorstRoundMs: gc.gcWorstRoundMs,
+    gcObjectsCreated: gc.gcObjectsCreated,
     checksum,
   });
 }

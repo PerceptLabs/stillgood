@@ -102,8 +102,8 @@ test("anonymous telemetry stores only the server allowlist", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         schemaVersion: "stillgood-telemetry.v1",
-        resultSchemaVersion: "stillgood-result.v6.13",
-        profileVersion: "6.13.0-browser-evidence-boundary",
+        resultSchemaVersion: "stillgood-result.v6.14",
+        profileVersion: "6.14.0-memory-reserve",
         context: {
           browserFamily: "Chromium",
           browserMajor: "150",
@@ -111,6 +111,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
           formFactor: "computer",
           logicalProcessorsBucket: "4-5",
           displayCadenceBucket: "53-76hz",
+          reportedMemoryClass: "8+",
           fullUserAgent: "must-not-be-stored",
         },
         outcome: {
@@ -119,7 +120,20 @@ test("anonymous telemetry stores only the server allowlist", async () => {
           confidence: "High",
           categories: {},
         },
-        evidence: {},
+        evidence: {
+          memoryTiers: [
+            {
+              id: "memory-1024",
+              targetMB: 1024,
+              retainedMB: 1024,
+              addedMB: 512,
+              allocator: "webassembly",
+              gcChurnMs: 62,
+              gcWorstRoundMs: 18,
+              gcObjectsCreated: 360000,
+            },
+          ],
+        },
         integrity: {},
         email: "must-not-be-stored@example.com",
       }),
@@ -139,7 +153,8 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(captured.sql, /anonymous_benchmark_runs/);
   const serializedBindings = JSON.stringify(captured.values);
   assert.doesNotMatch(serializedBindings, /must-not-be-stored/);
-  assert.match(serializedBindings, /6\.13\.0-browser-evidence-boundary/);
+  assert.match(serializedBindings, /6\.14\.0-memory-reserve/);
+  assert.match(serializedBindings, /webassembly/);
 });
 
 test("server-renders the public methodology whitepaper", async () => {
@@ -154,8 +169,9 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /Browser evidence boundary/);
   assert.match(html, /no post-score browser normalization/);
   assert.match(html, /Everyday capability and performance reserve/);
+  assert.match(html, /Memory hint and measured reserve/);
   assert.match(html, /What makes the result meaningful/);
-  assert.match(html, /stillgood-methodology-v6\.13\.md/);
+  assert.match(html, /stillgood-methodology-v6\.14\.md/);
   assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
   assert.doesNotMatch(html, /flat browser bonus|user-agent bonus/i);
 });

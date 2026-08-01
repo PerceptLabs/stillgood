@@ -246,10 +246,15 @@ type MemoryTierResult = {
   label: string;
   targetMB: number;
   retainedMB: number;
+  addedMB: number;
+  allocator: "webassembly" | "typed-array";
   allocationMs: number;
   scanMs: number;
   scannedMB: number;
   sweepMBps: number;
+  gcChurnMs: number;
+  gcWorstRoundMs: number;
+  gcObjectsCreated: number;
   copyRoundTripMs: number;
   probeP95Ms: number;
   probeWorstMs: number;
@@ -333,6 +338,10 @@ type SimpleCategory = {
   largeFlushMs?: number | null;
   largeFlushWorstMs?: number | null;
   saveForegroundP95Ms?: number | null;
+  reserveLabel?: string;
+  reportedMemoryLabel?: string;
+  gradeCeiling?: number;
+  topGradeEligible?: boolean;
   tiers: Array<{ id: string; label: string; status: string }>;
 };
 type ThoroughResult = {
@@ -653,7 +662,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.13",
+    schemaVersion: "stillgood-result.v6.14",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -873,20 +882,6 @@ async function requestWorkerResult<T>(
   });
 }
 
-async function measureForegroundLag(durationMs = 900) {
-  const samples: number[] = [];
-  const started = performance.now();
-  while (
-    performance.now() - started < durationMs &&
-    !document.hidden
-  ) {
-    const probe = performance.now();
-    await sleep(25);
-    samples.push(Math.max(0, performance.now() - probe - 25));
-  }
-  return samples;
-}
-
 async function measureForegroundLagUntil(
   operation: Promise<unknown>,
   maximumMs = 30000,
@@ -928,10 +923,15 @@ async function runMemoryTier(
   const workerMeasurement = requestWorkerResult<{
     type: string;
     retainedMB: number;
+    addedMB: number;
+    allocator: "webassembly" | "typed-array";
     allocationMs: number;
     scanMs: number;
     scannedMB: number;
     sweepMBps: number;
+    gcChurnMs: number;
+    gcWorstRoundMs: number;
+    gcObjectsCreated: number;
     checksum: number;
   }>(
     worker,
@@ -939,9 +939,10 @@ async function runMemoryTier(
       type: "memory-pressure",
       requestId,
       targetMB,
-      chunkMB: 8,
+      chunkMB: 32,
       scanDurationMs: 1100,
       scanStride: 64,
+      gcRounds: 6,
       seed: 900 + tierIndex,
       copyBuffer: copyBuffer.buffer,
     },
@@ -953,7 +954,7 @@ async function runMemoryTier(
   });
   const [measured, probeSamples] = await Promise.all([
     workerMeasurement,
-    measureForegroundLag(1200),
+    measureForegroundLagUntil(workerMeasurement, 24000),
   ]);
 
   return {
@@ -961,10 +962,15 @@ async function runMemoryTier(
     label: `${targetMB} MB active`,
     targetMB,
     retainedMB: measured.retainedMB,
+    addedMB: measured.addedMB,
+    allocator: measured.allocator,
     allocationMs: measured.allocationMs,
     scanMs: measured.scanMs,
     scannedMB: measured.scannedMB,
     sweepMBps: measured.sweepMBps,
+    gcChurnMs: measured.gcChurnMs,
+    gcWorstRoundMs: measured.gcWorstRoundMs,
+    gcObjectsCreated: measured.gcObjectsCreated,
     copyRoundTripMs,
     probeP95Ms: percentileValue(probeSamples, 0.95),
     probeWorstMs: Math.max(...probeSamples, 0),
@@ -1837,37 +1843,43 @@ export function StillGoodApp() {
       await nextPaint();
       const memoryTiers: MemoryTierResult[] = [];
       let memorySupported = true;
+      const deviceMemoryValue = (
+        navigator as Navigator & { deviceMemory?: number }
+      ).deviceMemory;
+      const reportedMemoryGB = typeof deviceMemoryValue === "number"
+        ? deviceMemoryValue <= 2
+          ? 2
+          : deviceMemoryValue <= 4
+            ? 4
+            : 8
+        : null;
       const memoryWorker = new Worker("/benchmark-worker.js");
       workersRef.current.push(memoryWorker);
       try {
-        const reportedMemory =
-          (navigator as Navigator & { deviceMemory?: number }).deviceMemory ??
-          4;
-        const mobile = detectFormFactor() === "mobile";
-        const memoryLevels = mobile
-          ? reportedMemory >= 4
-            ? [64, 128, 256, 512]
-            : [64, 128, 256, 384]
-          : reportedMemory >= 8
-            ? [128, 256, 512, 1024]
-            : reportedMemory >= 4
+        const memoryLevels =
+          reportedMemoryGB === 2
+            ? [64, 128, 256, 384]
+            : reportedMemoryGB === 4
               ? [128, 256, 512, 768]
-              : reportedMemory > 0
-                ? [64, 128, 256, 384]
-                : [128, 256, 512, 768];
+              : [128, 256, 512, 1024, 1280, 1536];
+        let baselineProbeP95Ms: number | null = null;
         for (const [index, targetMB] of memoryLevels.entries()) {
           setStatus(`Keeping ${targetMB} MB active while checking responsiveness`);
-          const measured = await runMemoryTier(
-            memoryWorker,
-            targetMB,
-            index,
-          );
+          let measured: MemoryTierResult;
+          try {
+            measured = await runMemoryTier(memoryWorker, targetMB, index);
+          } catch {
+            if (memoryTiers.length === 0) memorySupported = false;
+            break;
+          }
           memoryTiers.push(measured);
+          baselineProbeP95Ms ??= Math.max(1, measured.probeP95Ms);
           setProgress(83 + ((index + 1) / memoryLevels.length) * 8);
           if (
-            measured.probeP95Ms > 300 ||
-            measured.probeWorstMs > 1200 ||
-            measured.copyRoundTripMs > 4000
+            measured.probeP95Ms > Math.max(120, baselineProbeP95Ms * 4) ||
+            measured.probeWorstMs > 750 ||
+            measured.gcWorstRoundMs > 800 ||
+            measured.copyRoundTripMs > 8000
           ) {
             break;
           }
@@ -2020,6 +2032,7 @@ export function StillGoodApp() {
         multitaskTiers,
         memoryTiers,
         memorySupported,
+        reportedMemoryGB,
         storageTiers,
         strictStorageTiers,
         opfsStorageTiers,
@@ -2047,7 +2060,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.13.0-browser-evidence-boundary",
+        profileVersion: "6.14.0-memory-reserve",
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
           browserEvidencePolicy: browserEvidenceProfile,
@@ -2079,6 +2092,7 @@ export function StillGoodApp() {
           multitaskTiers,
           memoryTiers,
           memorySupported,
+          reportedMemoryGB,
           storageTiers,
           strictStorageTiers,
           opfsStorageTiers,
@@ -2392,8 +2406,8 @@ export function StillGoodApp() {
           <strong>{result.evidenceGroups.webExperience.label}</strong>
         </article>
         <article>
-          <span>Memory, saves &amp; recovery</span>
-          <strong>{result.evidenceGroups.resourceResilience.label}</strong>
+          <span>Memory reserve</span>
+          <strong>{result.memory.reserveLabel ?? result.evidenceGroups.resourceResilience.label}</strong>
         </article>
          <article>
            <span>Large saves</span>
@@ -2536,8 +2550,8 @@ export function StillGoodApp() {
                <strong>{result.evidenceGroups.webExperience.label}</strong>
              </article>
              <article>
-               <span>Memory, saves &amp; recovery</span>
-               <strong>{result.evidenceGroups.resourceResilience.label}</strong>
+               <span>Memory reserve</span>
+               <strong>{result.memory.reserveLabel ?? result.evidenceGroups.resourceResilience.label}</strong>
              </article>
              <article>
                <span>Web workload reserve</span>
@@ -2612,6 +2626,10 @@ export function StillGoodApp() {
                <article>
                  <span>Test duration</span>
                  <strong>{Math.max(1, Math.round(result.elapsedMs / 60000))} minutes</strong>
+               </article>
+               <article>
+                 <span>Browser memory hint</span>
+                 <strong>{result.memory.reportedMemoryLabel ?? "Not available"}</strong>
                </article>
                <article>
                 <span>Confidence</span>

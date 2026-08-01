@@ -25,9 +25,9 @@ test("browser context keeps only broad, useful device information", () => {
 test("anonymous telemetry excludes exact identity and full browser strings", () => {
   const telemetry = buildAnonymousTelemetry(
     {
-      schemaVersion: "stillgood-result.v6.13",
+      schemaVersion: "stillgood-result.v6.14",
       result: {
-        profileVersion: "6.13.0-browser-evidence-boundary",
+        profileVersion: "6.14.0-memory-reserve",
         browser: "Chrome 150 with a private marker",
         platform: "Private workstation name",
         startedAt: "2026-08-01T12:34:56.000Z",
@@ -39,6 +39,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
         formFactor: "computer",
         responsiveness: { score: 80, p95Ms: 320 },
         headroom: { score: 65, openCeilings: 1 },
+        memory: { score: 92, reportedMemoryGB: 8 },
         browsing: {
           score: 79,
           tiers: [{ id: "everyday", medianMs: 220, worstMs: 410 }],
@@ -63,6 +64,16 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
               ],
             },
           ],
+          memoryTiers: [
+            {
+              id: "memory-1024",
+              targetMB: 1024,
+              retainedMB: 1024,
+              allocator: "webassembly",
+              gcWorstRoundMs: 28,
+              gcObjectsCreated: 360000,
+            },
+          ],
         },
       },
     },
@@ -73,7 +84,9 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
   assert.equal(telemetry.context.browserFamily, "Chromium");
   assert.equal(telemetry.context.browserMajor, "150");
   assert.equal(telemetry.context.platformFamily, "Windows");
+  assert.equal(telemetry.context.reportedMemoryClass, "8+");
   assert.equal(telemetry.outcome.score, 82);
+  assert.equal(telemetry.evidence.memoryTiers[0].allocator, "webassembly");
   assert.doesNotMatch(serialized, /private-token|Private workstation|2026-08-01/);
   assert.doesNotMatch(serialized, /userAgent|startedAt|browser\":\"Chrome/);
 });

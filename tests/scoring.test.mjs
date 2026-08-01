@@ -168,6 +168,53 @@ test("memory pressure scoring exposes catch-up hitches instead of a RAM claim", 
   assert.ok(steady.score > hitchy.score);
 });
 
+function stableMemoryTiers(levels) {
+  return levels.map((targetMB) => ({
+    id: `memory-${targetMB}`,
+    label: `${targetMB} MB active`,
+    targetMB,
+    retainedMB: targetMB,
+    addedMB: targetMB,
+    allocator: "webassembly",
+    allocationMs: 180,
+    scanMs: 1100,
+    scannedMB: targetMB * 4,
+    sweepMBps: 7000,
+    copyRoundTripMs: 1320,
+    probeP95Ms: 4,
+    probeWorstMs: 20,
+    gcChurnMs: 45,
+    gcWorstRoundMs: 11,
+    gcObjectsCreated: 360000,
+  }));
+}
+
+test("coarse memory hints and measured reserve jointly control top-grade eligibility", () => {
+  const fourClass = summarizeMemory(
+    stableMemoryTiers([128, 256, 512, 768]),
+    true,
+    4,
+  );
+  const eightClassAtOneGigabyte = summarizeMemory(
+    stableMemoryTiers([128, 256, 512, 1024]),
+    true,
+    8,
+  );
+  const highReserve = summarizeMemory(
+    stableMemoryTiers([128, 256, 512, 1024, 1280, 1536]),
+    true,
+    8,
+  );
+
+  assert.equal(fourClass.reportedMemoryLabel, "4 GB class");
+  assert.equal(fourClass.gradeCeiling, 81);
+  assert.equal(eightClassAtOneGigabyte.gradeCeiling, 93);
+  assert.equal(eightClassAtOneGigabyte.topGradeEligible, false);
+  assert.equal(highReserve.reserveLabel, "High browser reserve");
+  assert.equal(highReserve.topGradeEligible, true);
+  assert.equal(highReserve.gradeCeiling, 100);
+});
+
 test("persistent storage scoring distinguishes quick and delayed durable saves", () => {
   const bulk = [
     { id: "1", label: "1 MB", writeMs: 40, readMs: 10 },
@@ -532,6 +579,23 @@ function fullMetrics(coreValues) {
     interruptionCount: 0,
   };
 }
+
+test("a 4 GB memory class is capped at a useful second-life grade", () => {
+  const metrics = fullMetrics([
+    [35, 36, 37],
+    [38, 39, 40],
+    [42, 43, 44],
+    [46, 47, 48],
+    [50, 51, 52],
+  ]);
+  metrics.reportedMemoryGB = 4;
+  metrics.memoryTiers = stableMemoryTiers([128, 256, 512, 768]);
+  const result = summarizeThoroughRun(metrics);
+
+  assert.ok(result.score <= 81);
+  assert.equal(result.memory.gradeCeiling, 81);
+  assert.notEqual(result.grade, "A+");
+});
 
 test("a strong second-life profile is separated from modern-fast hardware", () => {
   const result = summarizeThoroughRun(

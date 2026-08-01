@@ -53,10 +53,14 @@ const TIER_NUMBER_FIELDS = new Set([
   "mediaAdvancedMs",
   "targetMB",
   "retainedMB",
+  "addedMB",
   "allocationMs",
   "scanMs",
   "scannedMB",
   "sweepMBps",
+  "gcChurnMs",
+  "gcWorstRoundMs",
+  "gcObjectsCreated",
   "copyRoundTripMs",
   "probeP95Ms",
   "probeWorstMs",
@@ -157,6 +161,13 @@ function sanitizeEvidenceTier(value: unknown) {
       "unavailable",
     );
   }
+  if (typeof tier.allocator === "string") {
+    clean.allocator = constrainedString(
+      tier.allocator,
+      ["webassembly", "typed-array"],
+      "typed-array",
+    );
+  }
   if (Array.isArray(tier.samples)) {
     clean.samples = tier.samples.slice(0, 12).map((sampleValue) => {
       const sample = objectValue(sampleValue);
@@ -218,6 +229,11 @@ function sanitizeSubmission(payload: unknown) {
       formFactor: constrainedString(
         context.formFactor,
         ["mobile", "computer", "unknown"],
+        "unknown",
+      ),
+      reportedMemoryClass: constrainedString(
+        context.reportedMemoryClass,
+        ["unknown", "2", "4", "8+"],
         "unknown",
       ),
       logicalProcessorsBucket: constrainedString(
