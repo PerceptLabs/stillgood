@@ -1,6 +1,6 @@
 # Benchmark media
 
-The v4 playback ladder uses one deterministic SG-branded moving test pattern.
+The v4 playback ladder uses one deterministic StillGood moving test pattern.
 Keeping the design, duration, pixel format, GOP structure, and quality target
 consistent makes resolution and frame rate the intentional variables.
 
@@ -20,5 +20,7 @@ The everyday 480p, 720p, and 1080p assets are cached before measurement. The
 1080p60 and 1440p headroom assets are fetched only after strong earlier results
 and comfortable 1080p playback. The 4K asset is fetched only after both of
 those extended tiers are comfortable. Skipped headroom tiers do not lower the
-everyday video score or result confidence. The earlier `flower.mp4` fixture is
+everyday video score or result confidence. If a lower ordinary tier performs
+worse than a higher one, it receives two confirmation runs and the three-run
+median becomes the recorded result. The earlier `flower.mp4` fixture is
 retained only for compatibility with v1 exports.

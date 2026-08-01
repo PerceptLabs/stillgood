@@ -60,7 +60,7 @@ test("server-renders the StillGood product shell", async () => {
   assert.match(html, /Searching, opening conversations, sorting, and writing replies/);
   assert.match(html, /Editing, page layout, formatting, tables, and reopening documents/);
   assert.match(html, /Formulas, sorting, filtering, pasting, searching, and scrolling/);
-  assert.match(html, /SG-branded local video from 480p to 1080p/);
+  assert.match(html, /Local video at everyday resolutions/);
   assert.match(html, /Keeps larger working sets active and watches for catch-up pauses/);
   assert.match(html, /Commits small changes, flushes local files, reopens them, and verifies the data/);
   assert.match(html, /href="\/methodology"/);
@@ -102,8 +102,8 @@ test("anonymous telemetry stores only the server allowlist", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         schemaVersion: "stillgood-telemetry.v1",
-        resultSchemaVersion: "stillgood-result.v6.15",
-        profileVersion: "6.15.0-adaptive-media-headroom",
+        resultSchemaVersion: "stillgood-result.v6.16",
+        profileVersion: "6.16.0-media-confirmation",
         context: {
           browserFamily: "Chromium",
           browserMajor: "150",
@@ -153,7 +153,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(captured.sql, /anonymous_benchmark_runs/);
   const serializedBindings = JSON.stringify(captured.values);
   assert.doesNotMatch(serializedBindings, /must-not-be-stored/);
-  assert.match(serializedBindings, /6\.15\.0-adaptive-media-headroom/);
+  assert.match(serializedBindings, /6\.16\.0-media-confirmation/);
   assert.match(serializedBindings, /webassembly/);
 });
 
@@ -171,7 +171,7 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /Everyday capability and performance reserve/);
   assert.match(html, /Memory hint and measured reserve/);
   assert.match(html, /What makes the result meaningful/);
-  assert.match(html, /stillgood-methodology-v6\.15\.md/);
+  assert.match(html, /stillgood-methodology-v6\.16\.md/);
   assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
   assert.doesNotMatch(html, /flat browser bonus|user-agent bonus/i);
 });

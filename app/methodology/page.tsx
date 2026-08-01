@@ -40,7 +40,7 @@ const modules = [
   },
   {
     name: "Video",
-    work: "Plays SG-branded H.264 clips from 480p through 1080p, then checks 1080p60, 1440p, and 4K only when earlier results justify it.",
+    work: "Plays bundled H.264 clips from 480p through 1080p, then checks 1080p60, 1440p, and 4K only when earlier results justify it.",
     evidence: "Displayed and dropped frames, media progress, total waiting time, longest interruption, and the highest comfortable resolution.",
   },
   {
@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.15</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.16</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.15.0</span>
+            <span>Profile 6.16.0</span>
             <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.15.md" download>
+            <a href="/stillgood-methodology-v6.16.md" download>
               Download Markdown
             </a>
             <a
@@ -290,6 +290,12 @@ export default function MethodologyPage() {
             everyday video score or confidence.
           </p>
           <p>
+            If a lower resolution performs worse than a higher one, StillGood
+            repeats the lower tier twice. The median of all three attempts
+            becomes the result, preventing one decoder-startup interruption
+            from being mistaken for a lasting playback limit.
+          </p>
+          <p>
             Repeated user-facing text sorts derive alphabetical ranks once
             from the fixture&apos;s unique labels using a fixed-locale
             <code>Intl.Collator</code>. Timed large-array sorts compare those
@@ -374,7 +380,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.15 applies no post-score browser normalization. Web
+            Version 6.16 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -524,7 +530,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.15</strong>
+            <strong>StillGood methodology v6.16</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

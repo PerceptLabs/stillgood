@@ -20,6 +20,8 @@ import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
 import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
 import { buildAnonymousTelemetry } from "@/lib/anonymous-telemetry.mjs";
 import {
+  consolidateVideoTierAttempts,
+  needsVideoConfirmation,
   shouldAttempt4k,
   shouldAttemptExtendedVideo,
 } from "@/lib/video-headroom.mjs";
@@ -201,6 +203,10 @@ type VideoTierResult = {
   capabilitySupported?: boolean | null;
   capabilitySmooth?: boolean | null;
   capabilityPowerEfficient?: boolean | null;
+  confirmationRuns?: number;
+  initialDroppedRatio?: number;
+  attemptDroppedRatios?: number[];
+  attemptStallDurationsMs?: number[];
   droppedRatio: number;
   stalls: number;
   stallDurationMs: number;
@@ -439,7 +445,7 @@ const stages: Array<{
     name: "Video",
     title: "Real video playback",
     detail:
-      "SG-branded local video from 480p to 1080p, with adaptive higher-resolution headroom.",
+      "Local video at everyday resolutions, with higher-resolution checks when useful.",
   },
   {
     id: "multitasking",
@@ -788,7 +794,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.15",
+    schemaVersion: "stillgood-result.v6.16",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1874,7 +1880,7 @@ export function StillGoodApp() {
       await nextPaint();
       const measuredVideoTiers: VideoTierResult[] = [];
       for (let index = 0; index < ordinaryVideoTiers.length; index += 1) {
-        setStatus(`Playing ${ordinaryVideoTiers[index].label} H.264 video`);
+        setStatus(`Checking ${ordinaryVideoTiers[index].label} video playback`);
         const measured = await runVideoTier(ordinaryVideoTiers[index]);
         measuredVideoTiers.push(measured);
         setProgress(59 + ((index + 1) / ordinaryVideoTiers.length) * 6);
@@ -1903,6 +1909,15 @@ export function StillGoodApp() {
           }
           break;
         }
+      }
+      for (let index = 0; index < ordinaryVideoTiers.length - 1; index += 1) {
+        if (!needsVideoConfirmation(measuredVideoTiers, index)) continue;
+        const tier = ordinaryVideoTiers[index];
+        setStatus(`Double-checking the ${tier.label} playback result`);
+        const attempts = [measuredVideoTiers[index]];
+        attempts.push(await runVideoTier(tier));
+        attempts.push(await runVideoTier(tier));
+        measuredVideoTiers[index] = consolidateVideoTierAttempts(attempts);
       }
       const base1080p = measuredVideoTiers.find((tier) => tier.id === "1080p");
       const extendedEligible = shouldAttemptExtendedVideo({
@@ -2297,7 +2312,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.15.0-adaptive-media-headroom",
+        profileVersion: "6.16.0-media-confirmation",
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
           browserEvidencePolicy: browserEvidenceProfile,
@@ -3030,7 +3045,7 @@ function BenchmarkVisual({
       <div className="test-visual media-visual">
         <video ref={videoRef} muted playsInline preload="auto" />
         <p className="video-caption">
-          StillGood SG test media · network excluded
+          Local test video · network excluded
         </p>
       </div>
     );

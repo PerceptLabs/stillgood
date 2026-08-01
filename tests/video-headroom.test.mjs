@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  consolidateVideoTierAttempts,
   isComfortableVideoTier,
+  needsVideoConfirmation,
   shouldAttempt4k,
   shouldAttemptExtendedVideo,
 } from "../lib/video-headroom.mjs";
@@ -82,4 +84,45 @@ test("4K is attempted only after comfortable 1080p60 and 1440p", () => {
     ]),
     false,
   );
+});
+
+test("a lower tier is confirmed when a higher resolution is comfortable", () => {
+  assert.equal(
+    needsVideoConfirmation(
+      [
+        { ...comfortableVideo("720p"), droppedRatio: 0.03 },
+        comfortableVideo("1080p"),
+      ],
+      0,
+    ),
+    true,
+  );
+  assert.equal(
+    needsVideoConfirmation(
+      [comfortableVideo("720p"), comfortableVideo("1080p")],
+      0,
+    ),
+    false,
+  );
+});
+
+test("three-attempt confirmation removes a single playback outlier", () => {
+  const first = {
+    ...comfortableVideo("720p"),
+    label: "720p",
+    droppedRatio: 0.03,
+    totalFrames: 136,
+    measurementSource: "playback-quality",
+    mediaAdvancedMs: 4500,
+  };
+  const confirmed = consolidateVideoTierAttempts([
+    first,
+    { ...first, droppedRatio: 0, stalls: 0 },
+    { ...first, droppedRatio: 0, stalls: 0 },
+  ]);
+  assert.equal(confirmed.droppedRatio, 0);
+  assert.equal(confirmed.confirmationRuns, 2);
+  assert.equal(confirmed.initialDroppedRatio, 0.03);
+  assert.deepEqual(confirmed.attemptDroppedRatios, [0.03, 0, 0]);
+  assert.equal(isComfortableVideoTier(confirmed), true);
 });

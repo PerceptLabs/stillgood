@@ -47,6 +47,8 @@ const TIER_NUMBER_FIELDS = new Set([
   "height",
   "frameRate",
   "bitrate",
+  "confirmationRuns",
+  "initialDroppedRatio",
   "droppedRatio",
   "stalls",
   "stallDurationMs",
