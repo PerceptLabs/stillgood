@@ -2085,6 +2085,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .source-header-link { display: none; }
   .five-checks, .check-results { grid-template-columns: repeat(2, 1fr); }
   .five-checks article:last-child, .check-results article:last-child { grid-column: 1 / -1; }
   .plain-boundary { grid-template-columns: 120px 1fr; }

@@ -2123,6 +2123,14 @@ export function StillGoodApp() {
             <a className="header-link" href="/methodology">
               Methodology
             </a>
+            <a
+              className="header-link source-header-link"
+              href="https://github.com/PerceptLabs/stillgood"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Source code
+            </a>
             <button className="header-link" onClick={openSavedRuns}>
               Saved runs
             </button>
@@ -2180,7 +2188,14 @@ export function StillGoodApp() {
         <footer className="simple-footer">
           <span>Private by design · local workloads · saved on this device</span>
           <span>
-            <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a>
+            <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a> ·{" "}
+            <a
+              href="https://github.com/PerceptLabs/stillgood"
+              target="_blank"
+              rel="noreferrer"
+            >
+              View source on GitHub
+            </a>
           </span>
         </footer>
       </main>
@@ -2327,6 +2342,14 @@ export function StillGoodApp() {
         <div className="header-actions">
           <a className="header-link" href="/methodology">
             Methodology
+          </a>
+          <a
+            className="header-link source-header-link"
+            href="https://github.com/PerceptLabs/stillgood"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Source code
           </a>
           <button className="header-link" onClick={openSavedRuns}>
             Saved runs

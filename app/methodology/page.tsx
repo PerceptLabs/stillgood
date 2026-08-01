@@ -76,9 +76,19 @@ export default function MethodologyPage() {
         <Link className="simple-brand" href="/" aria-label="StillGood home">
           <span>S</span> StillGood
         </Link>
-        <Link className="header-link" href="/">
-          Run the test
-        </Link>
+        <div className="header-actions">
+          <a
+            className="header-link source-header-link"
+            href="https://github.com/PerceptLabs/stillgood"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Source code
+          </a>
+          <Link className="header-link" href="/">
+            Run the test
+          </Link>
+        </div>
       </header>
 
       <article className="methodology-paper">
@@ -97,6 +107,13 @@ export default function MethodologyPage() {
             <span>Published July 2026</span>
             <a href="/stillgood-methodology-v6.13.md" download>
               Download Markdown
+            </a>
+            <a
+              href="https://github.com/PerceptLabs/stillgood"
+              target="_blank"
+              rel="noreferrer"
+            >
+              View source on GitHub
             </a>
           </div>
         </header>

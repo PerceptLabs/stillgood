@@ -14,9 +14,19 @@ export default function PrivacyPage() {
         <Link className="simple-brand" href="/">
           <span>S</span> StillGood
         </Link>
-        <Link className="header-link" href="/methodology">
-          Methodology
-        </Link>
+        <div className="header-actions">
+          <a
+            className="header-link source-header-link"
+            href="https://github.com/PerceptLabs/stillgood"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Source code
+          </a>
+          <Link className="header-link" href="/methodology">
+            Methodology
+          </Link>
+        </div>
       </header>
 
       <article className="methodology-paper privacy-paper">

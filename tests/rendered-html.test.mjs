@@ -67,6 +67,7 @@ test("server-renders the StillGood product shell", async () => {
   assert.match(html, /saved on this device/i);
   assert.match(html, /Help improve StillGood/);
   assert.match(html, /href="\/privacy"/);
+  assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
 
@@ -80,6 +81,7 @@ test("server-renders the privacy disclosure", async () => {
   assert.match(html, /What we do not collect/);
   assert.match(html, /persistent device identifier/);
   assert.match(html, /does not put that address into its benchmark database/);
+  assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
 });
 
 test("anonymous telemetry stores only the server allowlist", async () => {
@@ -154,5 +156,6 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /Everyday capability and performance reserve/);
   assert.match(html, /What makes the result meaningful/);
   assert.match(html, /stillgood-methodology-v6\.13\.md/);
+  assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
   assert.doesNotMatch(html, /flat browser bonus|user-agent bonus/i);
 });
