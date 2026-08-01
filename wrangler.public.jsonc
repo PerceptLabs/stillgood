@@ -14,7 +14,7 @@
     {
       "binding": "DB",
       "database_name": "stillgood-telemetry",
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      "database_id": "8cda3cec-4b3b-4267-b1ac-a81f175639b3",
       "migrations_dir": "drizzle"
     }
   ]
