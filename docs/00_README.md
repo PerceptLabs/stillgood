@@ -62,6 +62,7 @@ Additional current-profile documents:
 - `29_BENCHMARK_V6_11_OPEN_CEILING_HEADROOM_ADAPTER.md` — archived telemetry-limited reserve rule
 - `30_BENCHMARK_V6_12_FIREFOX_REFERENCE_CALIBRATION.md` — archived provisional Firefox calibration
 - `31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md` — current browser-sensitive and equal-work evidence policy
+- `32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md` — account-free local history, optional anonymous calibration, and `stillgood.fyi` deployment
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes

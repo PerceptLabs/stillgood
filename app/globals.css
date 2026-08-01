@@ -1460,6 +1460,64 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   padding: 42px 34px;
   color: var(--muted);
 }
+
+.sharing-choice {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  max-width: 760px;
+  margin: 1.5rem auto 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(96, 64, 172, 0.18);
+  border-radius: 18px;
+  background: rgba(96, 64, 172, 0.05);
+  cursor: pointer;
+}
+
+.sharing-choice input {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  margin-top: 0.2rem;
+  accent-color: var(--purple, #6040ac);
+}
+
+.sharing-choice span {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted, #5f5a6a);
+  line-height: 1.45;
+}
+
+.sharing-choice strong {
+  color: var(--ink, #211d28);
+}
+
+.sharing-choice a,
+.privacy-page a {
+  color: #51319f;
+}
+
+.history-delete {
+  display: block;
+  margin: 1rem 0 0 auto;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(110, 35, 61, 0.22);
+  border-radius: 999px;
+  color: #742c46;
+  background: transparent;
+  cursor: pointer;
+}
+
+.privacy-page ul {
+  display: grid;
+  gap: 0.55rem;
+  padding-left: 1.25rem;
+}
+
+.privacy-updated {
+  color: var(--muted, #5f5a6a);
+  font-size: 0.9rem;
+}
 .saved-runs-list {
   display: grid;
 }

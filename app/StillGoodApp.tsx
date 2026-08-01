@@ -18,6 +18,14 @@ import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
 import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
+import { buildAnonymousTelemetry } from "@/lib/anonymous-telemetry.mjs";
+import {
+  clearLocalRuns,
+  getLocalRun,
+  listLocalRuns,
+  saveLocalRun,
+  type LocalRunSummary,
+} from "@/lib/local-run-history";
 import {
   browsingActionNames,
   buildBrowsingDataset,
@@ -362,23 +370,9 @@ type ThoroughResult = {
   profileVersion: string;
   raw: unknown;
 };
-type SavedRunSummary = {
-  id: string;
-  createdAt: string;
-  startedAt: string;
-  profileVersion: string;
-  grade: string;
-  score: number;
-  confidence: string;
-  browser: string;
-  platform: string;
-  logicalProcessors: number | null;
-  elapsedMs: number;
-  responsivenessLabel: string;
-  responsivenessScore: number | null;
-  headroomLabel: string;
-  headroomScore: number;
-};
+type SavedRunSummary = LocalRunSummary;
+
+const ANONYMOUS_SHARING_KEY = "stillgood-share-anonymous-measurements";
 
 const stages: Array<{
   id: StageId;
@@ -1059,10 +1053,23 @@ export function StillGoodApp() {
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+  const [shareAnonymous, setShareAnonymous] = useState(false);
+  const [shareStatus, setShareStatus] = useState<
+    "idle" | "sending" | "shared" | "error"
+  >("idle");
   const cancelledRef = useRef(false);
   const workersRef = useRef<Worker[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShareAnonymous(
+        window.localStorage.getItem(ANONYMOUS_SHARING_KEY) === "true",
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!showGuide && !showHistory) return;
@@ -1095,18 +1102,35 @@ export function StillGoodApp() {
     indexedDB.deleteDatabase("stillgood-thorough-check");
   }
 
+  function updateAnonymousSharing(enabled: boolean) {
+    setShareAnonymous(enabled);
+    window.localStorage.setItem(ANONYMOUS_SHARING_KEY, String(enabled));
+  }
+
   async function saveResultAutomatically(completedResult: ThoroughResult) {
     setSaveStatus("saving");
+    const envelope = resultEnvelope(completedResult);
     try {
-      const response = await fetch("/api/results", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(resultEnvelope(completedResult)),
-      });
-      if (!response.ok) throw new Error("Automatic save failed");
+      await saveLocalRun(envelope);
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
+    }
+
+    if (!shareAnonymous) return;
+    setShareStatus("sending");
+    try {
+      const response = await fetch("/api/telemetry", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          buildAnonymousTelemetry(envelope, navigator.userAgent),
+        ),
+      });
+      if (!response.ok) throw new Error("Anonymous sharing failed");
+      setShareStatus("shared");
+    } catch {
+      setShareStatus("error");
     }
   }
 
@@ -1114,10 +1138,7 @@ export function StillGoodApp() {
     setShowHistory(true);
     setHistoryStatus("loading");
     try {
-      const response = await fetch("/api/results", { cache: "no-store" });
-      if (!response.ok) throw new Error("Could not load saved runs");
-      const payload = (await response.json()) as { runs?: SavedRunSummary[] };
-      setSavedRuns(Array.isArray(payload.runs) ? payload.runs : []);
+      setSavedRuns(await listLocalRuns());
       setHistoryStatus("ready");
     } catch {
       setHistoryStatus("error");
@@ -1126,16 +1147,25 @@ export function StillGoodApp() {
 
   async function downloadSavedRun(run: SavedRunSummary) {
     try {
-      const response = await fetch(
-        `/api/results?id=${encodeURIComponent(run.id)}`,
-        { cache: "no-store" },
-      );
-      if (!response.ok) throw new Error("Could not download saved run");
-      const payload = await response.json();
+      const payload = await getLocalRun(run.id);
+      if (!payload) throw new Error("Could not find saved run");
       downloadJsonFile(
         payload,
         `stillgood-saved-check-${new Date(run.startedAt).getTime()}.json`,
       );
+    } catch {
+      setHistoryStatus("error");
+    }
+  }
+
+  async function deleteSavedRuns() {
+    if (!window.confirm("Delete every StillGood result saved in this browser?")) {
+      return;
+    }
+    try {
+      await clearLocalRuns();
+      setSavedRuns([]);
+      setHistoryStatus("ready");
     } catch {
       setHistoryStatus("error");
     }
@@ -1562,6 +1592,8 @@ export function StillGoodApp() {
   async function begin() {
     cancelledRef.current = false;
     setNotice("");
+    setSaveStatus("idle");
+    setShareStatus("idle");
     setResult(null);
     setProgress(0);
     setStageIndex(0);
@@ -2130,10 +2162,26 @@ export function StillGoodApp() {
             battery health, temperature, total RAM use, or every desktop app.
             Chromium is the reference browser; Firefox support is experimental.
           </p>
+          <label className="sharing-choice">
+            <input
+              type="checkbox"
+              checked={shareAnonymous}
+              onChange={(event) =>
+                updateAnonymousSharing(event.currentTarget.checked)
+              }
+            />
+            <span>
+              <strong>Help improve StillGood</strong>
+              Share anonymous benchmark measurements after each completed test.
+              This is off unless you choose it. <a href="/privacy">Privacy details</a>
+            </span>
+          </label>
         </details>
         <footer className="simple-footer">
-          <span>Private by design · local workloads · results saved automatically</span>
-          <a href="/methodology">Read the methodology</a>
+          <span>Private by design · local workloads · saved on this device</span>
+          <span>
+            <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a>
+          </span>
         </footer>
       </main>
       {showHistory && (
@@ -2142,6 +2190,7 @@ export function StillGoodApp() {
           status={historyStatus}
           onClose={() => setShowHistory(false)}
           onDownload={downloadSavedRun}
+          onDeleteAll={deleteSavedRuns}
         />
       )}
       </>
@@ -2398,10 +2447,14 @@ export function StillGoodApp() {
         Different browsers and desktop applications can behave differently.
         {result.browserSupport.level === "experimental" &&
           " Firefox support is experimental; its web results are reported as measured without a browser-specific score adjustment."}
-        {saveStatus === "saving" && " Saving this run automatically…"}
-        {saveStatus === "saved" && " This run was saved automatically."}
+        {saveStatus === "saving" && " Saving this run on this device…"}
+        {saveStatus === "saved" && " This run is saved on this device."}
         {saveStatus === "error" &&
-          " Automatic saving was unavailable; use Export full result for this run."}
+          " Local saving was unavailable; use Export full result for this run."}
+        {shareStatus === "sending" && " Sharing anonymous measurements…"}
+        {shareStatus === "shared" && " Anonymous measurements were shared."}
+        {shareStatus === "error" &&
+          " Anonymous sharing was unavailable; your local result is unaffected."}
       </p>
     </main>
     {showGuide && (
@@ -2563,6 +2616,7 @@ export function StillGoodApp() {
         status={historyStatus}
         onClose={() => setShowHistory(false)}
         onDownload={downloadSavedRun}
+        onDeleteAll={deleteSavedRuns}
       />
     )}
     </>
@@ -2574,11 +2628,13 @@ function SavedRunsDialog({
   status,
   onClose,
   onDownload,
+  onDeleteAll,
 }: {
   runs: SavedRunSummary[];
   status: "idle" | "loading" | "ready" | "error";
   onClose: () => void;
   onDownload: (run: SavedRunSummary) => void;
+  onDeleteAll: () => void;
 }) {
   return (
     <div
@@ -2605,8 +2661,8 @@ function SavedRunsDialog({
           <p className="kicker">Private run history</p>
           <h2 id="saved-runs-title">Saved runs</h2>
           <p>
-            Completed tests are saved to your authenticated account. Download
-            any full log from whichever computer you are using.
+            Completed tests are saved only in this browser on this device.
+            Download a full log before clearing browser data or moving devices.
           </p>
         </header>
         {status === "loading" && (
@@ -2614,8 +2670,8 @@ function SavedRunsDialog({
         )}
         {status === "error" && (
           <p className="history-message">
-            Saved runs are temporarily unavailable. Existing local exports are
-            unaffected.
+            This browser could not open local run history. Existing downloads
+            are unaffected.
           </p>
         )}
         {status === "ready" && runs.length === 0 && (
@@ -2625,35 +2681,40 @@ function SavedRunsDialog({
           </p>
         )}
         {status === "ready" && runs.length > 0 && (
-          <div className="saved-runs-list">
-            {runs.map((run) => (
-              <article key={run.id}>
-                <div className="saved-run-grade">
-                  <strong>{run.grade}</strong>
-                  <span>Index {run.score}</span>
-                </div>
-                <div className="saved-run-copy">
-                  <strong>
-                    {new Intl.DateTimeFormat(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(run.startedAt))}
-                  </strong>
-                  <span>
-                    {run.browser} · {run.platform}
-                    {run.logicalProcessors
-                      ? ` · ${run.logicalProcessors} logical processors`
-                      : ""}
-                  </span>
-                  <small>
-                    {run.responsivenessLabel} · {run.headroomLabel} reserve ·{" "}
-                    {run.confidence} confidence
-                  </small>
-                </div>
-                <button onClick={() => onDownload(run)}>Download log</button>
-              </article>
-            ))}
-          </div>
+          <>
+            <div className="saved-runs-list">
+              {runs.map((run) => (
+                <article key={run.id}>
+                  <div className="saved-run-grade">
+                    <strong>{run.grade}</strong>
+                    <span>Index {run.score}</span>
+                  </div>
+                  <div className="saved-run-copy">
+                    <strong>
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(run.startedAt))}
+                    </strong>
+                    <span>
+                      {run.browser} · {run.platform}
+                      {run.logicalProcessors
+                        ? ` · ${run.logicalProcessors} logical processors`
+                        : ""}
+                    </span>
+                    <small>
+                      {run.responsivenessLabel} · {run.headroomLabel} reserve ·{" "}
+                      {run.confidence} confidence
+                    </small>
+                  </div>
+                  <button onClick={() => onDownload(run)}>Download log</button>
+                </article>
+              ))}
+            </div>
+            <button className="history-delete" onClick={onDeleteAll}>
+              Delete local history
+            </button>
+          </>
         )}
       </section>
     </div>

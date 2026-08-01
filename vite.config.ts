@@ -1,7 +1,7 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
-import hostingConfig from "./.openai/hosting.json";
-import { sites } from "./build/sites-vite-plugin";
+import hostingConfig from "./.openai/hosting.json" with { type: "json" };
+import { sites } from "./build/sites-vite-plugin.ts";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
@@ -42,6 +42,8 @@ export default defineConfig(async () => {
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
+  const publicCloudflareBuild =
+    process.env.STILLGOOD_PUBLIC_CLOUDFLARE === "1";
 
   return {
     server: isCodexSeatbeltSandbox
@@ -50,10 +52,17 @@ export default defineConfig(async () => {
     plugins: [
       vinext(),
       sites(),
-      cloudflare({
-        viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        config: localBindingConfig,
-      }),
+      cloudflare(
+        publicCloudflareBuild
+          ? {
+              viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
+              configPath: "./wrangler.public.jsonc",
+            }
+          : {
+              viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
+              config: localBindingConfig,
+            },
+      ),
     ],
   };
 });

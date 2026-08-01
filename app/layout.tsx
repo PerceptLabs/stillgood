@@ -13,15 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    "https://stillgood-computer-check.divadeluxxe.chatgpt.site",
-  ),
+  metadataBase: new URL("https://stillgood.fyi"),
   title: {
     default: "StillGood",
     template: "%s · StillGood",
   },
   description:
     "StillGood automatically tests practical browser usability and explains what an older computer remains good for.",
+  alternates: { canonical: "/" },
   openGraph: {
     title: "StillGood",
     description:

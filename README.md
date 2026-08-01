@@ -4,7 +4,7 @@ StillGood is a browser-based second-life computer benchmark. It runs
 deterministic local workloads and explains what the tested computer-and-browser
 combination can still do comfortably.
 
-The v6.1 benchmark measures:
+The v6.13 benchmark measures:
 
 - articles, search results, shopping pages, navigation, and filters;
 - large email websites and HTML message threads;
@@ -25,7 +25,9 @@ high-refresh display does not receive a harder workload merely for refreshing
 more often.
 
 Results include an A–E rating, balanced category evidence, practical role
-guidance, JSON export, and a printable detailed report.
+guidance, JSON export, and a printable detailed report. Completed results are
+saved locally in the browser. No account is required, and optional anonymous
+calibration sharing is off by default.
 
 ## Development
 
@@ -35,7 +37,21 @@ npm run dev
 npm test
 ```
 
+## Cloudflare deployment
+
+The public target is `stillgood.fyi` on Cloudflare Workers. The Worker serves
+the application and static benchmark assets; a free D1 database accepts only
+explicitly opted-in, allowlisted anonymous measurements.
+
+See `docs/32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md` for the one-time account and domain
+setup. Once the D1 UUID is configured:
+
+```bash
+npm run cloudflare:migrate
+npm run deploy:cloudflare
+```
+
 The benchmark methodology and research decisions are documented under
-`docs/`, with `docs/17_BENCHMARK_V6_ADAPTIVE_HEADROOM.md` and
-`docs/18_BENCHMARK_V6_1_REFRESH_NORMALIZATION.md` describing the current
-adaptive general-use revision.
+`docs/`, with `docs/31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md` describing
+the current scoring policy and `docs/32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md`
+describing public operation.
