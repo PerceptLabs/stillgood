@@ -421,6 +421,15 @@ export default function MethodologyPage() {
             one-point fluctuation from rewriting what the device is said to be
             good at while preserving the raw score for detailed comparisons.
           </p>
+          <p>
+            On a clean run, an initial result within one point of a grade or
+            headline capability boundary receives a short confirmation pass.
+            StillGood warms and repeats up to three relevant core workloads,
+            adds two observations to each selected tier, and recalculates from
+            all the raw samples. It does not add an offset or automatically
+            favor either side of the boundary. Low-confidence runs instead ask
+            for a cleaner retest.
+          </p>
         </section>
 
         <section id="validity">

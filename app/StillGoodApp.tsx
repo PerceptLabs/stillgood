@@ -16,6 +16,7 @@ import {
 } from "@/lib/scoring.mjs";
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
+import { planBoundaryConfirmation } from "@/lib/boundary-confirmation.mjs";
 import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
 import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
 import { buildAnonymousTelemetry } from "@/lib/anonymous-telemetry.mjs";
@@ -399,6 +400,19 @@ type ThoroughResult = {
   startedAt: string;
   elapsedMs: number;
   profileVersion: string;
+  boundaryConfirmation?: {
+    triggered: boolean;
+    margin: number;
+    reason: string;
+    gradeBoundary: number | null;
+    capabilityBoundaries: Array<{ category: string; boundary: number }>;
+    plannedCategories: string[];
+    runs: Array<{ category: string; tier: string; addedSamples: number }>;
+    scoreBefore: number;
+    gradeBefore: string;
+    scoreAfter: number;
+    gradeAfter: string;
+  };
   raw: unknown;
 };
 type SavedRunSummary = LocalRunSummary;
@@ -1501,6 +1515,86 @@ export function StillGoodApp() {
     return output;
   }
 
+  async function appendBoundaryConfirmationSamples(
+    stageId: "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
+    measuredTiers: LatencyTierResult[],
+    tierDefinitions: Tier[],
+    seedBase: number,
+  ) {
+    const measuredTier = [...measuredTiers].reverse().find(
+      (candidate) =>
+        !candidate.earlyStopped &&
+        !["headroom", "limit"].includes(candidate.id) &&
+        candidate.samples.some((sample) => sample.actions.length > 0),
+    );
+    const tier = measuredTier
+      ? tierDefinitions.find((candidate) => candidate.id === measuredTier.id)
+      : null;
+    if (!measuredTier || !tier) return null;
+
+    const dataset =
+      stageId === "browsing"
+        ? buildBrowsingDataset(seedBase, tier.size)
+        : stageId === "writing"
+          ? buildWritingDataset(seedBase, tier.size)
+          : stageId === "spreadsheets"
+            ? buildSpreadsheetDataset(seedBase, tier.size)
+            : buildEmailDataset(seedBase, tier.size);
+    const newSamples: TimedSample[] = [];
+    const multitaskLevel = Math.max(
+      0,
+      workloadTiers.findIndex((candidate) => candidate.id === tier.id) - 1,
+    );
+
+    if (stageId === "multitasking") {
+      const maxWorkers = Math.max(
+        1,
+        Math.min(4, (navigator.hardwareConcurrency || 2) - 1),
+      );
+      const workerCount = Math.min(maxWorkers, multitaskLevel + 1);
+      workersRef.current = Array.from({ length: workerCount }, (_, index) => {
+        const worker = new Worker("/benchmark-worker.js");
+        worker.postMessage({
+          type: "start",
+          seed: seedBase + index,
+          workUnits: 4 + multitaskLevel * 5,
+          durationMs: 12000,
+        });
+        return worker;
+      });
+      await sleep(350);
+    }
+
+    try {
+      await measureJourney(stageId, tier, seedBase + 20, dataset);
+      for (let repetition = 0; repetition < 2; repetition += 1) {
+        newSamples.push(
+          await measureJourney(
+            stageId,
+            tier,
+            seedBase + 30 + repetition,
+            dataset,
+          ),
+        );
+        await sleep(stageId === "multitasking" ? 250 : 90);
+      }
+      measuredTier.samples.push(...newSamples);
+      return {
+        category: stageId,
+        tier: measuredTier.id,
+        addedSamples: newSamples.length,
+      };
+    } finally {
+      if (stageId === "multitasking") {
+        workersRef.current.forEach((worker) => {
+          worker.postMessage({ type: "cancel" });
+          worker.terminate();
+        });
+        workersRef.current = [];
+      }
+    }
+  }
+
   async function runGraphicsTier(
     id: string,
     label: string,
@@ -2274,7 +2368,7 @@ export function StillGoodApp() {
       }
       const recoveryMs = performance.now() - recoveryStart;
       const formFactor = detectFormFactor();
-      const summary = summarizeThoroughRun({
+      const buildSummaryMetrics = () => ({
         browserFamily: browserFamily(),
         browsingTiers: browsingResults,
         emailTiers: emailResults,
@@ -2302,7 +2396,66 @@ export function StillGoodApp() {
         interruptionCount,
         baselineUnsettled: finalBaseline.unsettled,
       });
+      let summary = summarizeThoroughRun(buildSummaryMetrics());
+      const initialBoundarySummary = {
+        score: summary.score,
+        grade: summary.grade,
+      };
+      const boundaryPlan = planBoundaryConfirmation(summary);
+      const boundaryConfirmationRuns: Array<{
+        category: string;
+        tier: string;
+        addedSamples: number;
+      }> = [];
+      if (boundaryPlan.needed) {
+        setStatus("Confirming a result near a scoring boundary");
+        setProgress(99);
+        await nextPaint();
+        const confirmationSources = {
+          browsing: {
+            measured: browsingResults,
+            definitions: browsingTiers,
+          },
+          email: { measured: emailResults, definitions: emailTiers },
+          writing: { measured: writingResults, definitions: writingTiers },
+          spreadsheets: {
+            measured: spreadsheetResults,
+            definitions: spreadsheetTiers,
+          },
+          multitasking: {
+            measured: multitaskTiers,
+            definitions: workloadTiers,
+          },
+        };
+        for (const [index, categoryId] of boundaryPlan.categories.entries()) {
+          if (cancelledRef.current) return;
+          const category = categoryId as keyof typeof confirmationSources;
+          const source = confirmationSources[category];
+          setStatus(`Double-checking ${stages.find((item) => item.id === category)?.name.toLowerCase() ?? category}`);
+          const confirmed = await appendBoundaryConfirmationSamples(
+            category,
+            source.measured,
+            source.definitions,
+            9100 + index * 200,
+          );
+          if (confirmed) boundaryConfirmationRuns.push(confirmed);
+        }
+        summary = summarizeThoroughRun(buildSummaryMetrics());
+      }
 
+      const boundaryConfirmation = {
+        triggered: boundaryPlan.needed,
+        margin: boundaryPlan.margin,
+        reason: boundaryPlan.reason,
+        gradeBoundary: boundaryPlan.gradeBoundary,
+        capabilityBoundaries: boundaryPlan.capabilityBoundaries,
+        plannedCategories: boundaryPlan.categories,
+        runs: boundaryConfirmationRuns,
+        scoreBefore: initialBoundarySummary.score,
+        gradeBefore: initialBoundarySummary.grade,
+        scoreAfter: summary.score,
+        gradeAfter: summary.grade,
+      };
       const completedResult: ThoroughResult = {
         ...summary,
         browser: browserLabel(),
@@ -2313,7 +2466,8 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.16.0-media-confirmation",
+        profileVersion: "6.16.1-boundary-confirmation",
+        boundaryConfirmation,
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
           browserEvidencePolicy: browserEvidenceProfile,
@@ -2356,6 +2510,7 @@ export function StillGoodApp() {
           longTaskSupported,
           longAnimationFrameSupported,
           measuredActiveMs: performance.now() - measurementStart,
+          boundaryConfirmation,
         },
       };
       setResult(completedResult);
@@ -2601,20 +2756,26 @@ export function StillGoodApp() {
         </div>
       </header>
       <section className="clear-answer">
-        <div className="result-score" aria-label={`Score ${result.score} out of 100`}>
+        <div
+          className="result-score"
+          aria-label={`Score ${result.score} out of 100, grade ${result.grade}`}
+        >
           <strong>{result.score}</strong>
-          <span>out of 100</span>
+          <span>{result.grade} grade · out of 100</span>
         </div>
         <div className="answer-copy">
-          <div className="answer-meta">
-            <span>{result.grade}</span>
-            <span>{result.label}</span>
-            {result.formFactor === "mobile" && <span>Mobile result</span>}
-          </div>
+          {(result.ceilingReached || result.formFactor === "mobile") && (
+            <div className="answer-meta">
+              {result.ceilingReached && <span>Above the current test ceiling</span>}
+              {result.formFactor === "mobile" && <span>Mobile result</span>}
+            </div>
+          )}
           <h1>{guide.headline}</h1>
           <p className="answer-summary">{guide.topSummary}</p>
           <p className="result-stability">
             <strong>{result.confidence} confidence.</strong>{" "}
+            {result.boundaryConfirmation?.triggered &&
+              "A borderline result was confirmed with extra measurements. "}
             {guide.variation.message}
           </p>
         </div>

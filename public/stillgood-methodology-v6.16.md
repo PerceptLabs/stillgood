@@ -175,6 +175,17 @@ is shown first; a second appears only when it finishes within five points of
 the weakest category and remains at least 12 points behind the strongest. The
 exact score and raw observations remain available for detailed comparison.
 
+For a clean high- or medium-confidence run, an initial score within one point
+of a grade or headline capability boundary triggers a short confirmation pass.
+StillGood repeats the weakest core category and the category with the greatest
+weighted influence, plus a directly affected capability category when useful,
+up to three categories total. Each confirmation warms the selected workload,
+adds two new observations to its highest completed ordinary tier, and preserves
+the same worker pressure for multitasking. The final score is recalculated from
+the combined raw samples. No score offset or rounding preference is applied.
+Low-confidence runs are not prolonged because they already warrant a cleaner
+retest.
+
 ## Validity and limitations
 
 Meaningful properties include deterministic local fixtures, repeated samples,
@@ -205,4 +216,3 @@ updates, power policy, heat, background programs, and operating-system updates.
 - [W3C Device Memory API](https://www.w3.org/TR/device-memory/)
 - [WebAssembly linear-memory growth](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Memory/grow)
 - [WHATWG File System Standard](https://fs.spec.whatwg.org/)
-

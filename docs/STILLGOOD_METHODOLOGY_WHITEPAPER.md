@@ -252,6 +252,17 @@ least 12 points behind the strongest result. This prevents a one-point change
 from rewriting the device's practical description while preserving the exact
 score and raw evidence for comparison.
 
+For a clean high- or medium-confidence run, an initial score within one point
+of a grade or headline capability boundary triggers a short confirmation pass.
+StillGood repeats the weakest core category and the category with the greatest
+weighted influence, plus a directly affected capability category when useful,
+up to three categories total. Each confirmation warms the selected workload,
+adds two new observations to its highest completed ordinary tier, and preserves
+the same worker pressure for multitasking. The final score is recalculated from
+the combined raw samples; no offset, rounding preference, or browser-specific
+adjustment is applied. Low-confidence runs are not prolonged because their
+measurement notes already recommend a cleaner retest.
+
 ## 8. Validity and limitations
 
 StillGood has practical construct validity because its fixtures exercise the

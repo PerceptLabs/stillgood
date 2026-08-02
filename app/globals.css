@@ -1209,11 +1209,13 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .result-score span {
   display: block;
+  max-width: 96px;
   margin-top: 9px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 760;
   letter-spacing: .08em;
+  line-height: 1.3;
   text-transform: uppercase;
 }
 .answer-meta {
@@ -2431,7 +2433,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   }
   .result-score { width: 92px; height: 92px; }
   .result-score strong { font-size: 40px; }
-  .result-score span { margin-top: 6px; font-size: 8px; }
+  .result-score span { max-width: 78px; margin-top: 6px; font-size: 8px; }
   .clear-answer h1 { font-size: clamp(31px, 10vw, 44px); }
   .answer-summary { font-size: 15px; }
   .answer-grade { width: 82px; height: 82px; font-size: 52px; }
