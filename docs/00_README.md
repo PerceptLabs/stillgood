@@ -64,6 +64,7 @@ Additional current-profile documents:
 - `31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md` — current browser-sensitive and equal-work evidence policy
 - `32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md` — account-free local history, optional anonymous calibration, and `stillgood.fyi` deployment
 - `33_BENCHMARK_V6_17_UPPER_RESERVE.md` — adaptive sustained-load confirmation for A-level preliminary results
+- `34_BENCHMARK_V6_17_1_HEADROOM_CONTINUITY.md` — removal of the 87-point shelf and isolation of upper-reserve evidence
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -152,6 +153,14 @@ fixtures, sustained overlap, dense graphics, 2 GB bounded memory ceiling, and
 256 MB verified save can cap only the A-level grade bands. Devices below the
 gate do not run the extension and retain their existing scoring path.
 
+Benchmark v6.17.1 corrects the aggregation revealed by paired Dell, S25 FE,
+and HP Chromebook runs. It removes the universal 87-point shelf, keeps
+headroom influence continuous, prevents reserve tiers from lowering ordinary
+evidence before their separate ceiling is applied, and separates setup timing
+from repeated-interaction variability. A one-point reserve-entry buffer reduces
+one-run gate changes without admitting devices that miss the core-performance
+requirements.
+
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and
 limitations.
@@ -226,3 +235,4 @@ stillgood/
 ## Definition of success
 
 A first-time user should be able to run the test without technical knowledge and understand the final result in under 30 seconds. A developer should be able to change thresholds or weights without rewriting the application.
+one-run gate changes without admitting devices that miss the core-performance

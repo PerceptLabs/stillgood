@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   coefficientOfVariation,
+  continuousHeadroomCeiling,
   gradeForScore,
   median,
   normalizeLower,
@@ -18,7 +19,7 @@ import {
   summarizeVideo,
 } from "../lib/scoring.mjs";
 
-test("an upper reserve tier separates sustained capacity from everyday speed", () => {
+test("an upper reserve tier is isolated from ordinary category and headroom scoring", () => {
   const withoutReserve = summarizeLatencyTiers([
     { id: "everyday", label: "Everyday", samples: [90, 95, 100] },
     { id: "limit", label: "Maximum", samples: [180, 190, 200] },
@@ -30,9 +31,18 @@ test("an upper reserve tier separates sustained capacity from everyday speed", (
   ]);
 
   assert.equal(withReserve.everydayScore, withoutReserve.everydayScore);
-  assert.ok(withReserve.score < withoutReserve.score);
+  assert.equal(withReserve.score, withoutReserve.score);
   assert.equal(withReserve.testedHeadroom, true);
-  assert.equal(withReserve.limitFound, true);
+  assert.equal(withReserve.limitFound, withoutReserve.limitFound);
+  assert.ok(withReserve.tiers.at(-1).score < withReserve.score);
+});
+
+test("headroom ceilings remain continuous instead of collapsing at 87", () => {
+  assert.equal(continuousHeadroomCeiling(82), 89);
+  assert.equal(continuousHeadroomCeiling(84), 91);
+  assert.equal(continuousHeadroomCeiling(87), 94);
+  assert.equal(continuousHeadroomCeiling(88), 100);
+  assert.equal(continuousHeadroomCeiling(55), 62);
 });
 
 test("upper reserve evidence creates additional top-end score strata", () => {
@@ -70,6 +80,51 @@ test("upper reserve evidence creates additional top-end score strata", () => {
   assert.ok(strong.gradeCeiling < exceptional.gradeCeiling);
   assert.equal(exceptional.gradeCeiling, 100);
   assert.ok(exceptional.score > strong.score);
+});
+
+test("upper reserve does not feed back into ordinary scores or confidence", () => {
+  const baseMetrics = fullMetrics([
+    [45, 48, 50],
+    [50, 54, 58],
+    [65, 70, 74],
+    [82, 88, 94],
+    [145, 155, 165],
+  ]);
+  const base = summarizeThoroughRun(baseMetrics);
+  const extendedMetrics = structuredClone(baseMetrics);
+  for (const key of [
+    "browsingTiers",
+    "emailTiers",
+    "writingTiers",
+    "spreadsheetTiers",
+    "multitaskTiers",
+  ]) {
+    extendedMetrics[key].push({
+      id: "reserve",
+      label: "Upper reserve",
+      setupMs: 4200,
+      samples: [950, 1050, 1150].map((durationMs) => ({ durationMs })),
+    });
+  }
+  extendedMetrics.graphicsTiers.push({
+    id: "reserve",
+    label: "Sustained",
+    valid: false,
+    frameCount: 0,
+    onTimeRatio: 0,
+    longFrameRatio: 1,
+    worstFrameMs: 999,
+  });
+  const extended = summarizeThoroughRun(extendedMetrics);
+
+  assert.equal(extended.browsing.score, base.browsing.score);
+  assert.equal(extended.writing.score, base.writing.score);
+  assert.equal(extended.multitasking.score, base.multitasking.score);
+  assert.equal(extended.graphics.score, base.graphics.score);
+  assert.equal(extended.headroom.score, base.headroom.score);
+  assert.equal(extended.responsiveness.score, base.responsiveness.score);
+  assert.equal(extended.confidence, base.confidence);
+  assert.equal(extended.upperReserve.tested, true);
 });
 
 test("graphics evaluation uses the same 60 fps target on high-refresh displays", () => {

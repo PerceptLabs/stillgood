@@ -31,6 +31,18 @@ test("near-ceiling devices qualify for the upper reserve stage", () => {
   ]);
 });
 
+test("a one-point headroom fluctuation does not skip an otherwise top result", () => {
+  const plan = planUpperReserve(strongSummary({ headroom: { score: 87 } }));
+  assert.equal(plan.needed, true);
+  assert.equal(plan.minimumHeadroom, 87);
+});
+
+test("the headroom buffer does not pull ordinary machines into the extension", () => {
+  const plan = planUpperReserve(strongSummary({ headroom: { score: 86 } }));
+  assert.equal(plan.needed, false);
+  assert.equal(plan.reason, "headroom-below-gate");
+});
+
 test("ordinary second-life results finish without the upper reserve stage", () => {
   const plan = planUpperReserve(strongSummary({ score: 87 }));
   assert.equal(plan.needed, false);

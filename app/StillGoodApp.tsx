@@ -178,6 +178,9 @@ type LatencyTierResult = {
   label: string;
   samples: TimedSample[];
   earlyStopped?: boolean;
+  setupMs?: number;
+  setupWorkMs?: number;
+  setupPresentationMs?: number;
 };
 type GraphicsTierResult = {
   id: string;
@@ -858,7 +861,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.17",
+    schemaVersion: "stillgood-result.v6.17.1",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1619,7 +1622,7 @@ export function StillGoodApp() {
       seed,
     );
     await measureJourney(stageId, tier, seed + 10, dataset);
-    const samples = [setupSample];
+    const samples: TimedSample[] = [];
     for (let repetition = 0; repetition < 3; repetition += 1) {
       samples.push(
         await measureJourney(
@@ -1631,7 +1634,14 @@ export function StillGoodApp() {
       );
       await sleep(120);
     }
-    return { id: tier.id, label: tier.label, samples };
+    return {
+      id: tier.id,
+      label: tier.label,
+      samples,
+      setupMs: setupSample.durationMs,
+      setupWorkMs: setupSample.workMs,
+      setupPresentationMs: setupSample.presentationMs,
+    };
   }
 
   async function runUpperReserveMultitasking(seed: number) {
@@ -1656,7 +1666,7 @@ export function StillGoodApp() {
       return worker;
     });
     await sleep(350);
-    const samples = [setupSample];
+    const samples: TimedSample[] = [];
     const started = performance.now();
     try {
       await measureJourney("multitasking", tier, seed + 10, dataset);
@@ -1684,7 +1694,14 @@ export function StillGoodApp() {
       });
       workersRef.current = [];
     }
-    return { id: tier.id, label: tier.label, samples };
+    return {
+      id: tier.id,
+      label: tier.label,
+      samples,
+      setupMs: setupSample.durationMs,
+      setupWorkMs: setupSample.workMs,
+      setupPresentationMs: setupSample.presentationMs,
+    };
   }
 
   async function measureRecovery() {
@@ -2881,7 +2898,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.17.0-upper-reserve",
+        profileVersion: "6.17.1-headroom-continuity",
         boundaryConfirmation,
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,

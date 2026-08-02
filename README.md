@@ -4,7 +4,7 @@ StillGood is a browser-based second-life computer benchmark. It runs
 deterministic local workloads and explains what the tested computer-and-browser
 combination can still do comfortably.
 
-The v6.17 benchmark measures:
+The v6.17.1 benchmark measures:
 
 - articles, search results, shopping pages, navigation, and filters;
 - large email websites and HTML message threads;
@@ -25,6 +25,11 @@ That stage uses substantially larger inbox, document, and spreadsheet fixtures,
 sustained multitasking and graphics pressure, touched memory sets up to 2 GB,
 and a verified 256 MB browser save. It separates top-end sustained capacity
 without changing the ordinary scoring path for older and midrange devices.
+
+Version 6.17.1 keeps that reserve evidence separate from ordinary categories
+and replaces the former shared 87-point headroom ceiling with a continuous
+limit. Workload preparation is recorded separately from repeated interaction
+timings so unlike operations cannot create false run-to-run variation.
 
 Visual smoothness is evaluated against a fixed 60 fps usability target so a
 high-refresh display does not receive a harder workload merely for refreshing
@@ -60,5 +65,6 @@ npm run deploy:cloudflare
 The benchmark methodology and research decisions are documented under
 `docs/`, with `docs/31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md` describing
 the browser-evidence policy, `docs/33_BENCHMARK_V6_17_UPPER_RESERVE.md` the
-current top-end scoring extension, and `docs/32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md`
+top-end scoring extension, `docs/34_BENCHMARK_V6_17_1_HEADROOM_CONTINUITY.md`
+the current aggregation correction, and `docs/32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md`
 describing public operation.

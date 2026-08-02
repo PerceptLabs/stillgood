@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.17</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.17.1</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.17.0</span>
+            <span>Profile 6.17.1</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.17.md" download>
+            <a href="/stillgood-methodology-v6.17.1.md" download>
               Download Markdown
             </a>
             <a
@@ -344,7 +344,10 @@ export default function MethodologyPage() {
             capacity remains after a device has already proved fast. Its
             geometric score can distinguish strong, very strong, and
             exceptional reserve, and can cap only the A-level grade bands.
-            Devices below the entry gate skip this work and keep exactly the
+            Reserve tiers remain separate from ordinary category, headroom,
+            responsiveness, graphics, and confidence calculations. They affect
+            the final result once through the upper-reserve ceiling. Devices
+            below the entry gate skip this work and keep exactly the
             normal scoring path.
           </p>
           <h3>Memory hint and measured reserve</h3>
@@ -400,7 +403,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.17 applies no post-score browser normalization. Web
+            Version 6.17.1 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -456,6 +459,14 @@ export default function MethodologyPage() {
             A+ available; lower sustained results apply progressively lower
             A-level ceilings. This avoids treating a brief burst of speed as
             equal to workstation-class sustained capacity.
+          </p>
+          <p>
+            Ordinary headroom below 88 now produces a continuous ceiling of
+            headroom plus seven points. It has no shared 87-point shelf: a
+            headroom result of 82, 84, or 87 permits a final score up to 89, 91,
+            or 94 respectively. Qualifying top results use a one-point entry
+            buffer so minor variation around the former gate does not
+            unpredictably skip the upper-reserve stage.
           </p>
         </section>
 
@@ -581,7 +592,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.17</strong>
+            <strong>StillGood methodology v6.17.1</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

@@ -102,8 +102,8 @@ test("anonymous telemetry stores only the server allowlist", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         schemaVersion: "stillgood-telemetry.v1",
-        resultSchemaVersion: "stillgood-result.v6.17",
-        profileVersion: "6.17.0-upper-reserve",
+        resultSchemaVersion: "stillgood-result.v6.17.1",
+        profileVersion: "6.17.1-headroom-continuity",
         context: {
           browserFamily: "Chromium",
           browserMajor: "150",
@@ -145,6 +145,14 @@ test("anonymous telemetry stores only the server allowlist", async () => {
           categories: {},
         },
         evidence: {
+          browsingTiers: [
+            {
+              id: "reserve",
+              setupMs: 4200,
+              setupWorkMs: 4000,
+              privateNote: "must-not-be-stored",
+            },
+          ],
           memoryTiers: [
             {
               id: "memory-1024",
@@ -177,10 +185,11 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(captured.sql, /anonymous_benchmark_runs/);
   const serializedBindings = JSON.stringify(captured.values);
   assert.doesNotMatch(serializedBindings, /must-not-be-stored/);
-  assert.match(serializedBindings, /6\.17\.0-upper-reserve/);
+  assert.match(serializedBindings, /6\.17\.1-headroom-continuity/);
   assert.match(serializedBindings, /webassembly/);
   assert.match(serializedBindings, /grade-boundary/);
   assert.match(serializedBindings, /scoreBefore/);
+  assert.match(serializedBindings, /setupMs/);
   assert.match(serializedBindings, /upperReserve/);
   assert.match(serializedBindings, /\\"id\\":\\"memory\\"/);
   assert.doesNotMatch(serializedBindings, /private-component/);
@@ -199,9 +208,10 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /no post-score browser normalization/);
   assert.match(html, /Everyday capability and performance reserve/);
   assert.match(html, /Upper-reserve confirmation/);
+  assert.match(html, /continuous ceiling/);
   assert.match(html, /Memory hint and measured reserve/);
   assert.match(html, /What makes the result meaningful/);
-  assert.match(html, /stillgood-methodology-v6\.17\.md/);
+  assert.match(html, /stillgood-methodology-v6\.17\.1\.md/);
   assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
   assert.doesNotMatch(html, /flat browser bonus|user-agent bonus/i);
 });

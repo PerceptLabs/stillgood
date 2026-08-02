@@ -25,9 +25,9 @@ test("browser context keeps only broad, useful device information", () => {
 test("anonymous telemetry excludes exact identity and full browser strings", () => {
   const telemetry = buildAnonymousTelemetry(
     {
-      schemaVersion: "stillgood-result.v6.17",
+      schemaVersion: "stillgood-result.v6.17.1",
       result: {
-        profileVersion: "6.17.0-upper-reserve",
+        profileVersion: "6.17.1-headroom-continuity",
         browser: "Chrome 150 with a private marker",
         platform: "Private workstation name",
         startedAt: "2026-08-01T12:34:56.000Z",
@@ -73,6 +73,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
             {
               id: "everyday",
               label: "Typical browsing",
+              setupMs: 4200,
               samples: [
                 {
                   durationMs: 220,
@@ -111,6 +112,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
   assert.equal(telemetry.context.reportedMemoryClass, "8+");
   assert.equal(telemetry.outcome.score, 82);
   assert.equal(telemetry.evidence.memoryTiers[0].allocator, "webassembly");
+  assert.equal(telemetry.evidence.browsingTiers[0].setupMs, 4200);
   assert.deepEqual(telemetry.outcome.upperReserve, {
     tested: true,
     score: 84,
