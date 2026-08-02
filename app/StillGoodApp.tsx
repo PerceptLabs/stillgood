@@ -17,6 +17,7 @@ import {
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import { planBoundaryConfirmation } from "@/lib/boundary-confirmation.mjs";
+import { planUpperReserve } from "@/lib/upper-reserve.mjs";
 import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
 import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
 import { buildAnonymousTelemetry } from "@/lib/anonymous-telemetry.mjs";
@@ -384,6 +385,13 @@ type ThoroughResult = {
   storage: SimpleCategory;
   responsiveness: ResponsivenessSummary;
   headroom: HeadroomSummary;
+  upperReserve: {
+    tested: boolean;
+    score: number | null;
+    label: string;
+    gradeCeiling: number;
+    components: Array<{ id: string; score: number; weight: number }>;
+  };
   evidenceGroups: EvidenceGroupsSummary;
   browserSupport: BrowserSupportSummary;
   recoveryMs: number;
@@ -577,6 +585,47 @@ const spreadsheetTiers: Tier[] = [
     headroom: true,
   },
 ];
+
+const upperReserveTiers: Record<
+  "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
+  Tier
+> = {
+  browsing: {
+    id: "reserve",
+    label: "Upper reserve",
+    size: 400000,
+    domRows: 360,
+    headroom: true,
+  },
+  email: {
+    id: "reserve",
+    label: "Upper reserve",
+    size: 750000,
+    domRows: 300,
+    headroom: true,
+  },
+  writing: {
+    id: "reserve",
+    label: "Upper reserve",
+    size: 750000,
+    domRows: 7500,
+    headroom: true,
+  },
+  spreadsheets: {
+    id: "reserve",
+    label: "Upper reserve",
+    size: 4000000,
+    domRows: 140,
+    headroom: true,
+  },
+  multitasking: {
+    id: "reserve",
+    label: "Sustained reserve",
+    size: 200000,
+    domRows: 1400,
+    headroom: true,
+  },
+};
 
 const ordinaryVideoTiers = [
   {
@@ -809,7 +858,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.16",
+    schemaVersion: "stillgood-result.v6.17",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -837,6 +886,7 @@ function friendlyProgressLevel(id: string) {
       extreme: "Finding the practical limit",
       headroom: "Extending the check to find the limit",
       limit: "Testing the remaining headroom",
+      reserve: "Checking sustained performance reserve",
     }[id] ?? "Checking everyday work"
   );
 }
@@ -868,7 +918,7 @@ const categoryDescriptions: Record<string, string> = {
   "Email and webmail": "Searching, opening conversations, and writing replies.",
   Documents: "Typing, formatting, tables, and changing page layout.",
   Spreadsheets: "Formulas, sorting, filtering, pasting, and scrolling.",
-  "Using several things": "Staying responsive while work overlaps.",
+  Multitasking: "Keeping several browser tasks responsive while work overlaps.",
   "Responsiveness under memory pressure":
     "Keeping larger working sets active without catch-up pauses.",
   "Scrolling and visuals": "Keeping movement and animated pages smooth.",
@@ -1515,6 +1565,140 @@ export function StillGoodApp() {
     return output;
   }
 
+  function buildJourneyDataset(
+    stageId: "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
+    tier: Tier,
+    seed: number,
+  ) {
+    return stageId === "browsing"
+      ? buildBrowsingDataset(seed, tier.size)
+      : stageId === "writing"
+        ? buildWritingDataset(seed, tier.size)
+        : stageId === "spreadsheets"
+          ? buildSpreadsheetDataset(seed, tier.size)
+          : buildEmailDataset(seed, tier.size);
+  }
+
+  async function buildMeasuredReserveDataset(
+    stageId: "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
+    tier: Tier,
+    seed: number,
+  ) {
+    const started = performance.now();
+    const dataset = buildJourneyDataset(stageId, tier, seed);
+    const workMs = performance.now() - started;
+    await nextPaint();
+    const durationMs = performance.now() - started;
+    return {
+      dataset,
+      setupSample: {
+        durationMs,
+        workMs,
+        presentationMs: Math.max(0, durationMs - workMs),
+        checksum: 0,
+        actions: [
+          {
+            name: "Open an extra-large workload",
+            durationMs,
+            workMs,
+            presentationMs: Math.max(0, durationMs - workMs),
+          },
+        ],
+      } satisfies TimedSample,
+    };
+  }
+
+  async function runUpperReserveOfficeTier(
+    stageId: "browsing" | "email" | "writing" | "spreadsheets",
+    seed: number,
+  ) {
+    const tier = upperReserveTiers[stageId];
+    const { dataset, setupSample } = await buildMeasuredReserveDataset(
+      stageId,
+      tier,
+      seed,
+    );
+    await measureJourney(stageId, tier, seed + 10, dataset);
+    const samples = [setupSample];
+    for (let repetition = 0; repetition < 3; repetition += 1) {
+      samples.push(
+        await measureJourney(
+          stageId,
+          tier,
+          seed + 20 + repetition,
+          dataset,
+        ),
+      );
+      await sleep(120);
+    }
+    return { id: tier.id, label: tier.label, samples };
+  }
+
+  async function runUpperReserveMultitasking(seed: number) {
+    const tier = upperReserveTiers.multitasking;
+    const { dataset, setupSample } = await buildMeasuredReserveDataset(
+      "multitasking",
+      tier,
+      seed,
+    );
+    const maxWorkers = Math.max(
+      1,
+      Math.min(4, (navigator.hardwareConcurrency || 2) - 1),
+    );
+    workersRef.current = Array.from({ length: maxWorkers }, (_, index) => {
+      const worker = new Worker("/benchmark-worker.js");
+      worker.postMessage({
+        type: "start",
+        seed: seed + index,
+        workUnits: 36,
+        durationMs: 16000,
+      });
+      return worker;
+    });
+    await sleep(350);
+    const samples = [setupSample];
+    const started = performance.now();
+    try {
+      await measureJourney("multitasking", tier, seed + 10, dataset);
+      let repetition = 0;
+      while (
+        performance.now() - started < 10000 &&
+        repetition < 48 &&
+        !cancelledRef.current
+      ) {
+        const sample = await measureJourney(
+          "multitasking",
+          tier,
+          seed + 20 + repetition,
+          dataset,
+        );
+        samples.push(sample);
+        if (sample.durationMs > 3000) break;
+        repetition += 1;
+        await sleep(90);
+      }
+    } finally {
+      workersRef.current.forEach((worker) => {
+        worker.postMessage({ type: "cancel" });
+        worker.terminate();
+      });
+      workersRef.current = [];
+    }
+    return { id: tier.id, label: tier.label, samples };
+  }
+
+  async function measureRecovery() {
+    const recoveryStart = performance.now();
+    let stable = 0;
+    while (stable < 5 && performance.now() - recoveryStart < 12000) {
+      const probe = performance.now();
+      await sleep(50);
+      const lag = performance.now() - probe - 50;
+      stable = lag < 20 ? stable + 1 : 0;
+    }
+    return performance.now() - recoveryStart;
+  }
+
   async function appendBoundaryConfirmationSamples(
     stageId: "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
     measuredTiers: LatencyTierResult[],
@@ -1524,7 +1708,7 @@ export function StillGoodApp() {
     const measuredTier = [...measuredTiers].reverse().find(
       (candidate) =>
         !candidate.earlyStopped &&
-        !["headroom", "limit"].includes(candidate.id) &&
+        !["headroom", "limit", "reserve"].includes(candidate.id) &&
         candidate.samples.some((sample) => sample.actions.length > 0),
     );
     const tier = measuredTier
@@ -1600,6 +1784,7 @@ export function StillGoodApp() {
     label: string,
     complexity: number,
     cadenceMs: number,
+    durationMs = 1800,
   ): Promise<GraphicsTierResult> {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d", { alpha: false });
@@ -1654,7 +1839,7 @@ export function StillGoodApp() {
           }
         }
         if (
-          performance.now() - start < 1800 &&
+          performance.now() - start < durationMs &&
           !cancelledRef.current
         ) {
           requestAnimationFrame(draw);
@@ -2358,15 +2543,7 @@ export function StillGoodApp() {
       }
 
       setStatus("Measuring recovery and run stability");
-      const recoveryStart = performance.now();
-      let stable = 0;
-      while (stable < 5 && performance.now() - recoveryStart < 12000) {
-        const probe = performance.now();
-        await sleep(50);
-        const lag = performance.now() - probe - 50;
-        stable = lag < 20 ? stable + 1 : 0;
-      }
-      const recoveryMs = performance.now() - recoveryStart;
+      let recoveryMs = await measureRecovery();
       const formFactor = detectFormFactor();
       const buildSummaryMetrics = () => ({
         browserFamily: browserFamily(),
@@ -2397,6 +2574,244 @@ export function StillGoodApp() {
         baselineUnsettled: finalBaseline.unsettled,
       });
       let summary = summarizeThoroughRun(buildSummaryMetrics());
+      const upperReservePlan = planUpperReserve(summary);
+      const upperReserveRun = {
+        triggered: upperReservePlan.needed,
+        reason: upperReservePlan.reason,
+        scoreBefore: summary.score,
+        gradeBefore: summary.grade,
+        scoreAfter: summary.score,
+        gradeAfter: summary.grade,
+        elapsedMs: 0,
+      };
+      if (upperReservePlan.needed) {
+        const upperReserveStart = performance.now();
+        const reserveOfficeStages = [
+          ["browsing", browsingResults, 0],
+          ["email", emailResults, 1],
+          ["writing", writingResults, 2],
+          ["spreadsheets", spreadsheetResults, 3],
+        ] as const;
+        for (const [index, [category, destination, displayStage]] of
+          reserveOfficeStages.entries()) {
+          if (cancelledRef.current) return;
+          setStageIndex(displayStage);
+          setStatus(`Checking extra reserve for ${stages[displayStage].name.toLowerCase()}`);
+          await nextPaint();
+          try {
+            destination.push(
+              await runUpperReserveOfficeTier(category, 12000 + index * 500),
+            );
+          } catch {
+            destination.push({
+              id: "reserve",
+              label: "Upper reserve",
+              earlyStopped: true,
+              samples: [
+                {
+                  durationMs: 6000,
+                  workMs: 6000,
+                  presentationMs: 0,
+                  checksum: 0,
+                  actions: [],
+                },
+              ],
+            });
+          }
+          setProgress(98 + ((index + 1) / 8) * 1.2);
+        }
+
+        if (cancelledRef.current) return;
+        setStageIndex(4);
+        setStatus("Checking sustained visual performance");
+        await nextPaint();
+        const reserveGraphicsWorkers = Math.max(
+          1,
+          Math.min(2, (navigator.hardwareConcurrency || 2) - 1),
+        );
+        workersRef.current = Array.from(
+          { length: reserveGraphicsWorkers },
+          (_, index) => {
+            const worker = new Worker("/benchmark-worker.js");
+            worker.postMessage({
+              type: "start",
+              seed: 14000 + index,
+              workUnits: 26,
+              durationMs: 9000,
+            });
+            return worker;
+          },
+        );
+        try {
+          await sleep(350);
+          graphicsTiers.push(
+            await runGraphicsTier(
+              "reserve",
+              "Sustained",
+              24000,
+              cadenceMs,
+              7000,
+            ),
+          );
+        } catch {
+          graphicsTiers.push({
+            id: "reserve",
+            label: "Sustained",
+            complexity: 24000,
+            onTimeRatio: 0,
+            longFrameRatio: 1,
+            worstFrameMs: 999,
+            frameCount: 0,
+            expectedFrameCount: 1,
+            displayCadenceMs: cadenceMs,
+            evaluationCadenceMs: Math.max(1000 / 60, cadenceMs),
+            valid: false,
+          });
+        } finally {
+          workersRef.current.forEach((worker) => {
+            worker.postMessage({ type: "cancel" });
+            worker.terminate();
+          });
+          workersRef.current = [];
+        }
+        setProgress(99.35);
+
+        if (cancelledRef.current) return;
+        setStageIndex(6);
+        setStatus("Checking sustained responsiveness while work overlaps");
+        await nextPaint();
+        try {
+          multitaskTiers.push(await runUpperReserveMultitasking(15000));
+        } catch {
+          multitaskTiers.push({
+            id: "reserve",
+            label: "Sustained reserve",
+            earlyStopped: true,
+            samples: [
+              {
+                durationMs: 6000,
+                workMs: 6000,
+                presentationMs: 0,
+                checksum: 0,
+                actions: [],
+              },
+            ],
+          });
+        }
+        setProgress(99.55);
+
+        if (cancelledRef.current) return;
+        setStageIndex(7);
+        setStatus("Extending the measured memory working set");
+        await nextPaint();
+        const reserveMemoryWorker = new Worker("/benchmark-worker.js");
+        workersRef.current.push(reserveMemoryWorker);
+        try {
+          for (const [index, targetMB] of [1792, 2048].entries()) {
+            const measured = await runMemoryTier(
+              reserveMemoryWorker,
+              targetMB,
+              memoryTiers.length + index,
+            );
+            memoryTiers.push(measured);
+            if (
+              measured.probeWorstMs > 1000 ||
+              measured.gcWorstRoundMs > 1000 ||
+              measured.copyRoundTripMs > 10000
+            ) {
+              break;
+            }
+          }
+        } catch {
+          memoryTiers.push({
+            id: "memory-1792",
+            label: "1792 MB active",
+            targetMB: 1792,
+            retainedMB: 0,
+            addedMB: 0,
+            allocator: "typed-array",
+            allocationMs: 25000,
+            scanMs: 0,
+            scannedMB: 0,
+            sweepMBps: 0,
+            gcChurnMs: 1000,
+            gcWorstRoundMs: 1000,
+            gcObjectsCreated: 1,
+            copyRoundTripMs: 25000,
+            probeP95Ms: 1000,
+            probeWorstMs: 2000,
+            probeSamples: [1000, 2000],
+            checksum: 0,
+          });
+        } finally {
+          try {
+            await requestWorkerResult(
+              reserveMemoryWorker,
+              {
+                type: "memory-release",
+                requestId: `reserve-release-${Date.now()}`,
+              },
+              "memory-released",
+              3000,
+            );
+          } catch {
+            // Termination below also releases the temporary working set.
+          }
+          reserveMemoryWorker.terminate();
+          workersRef.current = workersRef.current.filter(
+            (worker) => worker !== reserveMemoryWorker,
+          );
+        }
+        setProgress(99.75);
+
+        if (cancelledRef.current) return;
+        setStageIndex(8);
+        setStatus("Checking a larger persistent save");
+        await nextPaint();
+        const reserveStorageWorker = new Worker("/benchmark-worker.js");
+        workersRef.current.push(reserveStorageWorker);
+        try {
+          opfsStorageTiers.push(
+            await runOpfsStorageTier(
+              reserveStorageWorker,
+              256,
+              640,
+              opfsStorageTiers.length,
+            ),
+          );
+        } catch {
+          opfsStorageTiers.push({
+            id: "opfs-256",
+            label: "256 MB persistent file",
+            sizeMB: 256,
+            randomReads: 640,
+            writeMs: 60000,
+            flushMs: 60000,
+            reopenMs: 60000,
+            randomReadMs: 60000,
+            flushP95Ms: 60000,
+            flushWorstMs: 60000,
+            foregroundP95Ms: 2000,
+            foregroundWorstMs: 4000,
+            samples: [],
+            verified: false,
+            available: true,
+            error: "The extended persistent save did not complete.",
+          });
+        } finally {
+          reserveStorageWorker.terminate();
+          workersRef.current = workersRef.current.filter(
+            (worker) => worker !== reserveStorageWorker,
+          );
+        }
+
+        setStatus("Measuring recovery after the extended workload");
+        recoveryMs = await measureRecovery();
+        summary = summarizeThoroughRun(buildSummaryMetrics());
+        upperReserveRun.scoreAfter = summary.score;
+        upperReserveRun.gradeAfter = summary.grade;
+        upperReserveRun.elapsedMs = performance.now() - upperReserveStart;
+      }
       const initialBoundarySummary = {
         score: summary.score,
         grade: summary.grade,
@@ -2466,7 +2881,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.16.1-boundary-confirmation",
+        profileVersion: "6.17.0-upper-reserve",
         boundaryConfirmation,
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
@@ -2490,6 +2905,17 @@ export function StillGoodApp() {
               maximumCv: 0.45,
             },
           },
+          upperReservePolicy: {
+            minimumScore: upperReservePlan.minimumScore,
+            minimumHeadroom: upperReservePlan.minimumHeadroom,
+            minimumCoreScore: upperReservePlan.minimumCoreScore,
+            officeRepetitions: 3,
+            sustainedMultitaskingMs: 10000,
+            sustainedGraphicsMs: 7000,
+            maximumMemoryWorkingSetMB: 2048,
+            persistentSaveMB: 256,
+          },
+          upperReserveRun,
           browsingTiers: browsingResults,
           emailTiers: emailResults,
           writingTiers: writingResults,
@@ -2567,7 +2993,8 @@ export function StillGoodApp() {
           <p className="kicker">A second-life computer check</p>
           <h1>What is this computer still good for?</h1>
           <p className="simple-lede">
-            One automatic test. A clear answer. Usually two to four minutes.
+            One automatic test. A clear answer. Usually two to four minutes;
+            exceptional results receive a short extra reserve check.
           </p>
           <button className="start-orb" onClick={begin}>
             <span>Start</span>
@@ -2722,7 +3149,7 @@ export function StillGoodApp() {
     ["Email and webmail", result.email],
     ["Documents", result.writing],
     ["Spreadsheets", result.spreadsheets],
-    ["Using several things", result.multitasking],
+    ["Multitasking", result.multitasking],
     ["Scrolling and visuals", result.graphics],
     ["Video playback", result.video],
     ["Responsiveness under memory pressure", result.memory],
@@ -2764,10 +3191,13 @@ export function StillGoodApp() {
           <span>{result.grade} grade · out of 100</span>
         </div>
         <div className="answer-copy">
-          {(result.ceilingReached || result.formFactor === "mobile") && (
+          {(result.ceilingReached ||
+            result.formFactor === "mobile" ||
+            result.upperReserve.tested) && (
             <div className="answer-meta">
               {result.ceilingReached && <span>Above the current test ceiling</span>}
               {result.formFactor === "mobile" && <span>Mobile result</span>}
+              {result.upperReserve.tested && <span>Extra reserve checked</span>}
             </div>
           )}
           <h1>{guide.headline}</h1>
@@ -2934,6 +3364,12 @@ export function StillGoodApp() {
                <span>Web workload reserve</span>
                <strong>{result.headroom.label}</strong>
              </article>
+             {result.upperReserve.tested && (
+               <article>
+                 <span>Performance under extended load</span>
+                 <strong>{result.upperReserve.label}</strong>
+               </article>
+             )}
              <article>
                <span>Large saves</span>
                <strong>{guide.largeSaveLabel}</strong>

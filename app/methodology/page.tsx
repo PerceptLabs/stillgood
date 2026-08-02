@@ -45,12 +45,12 @@ const modules = [
   },
   {
     name: "Memory pressure",
-    work: "Reads the browser's coarse 2, 4, or 8+ GB hint when available, then touches and revisits bounded WebAssembly working sets while object-heavy JavaScript creates garbage-collection pressure.",
+    work: "Reads the browser's coarse 2, 4, or 8+ GB hint when available, then touches and revisits bounded WebAssembly working sets while object-heavy JavaScript creates garbage-collection pressure. Only top preliminary results continue as far as 2 GB.",
     evidence: "Usable browser reserve, allocation and revisit behavior, garbage-collection pauses, foreground tail latency, and recovery—not installed RAM.",
   },
   {
     name: "Persistent saves",
-    work: "Commits IndexedDB transactions and writes, flushes, reopens, randomly reads, and verifies local OPFS files.",
+    work: "Commits IndexedDB transactions and writes, flushes, reopens, randomly reads, and verifies local OPFS files. A 256 MB sustained save is reserved for the top-end check.",
     evidence: "Small-save latency, large-file flush tails, data integrity, and foreground lag.",
   },
 ];
@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.16</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.17</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.16.0</span>
-            <span>Published July 2026</span>
-            <a href="/stillgood-methodology-v6.16.md" download>
+            <span>Profile 6.17.0</span>
+            <span>Published August 2026</span>
+            <a href="/stillgood-methodology-v6.17.md" download>
               Download Markdown
             </a>
             <a
@@ -327,6 +327,26 @@ export default function MethodologyPage() {
             they cannot alone trigger the hard minimum intended for everyday
             capability.
           </p>
+          <h3>Upper-reserve confirmation</h3>
+          <p>
+            A clean preliminary result of 94 or above does not immediately
+            receive a top grade. When all core categories and ordinary
+            headroom are also strong, StillGood runs a short upper-reserve
+            stage. It times preparation and interaction with substantially
+            larger inbox, document, and spreadsheet fixtures; sustains
+            multitasking for 10 seconds; renders a dense visual scene for 7
+            seconds under worker pressure; extends the touched memory set as
+            far as 2 GB; and verifies a 256 MB persistent save.
+          </p>
+          <p>
+            The ordinary tiers still determine everyday capability. The
+            upper-reserve stage answers a narrower question: how much sustained
+            capacity remains after a device has already proved fast. Its
+            geometric score can distinguish strong, very strong, and
+            exceptional reserve, and can cap only the A-level grade bands.
+            Devices below the entry gate skip this work and keep exactly the
+            normal scoring path.
+          </p>
           <h3>Memory hint and measured reserve</h3>
           <p>
             When available, the Device Memory API supplies only a coarse,
@@ -380,7 +400,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.16 applies no post-score browser normalization. Web
+            Version 6.17 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -429,6 +449,13 @@ export default function MethodologyPage() {
             all the raw samples. It does not add an offset or automatically
             favor either side of the boundary. Low-confidence runs instead ask
             for a cleaner retest.
+          </p>
+          <p className="paper-note">
+            An A-level preliminary result must additionally pass the
+            upper-reserve confirmation. A reserve score of 94 or more leaves
+            A+ available; lower sustained results apply progressively lower
+            A-level ceilings. This avoids treating a brief burst of speed as
+            equal to workstation-class sustained capacity.
           </p>
         </section>
 
@@ -554,7 +581,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.16</strong>
+            <strong>StillGood methodology v6.17</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

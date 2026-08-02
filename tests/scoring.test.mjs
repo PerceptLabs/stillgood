@@ -14,8 +14,63 @@ import {
   summarizeResponsivenessConsistency,
   summarizeStorage,
   summarizeThoroughRun,
+  summarizeUpperReserve,
   summarizeVideo,
 } from "../lib/scoring.mjs";
+
+test("an upper reserve tier separates sustained capacity from everyday speed", () => {
+  const withoutReserve = summarizeLatencyTiers([
+    { id: "everyday", label: "Everyday", samples: [90, 95, 100] },
+    { id: "limit", label: "Maximum", samples: [180, 190, 200] },
+  ]);
+  const withReserve = summarizeLatencyTiers([
+    { id: "everyday", label: "Everyday", samples: [90, 95, 100] },
+    { id: "limit", label: "Maximum", samples: [180, 190, 200] },
+    { id: "reserve", label: "Upper reserve", samples: [620, 680, 740] },
+  ]);
+
+  assert.equal(withReserve.everydayScore, withoutReserve.everydayScore);
+  assert.ok(withReserve.score < withoutReserve.score);
+  assert.equal(withReserve.testedHeadroom, true);
+  assert.equal(withReserve.limitFound, true);
+});
+
+test("upper reserve evidence creates additional top-end score strata", () => {
+  const category = (score) => ({
+    tiers: [{ id: "reserve", score }],
+  });
+  const strong = summarizeUpperReserve({
+    browsing: category(89),
+    email: category(91),
+    writing: category(86),
+    spreadsheets: category(94),
+    multitasking: category(84),
+    graphics: category(90),
+    memory: { tiers: [{ targetMB: 2048, score: 88 }] },
+    storage: {
+      tiers: [{ source: "persistent-file", sizeMB: 256, score: 90 }],
+    },
+    recoveryScore: 92,
+  });
+  const exceptional = summarizeUpperReserve({
+    browsing: category(98),
+    email: category(98),
+    writing: category(96),
+    spreadsheets: category(99),
+    multitasking: category(97),
+    graphics: category(96),
+    memory: { tiers: [{ targetMB: 2048, score: 97 }] },
+    storage: {
+      tiers: [{ source: "persistent-file", sizeMB: 256, score: 98 }],
+    },
+    recoveryScore: 98,
+  });
+
+  assert.equal(strong.tested, true);
+  assert.ok(strong.gradeCeiling < exceptional.gradeCeiling);
+  assert.equal(exceptional.gradeCeiling, 100);
+  assert.ok(exceptional.score > strong.score);
+});
 
 test("graphics evaluation uses the same 60 fps target on high-refresh displays", () => {
   const sixtyHertz = summarizeGraphicsFrames({

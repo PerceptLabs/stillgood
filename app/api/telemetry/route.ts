@@ -287,6 +287,7 @@ function sanitizeSubmission(payload: unknown) {
   const outcome = objectValue(root.outcome);
   const responsiveness = objectValue(outcome.responsiveness);
   const headroom = objectValue(outcome.headroom);
+  const upperReserve = objectValue(outcome.upperReserve);
   const boundaryConfirmation = objectValue(outcome.boundaryConfirmation);
   const categories = objectValue(outcome.categories);
   const evidence = objectValue(root.evidence);
@@ -362,6 +363,38 @@ function sanitizeSubmission(payload: unknown) {
         score: finiteNumber(headroom.score),
         openCeilings: finiteNumber(headroom.openCeilings),
         extendedCategories: finiteNumber(headroom.extendedCategories),
+      },
+      upperReserve: {
+        tested: Boolean(upperReserve.tested),
+        score: finiteNumber(upperReserve.score),
+        gradeCeiling: finiteNumber(upperReserve.gradeCeiling),
+        components: Array.isArray(upperReserve.components)
+          ? upperReserve.components.slice(0, 9).flatMap((componentValue) => {
+              const component = objectValue(componentValue);
+              if (
+                typeof component.id !== "string" ||
+                ![
+                  "browsing",
+                  "email",
+                  "writing",
+                  "spreadsheets",
+                  "multitasking",
+                  "graphics",
+                  "memory",
+                  "storage",
+                  "recovery",
+                ].includes(component.id)
+              ) {
+                return [];
+              }
+              return [
+                {
+                  id: component.id,
+                  score: finiteNumber(component.score),
+                },
+              ];
+            })
+          : [],
       },
       boundaryConfirmation: sanitizeBoundaryConfirmation(boundaryConfirmation),
       categories: Object.fromEntries(

@@ -25,9 +25,9 @@ test("browser context keeps only broad, useful device information", () => {
 test("anonymous telemetry excludes exact identity and full browser strings", () => {
   const telemetry = buildAnonymousTelemetry(
     {
-      schemaVersion: "stillgood-result.v6.16",
+      schemaVersion: "stillgood-result.v6.17",
       result: {
-        profileVersion: "6.16.0-media-confirmation",
+        profileVersion: "6.17.0-upper-reserve",
         browser: "Chrome 150 with a private marker",
         platform: "Private workstation name",
         startedAt: "2026-08-01T12:34:56.000Z",
@@ -39,6 +39,15 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
         formFactor: "computer",
         responsiveness: { score: 80, p95Ms: 320 },
         headroom: { score: 65, openCeilings: 1 },
+        upperReserve: {
+          tested: true,
+          score: 84,
+          gradeCeiling: 96,
+          components: [
+            { id: "multitasking", score: 79, weight: 0.25 },
+            { id: "private-component", score: 100, private: true },
+          ],
+        },
         memory: { score: 92, reportedMemoryGB: 8 },
         boundaryConfirmation: {
           triggered: true,
@@ -102,6 +111,12 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
   assert.equal(telemetry.context.reportedMemoryClass, "8+");
   assert.equal(telemetry.outcome.score, 82);
   assert.equal(telemetry.evidence.memoryTiers[0].allocator, "webassembly");
+  assert.deepEqual(telemetry.outcome.upperReserve, {
+    tested: true,
+    score: 84,
+    gradeCeiling: 96,
+    components: [{ id: "multitasking", score: 79 }],
+  });
   assert.deepEqual(telemetry.outcome.boundaryConfirmation, {
     triggered: true,
     reason: "grade-boundary",

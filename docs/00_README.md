@@ -63,6 +63,7 @@ Additional current-profile documents:
 - `30_BENCHMARK_V6_12_FIREFOX_REFERENCE_CALIBRATION.md` — archived provisional Firefox calibration
 - `31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md` — current browser-sensitive and equal-work evidence policy
 - `32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md` — account-free local history, optional anonymous calibration, and `stillgood.fyi` deployment
+- `33_BENCHMARK_V6_17_UPPER_RESERVE.md` — adaptive sustained-load confirmation for A-level preliminary results
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -143,6 +144,13 @@ memory pressure, persistent storage, and recovery form a Resource Resilience
 group governed by equal-work compatibility adapters. No browser name can
 change a score after measurement. Chromium remains the reference browser and
 Firefox support remains experimental.
+
+Benchmark v6.17 keeps the ordinary workloads and browser-evidence boundary
+unchanged. A clean preliminary score of at least 94 with strong core and
+headroom evidence unlocks an upper-reserve confirmation. Its larger office
+fixtures, sustained overlap, dense graphics, 2 GB bounded memory ceiling, and
+256 MB verified save can cap only the A-level grade bands. Devices below the
+gate do not run the extension and retain their existing scoring path.
 
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and
