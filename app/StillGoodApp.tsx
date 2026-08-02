@@ -371,6 +371,7 @@ type ThoroughResult = {
   score: number;
   ceilingReached: boolean;
   confidence: string;
+  variability: number;
   browsing: LatencyCategory;
   email: LatencyCategory;
   writing: LatencyCategory;
@@ -2572,29 +2573,6 @@ export function StillGoodApp() {
     ["Responsiveness under memory pressure", result.memory],
     ["Persistent saves", result.storage],
   ] as const;
-  const verdict =
-    result.formFactor === "mobile"
-      ? result.grade === "A+"
-        ? "Excellent browser performance on this mobile device."
-        : result.grade.startsWith("A")
-          ? "Strong browser performance on this mobile device."
-          : "This mobile result shows where browser performance begins to slow."
-      : result.grade === "A+"
-        ? "Fast enough to feel modern in this browser."
-        : result.grade === "A"
-          ? "Fast for everyday browser-based computing."
-          : result.grade === "A-"
-            ? "Very capable for everyday browser-based computing."
-          : result.grade === "B+"
-            ? "Comfortable for everyday use, with limits under heavier work."
-            : result.grade === "B"
-              ? "A genuinely useful second-life computer."
-              : result.grade === "B-"
-                ? "Useful for everyday basics with lighter multitasking."
-                : result.grade.startsWith("C")
-                  ? "Useful for focused, lighter work."
-                  : "Best assigned one simple job at a time.";
-
   return (
     <>
     <main className="result-page">
@@ -2620,62 +2598,50 @@ export function StillGoodApp() {
           <button className="header-link" onClick={openSavedRuns}>
             Saved runs
           </button>
-          <span className="status-label">Confidence: {result.confidence}</span>
         </div>
       </header>
       <section className="clear-answer">
-        <div className="answer-grade answer-grade-wide">{result.grade}</div>
-        <div>
-          <p className="kicker">
-            {result.ceilingReached
-              ? "Above the current test ceiling"
-              : `${result.formFactor === "mobile" ? "Mobile result · " : ""}${result.label}`}
-          </p>
-          <h1>{verdict}</h1>
-           <p>
-             Browsing: <strong>{guide.browsingLabel}</strong>. Office:{" "}
-             <strong>{guide.officeLabel}</strong>. Multitasking:{" "}
-             <strong>{guide.multitaskingLabel}</strong>. Video:{" "}
-             <strong>{guide.videoLabel}</strong>. Responsiveness:{" "}
-             <strong>{result.responsiveness.label.toLowerCase()}</strong>.
-           </p>
+        <div className="result-score" aria-label={`Score ${result.score} out of 100`}>
+          <strong>{result.score}</strong>
+          <span>out of 100</span>
         </div>
+        <div className="answer-copy">
+          <div className="answer-meta">
+            <span>{result.grade}</span>
+            <span>{result.label}</span>
+            {result.formFactor === "mobile" && <span>Mobile result</span>}
+          </div>
+          <h1>{guide.headline}</h1>
+          <p className="answer-summary">{guide.topSummary}</p>
+          <p className="result-stability">
+            <strong>{result.confidence} confidence.</strong>{" "}
+            {guide.variation.message}
+          </p>
+        </div>
+      </section>
+      <section className="capability-overview" aria-label="Everyday capabilities">
+        {guide.capabilityCards.map(
+          (card: { id: string; title: string; rating: string; detail: string }) => (
+            <article key={card.id}>
+              <span>{card.title}</span>
+              <strong>{card.rating}</strong>
+              <p>{card.detail}</p>
+            </article>
+          ),
+        )}
       </section>
       <PerformanceProfile profile={guide.performanceProfile} />
-      <section className="result-at-a-glance" aria-label="Result at a glance">
-        <article>
-          <span>Web browsing</span>
-          <strong>{guide.browsingLabel}</strong>
-        </article>
-        <article>
-          <span>Office work</span>
-          <strong>{guide.officeLabel}</strong>
-        </article>
-        <article>
-          <span>Video playback</span>
-          <strong>{guide.videoLabel}</strong>
-        </article>
-         <article>
-           <span>Multitasking</span>
-           <strong>{guide.multitaskingLabel}</strong>
-         </article>
-        <article>
-          <span>Memory reserve</span>
-          <strong>{result.memory.reserveLabel ?? result.evidenceGroups.resourceResilience.label}</strong>
-        </article>
-         <article>
-           <span>Large saves</span>
-           <strong>{guide.largeSaveLabel}</strong>
-         </article>
-      </section>
       <section className="guide-invite">
         <div>
-          <p className="kicker">Detailed report</p>
-          <h2>What can you actually do with it?</h2>
-          <p>{guide.summary}</p>
+          <p className="kicker">Full report</p>
+          <h2>See where the result came from</h2>
+          <p>
+            Review every test, practical recommendations, and the browser and
+            device context behind this result.
+          </p>
         </div>
         <button className="guide-action" onClick={() => setShowGuide(true)}>
-          Open detailed report
+          Open full report
           <span aria-hidden="true">↗</span>
         </button>
       </section>
@@ -2787,22 +2753,14 @@ export function StillGoodApp() {
             compact
           />
           <div className="flyer-levels">
-             <article>
-               <span>Web browsing</span>
-               <strong>{guide.browsingLabel}</strong>
-             </article>
-             <article>
-               <span>Office work</span>
-               <strong>{guide.officeLabel}</strong>
-             </article>
-             <article>
-               <span>Video playback</span>
-               <strong>{guide.videoLabel}</strong>
-             </article>
-             <article>
-               <span>Multitasking</span>
-               <strong>{guide.multitaskingLabel}</strong>
-             </article>
+             {guide.capabilityCards.map(
+               (card: { id: string; title: string; rating: string }) => (
+                 <article key={card.id}>
+                   <span>{card.title}</span>
+                   <strong>{card.rating}</strong>
+                 </article>
+               ),
+             )}
              <article>
                <span>Web experience in {result.browser.split(" ")[0]}</span>
                <strong>{result.evidenceGroups.webExperience.label}</strong>
@@ -2948,12 +2906,12 @@ function PerformanceProfile({
       aria-label="Performance profile"
     >
       <header>
-        <p className="kicker">Performance profile</p>
+        <p className="kicker">How it differs</p>
         <h2>{profile.summary}</h2>
       </header>
       <div className="performance-profile-columns">
         <article>
-          <strong>Strongest uses</strong>
+          <strong>{profile.wellRounded ? "Across the board" : "Best results"}</strong>
           {profile.strengths.length ? (
             <ul>
               {profile.strengths.map((item) => (
@@ -2964,11 +2922,14 @@ function PerformanceProfile({
               ))}
             </ul>
           ) : (
-            <p>No single task stood clearly above the others.</p>
+            <p>
+              Everyday categories finished close enough together that no
+              single task clearly stood above the rest.
+            </p>
           )}
         </article>
         <article>
-          <strong>Limits appear sooner</strong>
+          <strong>Less reserve</strong>
           {profile.limits.length ? (
             <ul>
               {profile.limits.map((item) => (

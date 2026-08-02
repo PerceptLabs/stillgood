@@ -26,8 +26,8 @@ const chromebookResult = {
 };
 
 test("technical tiers receive friendly, consistent names", () => {
-  assert.equal(friendlyEverydayLevel("Basic"), "Light everyday use");
-  assert.equal(friendlyMultitaskingLevel("Busy"), "A few light tasks");
+  assert.equal(friendlyEverydayLevel("Basic"), "Light browsing");
+  assert.equal(friendlyMultitaskingLevel("Busy"), "Several everyday tasks");
   assert.equal(friendlyVideoLevel(chromebookResult.video), "1080p video");
   assert.equal(
     friendlyOfficeLevel(chromebookResult.email, "email"),
@@ -37,9 +37,9 @@ test("technical tiers receive friendly, consistent names", () => {
 
 test("a light-use result becomes a concrete practical guide", () => {
   const guide = buildCapabilityGuide(chromebookResult);
-  assert.equal(guide.headline, "A capable light-duty computer");
+  assert.equal(guide.headline, "Useful for lighter everyday work");
   assert.match(guide.summary, /office and browser work/);
-  assert.equal(guide.browsingLabel, "Busy everyday use");
+  assert.equal(guide.browsingLabel, "Busy websites");
   assert.equal(guide.officeLabel, "Everyday office work");
   assert.match(
     guide.bestFor.find((item) => item.title === "Email and webmail").detail,
@@ -79,10 +79,13 @@ test("large save stalls become prominent practical advice", () => {
   );
 });
 
-test("the performance profile explains similar totals with different strengths", () => {
-  const hpGuide = buildCapabilityGuide({
+test("the performance profile explains similar totals with stable meaningful differences", () => {
+  const hpResult = {
     ...chromebookResult,
     grade: "B+",
+    score: 86,
+    confidence: "High",
+    variability: 0.08,
     browsing: { score: 86 },
     email: { score: 92 },
     writing: { score: 77 },
@@ -90,20 +93,36 @@ test("the performance profile explains similar totals with different strengths",
     multitasking: { score: 92 },
     graphics: { score: 89 },
     video: { score: 100, available: true, highestComfortable: "4K" },
-  });
-  assert.match(hpGuide.performanceProfile.summary, /strongest for video playback/);
+  };
+  const hpGuide = buildCapabilityGuide(hpResult);
+  assert.match(hpGuide.performanceProfile.summary, /Best results came from video playback/);
   assert.match(hpGuide.performanceProfile.summary, /large documents/);
   assert.ok(
     hpGuide.performanceProfile.limits.some(
       (item) => item.title === "Writing and documents" && item.relative,
     ),
   );
-  assert.match(
-    hpGuide.performanceProfile.limits.find(
-      (item) => item.title === "Web browsing",
-    ).detail,
-    /Ordinary browsing is comfortable/,
+  assert.deepEqual(
+    hpGuide.performanceProfile.limits.map((item) => item.title),
+    ["Writing and documents"],
   );
+  assert.equal(hpGuide.variation.margin, 2);
+  assert.equal(hpGuide.capabilityCards[0].rating, "Very good");
+  assert.equal(hpGuide.capabilityCards[1].rating, "Good");
+  assert.equal(hpGuide.capabilityCards[2].rating, "Excellent · 4K");
+
+  const hpOnePointHigher = buildCapabilityGuide({
+    ...hpResult,
+    score: 87,
+    browsing: { score: 87 },
+    writing: { score: 79 },
+  });
+  assert.deepEqual(
+    hpOnePointHigher.performanceProfile.limits.map((item) => item.title),
+    hpGuide.performanceProfile.limits.map((item) => item.title),
+  );
+  assert.equal(hpOnePointHigher.headline, hpGuide.headline);
+  assert.equal(hpOnePointHigher.topSummary, hpGuide.topSummary);
 
   const phoneGuide = buildCapabilityGuide({
     ...chromebookResult,

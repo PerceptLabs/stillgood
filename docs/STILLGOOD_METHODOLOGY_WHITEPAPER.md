@@ -232,6 +232,26 @@ experimental and is reported as measured, without post-score calibration.
 The grade is a summary. The capability guide, limiting category, reserve label,
 large-save result, and raw measurements explain what the number means.
 
+### Stable interpretation
+
+The numeric score remains continuous, but the plain-language result does not
+treat every point as a meaningful change. The result page therefore:
+
+- groups A, B, and C variants under one stable everyday-use headline;
+- uses broad capability bands for web and email, documents and spreadsheets,
+  video, and multitasking;
+- reports an interpretation allowance of two points for high-confidence runs,
+  four for medium-confidence runs, and six for low-confidence runs, increased
+  when measured journey variation warrants it; and
+- calls out a relative limitation only when the best and weakest everyday
+  categories are separated by at least 12 points.
+
+The lowest category is the primary relative limit. A second category appears
+only when it finishes within five points of the lowest category and remains at
+least 12 points behind the strongest result. This prevents a one-point change
+from rewriting the device's practical description while preserving the exact
+score and raw evidence for comparison.
+
 ## 8. Validity and limitations
 
 StillGood has practical construct validity because its fixtures exercise the

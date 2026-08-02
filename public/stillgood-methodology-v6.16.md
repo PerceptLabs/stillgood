@@ -156,6 +156,25 @@ The overall grade remains the simplest summary. Web Experience, Resource
 Resilience, category outcomes, capability recommendations, cautions, and the
 full exported observations explain what that grade means.
 
+## Stable interpretation
+
+The numeric score remains continuous, but the plain-language result does not
+treat every point as a meaningful change. A, B, and C variants share stable
+everyday-use headlines, while four broad capability bands summarize web and
+email, documents and spreadsheets, video, and multitasking.
+
+High-confidence runs use a two-point interpretation allowance, medium-
+confidence runs use four points, and low-confidence runs use six points. The
+allowance increases when measured journey variation warrants it. Users should
+treat movement inside that allowance as normal run-to-run variation rather
+than a change in what the device can do.
+
+A relative limitation is called out only when the strongest and weakest
+everyday categories are separated by at least 12 points. The weakest category
+is shown first; a second appears only when it finishes within five points of
+the weakest category and remains at least 12 points behind the strongest. The
+exact score and raw observations remain available for detailed comparison.
+
 ## Validity and limitations
 
 Meaningful properties include deterministic local fixtures, repeated samples,
@@ -186,5 +205,4 @@ updates, power policy, heat, background programs, and operating-system updates.
 - [W3C Device Memory API](https://www.w3.org/TR/device-memory/)
 - [WebAssembly linear-memory growth](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Memory/grow)
 - [WHATWG File System Standard](https://fs.spec.whatwg.org/)
-
 

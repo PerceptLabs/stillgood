@@ -406,6 +406,21 @@ export default function MethodologyPage() {
               </tbody>
             </table>
           </div>
+          <h3>Stable plain-language results</h3>
+          <p>
+            The exact score stays continuous, but the practical description
+            does not treat every point as a meaningful change. A, B, and C
+            variants share broader everyday-use headlines, and the result page
+            tells users how much movement to treat as normal run-to-run
+            variation: two points for high-confidence runs, four for medium,
+            and six for low, increased when measured variation warrants it.
+          </p>
+          <p className="paper-note">
+            A relative weak area appears only when the strongest and weakest
+            everyday categories differ by at least 12 points. This keeps a
+            one-point fluctuation from rewriting what the device is said to be
+            good at while preserving the raw score for detailed comparisons.
+          </p>
         </section>
 
         <section id="validity">
