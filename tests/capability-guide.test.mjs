@@ -78,3 +78,63 @@ test("large save stalls become prominent practical advice", () => {
     guide.cautions.some((item) => item.title === "Occasional catch-up pauses"),
   );
 });
+
+test("the performance profile explains similar totals with different strengths", () => {
+  const hpGuide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "B+",
+    browsing: { score: 86 },
+    email: { score: 92 },
+    writing: { score: 77 },
+    spreadsheets: { score: 91 },
+    multitasking: { score: 92 },
+    graphics: { score: 89 },
+    video: { score: 100, available: true, highestComfortable: "4K" },
+  });
+  assert.match(hpGuide.performanceProfile.summary, /strongest for video playback/);
+  assert.match(hpGuide.performanceProfile.summary, /large documents/);
+  assert.ok(
+    hpGuide.performanceProfile.limits.some(
+      (item) => item.title === "Writing and documents" && item.relative,
+    ),
+  );
+  assert.match(
+    hpGuide.performanceProfile.limits.find(
+      (item) => item.title === "Web browsing",
+    ).detail,
+    /Ordinary browsing is comfortable/,
+  );
+
+  const phoneGuide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "B+",
+    browsing: { score: 86 },
+    email: { score: 93 },
+    writing: { score: 81 },
+    spreadsheets: { score: 92 },
+    multitasking: { score: 98 },
+    graphics: { score: 98 },
+    video: { score: 100, available: true, highestComfortable: "4K" },
+  });
+  assert.deepEqual(
+    phoneGuide.performanceProfile.strengths.map((item) => item.title),
+    ["Video playback", "Using several things", "Scrolling and visual pages"],
+  );
+});
+
+test("a uniformly strong system is described as well rounded", () => {
+  const guide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "A",
+    browsing: { score: 93 },
+    email: { score: 97 },
+    writing: { score: 90 },
+    spreadsheets: { score: 98 },
+    multitasking: { score: 100 },
+    graphics: { score: 100 },
+    video: { score: 100, available: true, highestComfortable: "4K" },
+  });
+  assert.equal(guide.performanceProfile.wellRounded, true);
+  assert.equal(guide.performanceProfile.limits.length, 0);
+  assert.match(guide.performanceProfile.summary, /well balanced/);
+});

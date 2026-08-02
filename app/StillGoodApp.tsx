@@ -2635,11 +2635,13 @@ export function StillGoodApp() {
            <p>
              Browsing: <strong>{guide.browsingLabel}</strong>. Office:{" "}
              <strong>{guide.officeLabel}</strong>. Multitasking:{" "}
-             <strong>{guide.multitaskingLabel}</strong>. Responsiveness:{" "}
+             <strong>{guide.multitaskingLabel}</strong>. Video:{" "}
+             <strong>{guide.videoLabel}</strong>. Responsiveness:{" "}
              <strong>{result.responsiveness.label.toLowerCase()}</strong>.
            </p>
         </div>
       </section>
+      <PerformanceProfile profile={guide.performanceProfile} />
       <section className="result-at-a-glance" aria-label="Result at a glance">
         <article>
           <span>Web browsing</span>
@@ -2649,14 +2651,14 @@ export function StillGoodApp() {
           <span>Office work</span>
           <strong>{guide.officeLabel}</strong>
         </article>
+        <article>
+          <span>Video playback</span>
+          <strong>{guide.videoLabel}</strong>
+        </article>
          <article>
            <span>Multitasking</span>
            <strong>{guide.multitaskingLabel}</strong>
          </article>
-        <article>
-          <span>Web experience in {result.browser.split(" ")[0]}</span>
-          <strong>{result.evidenceGroups.webExperience.label}</strong>
-        </article>
         <article>
           <span>Memory reserve</span>
           <strong>{result.memory.reserveLabel ?? result.evidenceGroups.resourceResilience.label}</strong>
@@ -2772,7 +2774,7 @@ export function StillGoodApp() {
             <strong>StillGood</strong>
             <small>Detailed report</small>
           </header>
-           <div className="flyer-hero">
+          <div className="flyer-hero">
              <div className="flyer-grade">{result.grade}</div>
              <div>
                <p>{result.label}</p>
@@ -2780,6 +2782,10 @@ export function StillGoodApp() {
                <span>{guide.summary}</span>
              </div>
           </div>
+          <PerformanceProfile
+            profile={guide.performanceProfile}
+            compact
+          />
           <div className="flyer-levels">
              <article>
                <span>Web browsing</span>
@@ -2913,6 +2919,75 @@ export function StillGoodApp() {
       />
     )}
     </>
+  );
+}
+
+type PerformanceProfileItem = {
+  id: string;
+  title: string;
+  detail: string;
+};
+
+type PerformanceProfileData = {
+  summary: string;
+  wellRounded: boolean;
+  strengths: PerformanceProfileItem[];
+  limits: PerformanceProfileItem[];
+};
+
+function PerformanceProfile({
+  profile,
+  compact = false,
+}: {
+  profile: PerformanceProfileData;
+  compact?: boolean;
+}) {
+  return (
+    <section
+      className={`performance-profile${compact ? " performance-profile-compact" : ""}`}
+      aria-label="Performance profile"
+    >
+      <header>
+        <p className="kicker">Performance profile</p>
+        <h2>{profile.summary}</h2>
+      </header>
+      <div className="performance-profile-columns">
+        <article>
+          <strong>Strongest uses</strong>
+          {profile.strengths.length ? (
+            <ul>
+              {profile.strengths.map((item) => (
+                <li key={item.id}>
+                  <span>{item.title}</span>
+                  <p>{item.detail}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No single task stood clearly above the others.</p>
+          )}
+        </article>
+        <article>
+          <strong>Limits appear sooner</strong>
+          {profile.limits.length ? (
+            <ul>
+              {profile.limits.map((item) => (
+                <li key={item.id}>
+                  <span>{item.title}</span>
+                  <p>{item.detail}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              {profile.wellRounded
+                ? "No clear weak area appeared in the everyday tests."
+                : "No major limitation stood out in ordinary work."}
+            </p>
+          )}
+        </article>
+      </div>
+    </section>
   );
 }
 

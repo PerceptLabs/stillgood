@@ -1251,7 +1251,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 }
 .result-at-a-glance {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-bottom: 1px solid var(--line);
 }
 .result-at-a-glance article {
@@ -1273,6 +1273,75 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   display: block;
   margin-top: 8px;
   font-size: 18px;
+}
+.performance-profile {
+  margin: 30px 0;
+  padding: 30px 32px;
+  border: 1px solid #d9d1e7;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 96% 10%, #8c52cc 0 5px, transparent 6px),
+    #faf8fd;
+}
+.performance-profile > header {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e2dceb;
+}
+.performance-profile .kicker { margin: 4px 0 0; }
+.performance-profile h2 {
+  max-width: 820px;
+  margin: 0;
+  font-size: clamp(21px, 2.5vw, 30px);
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+.performance-profile-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px;
+  padding-top: 24px;
+}
+.performance-profile-columns > article > strong {
+  color: var(--accent-dark);
+  font-size: 10px;
+  font-weight: 820;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.performance-profile ul {
+  display: grid;
+  gap: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.performance-profile li {
+  padding: 13px 0;
+  border-top: 1px solid #e5dfed;
+}
+.performance-profile li span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 780;
+}
+.performance-profile li p,
+.performance-profile-columns > article > p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.performance-profile-compact {
+  margin: 0;
+  padding: 30px 42px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: #faf8fd;
 }
 .result-breakdown {
   border-top: 0;
@@ -2141,6 +2210,16 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
     align-items: flex-start;
     flex-direction: column;
   }
+  .performance-profile {
+    padding: 25px 22px;
+  }
+  .performance-profile > header,
+  .performance-profile-columns {
+    grid-template-columns: 1fr;
+  }
+  .performance-profile > header { gap: 10px; }
+  .performance-profile-columns { gap: 24px; }
+  .performance-profile-compact { padding: 28px 22px; }
   .guide-action { width: 100%; }
   .guide-overlay { padding: 0; }
   .saved-runs-dialog {
@@ -2312,6 +2391,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   }
   .report-capacity,
   .report-measurements,
+  .performance-profile,
   .flyer-columns,
   .report-context,
   .flyer-footer {
