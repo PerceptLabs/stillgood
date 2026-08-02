@@ -4,7 +4,7 @@ StillGood is a browser-based second-life computer benchmark. It runs
 deterministic local workloads and explains what the tested computer-and-browser
 combination can still do comfortably.
 
-The v6.17.1 benchmark measures:
+The v6.18 benchmark measures:
 
 - articles, search results, shopping pages, navigation, and filters;
 - large email websites and HTML message threads;
@@ -20,16 +20,17 @@ consistently, StillGood automatically adds controlled headroom tiers to locate
 the practical limit. Slower systems stop on the normal path without being
 penalized for extensions they did not attempt.
 
-A clean preliminary score of 94 or above must also pass an upper-reserve stage.
-That stage uses substantially larger inbox, document, and spreadsheet fixtures,
-sustained multitasking and graphics pressure, touched memory sets up to 2 GB,
-and a verified 256 MB browser save. It separates top-end sustained capacity
-without changing the ordinary scoring path for older and midrange devices.
+A broadly strong preliminary result must also pass a distinct mixed-workload
+reserve stage before it can claim an A-range result. The stage overlaps
+browsing, inbox, document, spreadsheet, video, Canvas photo editing, worker,
+memory, and persistent-save work for about 12 seconds. It measures loaded
+response, slowdown, tail delay, and frame delivery instead of replaying each
+large module in isolation.
 
-Version 6.17.1 keeps that reserve evidence separate from ordinary categories
-and replaces the former shared 87-point headroom ceiling with a continuous
-limit. Workload preparation is recorded separately from repeated interaction
-timings so unlike operations cannot create false run-to-run variation.
+Version 6.18 makes ordinary responsiveness 78% of each core application score
+and adaptive capacity 22%. Sub-100 ms differences remain measurable, headroom
+uses a smooth one-point-per-point ceiling, and a completed run without the
+mixed reserve evidence remains eligible for a strong B+ second-life result.
 
 Visual smoothness is evaluated against a fixed 60 fps usability target so a
 high-refresh display does not receive a harder workload merely for refreshing
@@ -64,7 +65,6 @@ npm run deploy:cloudflare
 
 The benchmark methodology and research decisions are documented under
 `docs/`, with `docs/31_BENCHMARK_V6_13_BROWSER_EVIDENCE_BOUNDARY.md` describing
-the browser-evidence policy, `docs/33_BENCHMARK_V6_17_UPPER_RESERVE.md` the
-top-end scoring extension, `docs/34_BENCHMARK_V6_17_1_HEADROOM_CONTINUITY.md`
-the current aggregation correction, and `docs/32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md`
+the browser-evidence policy, `docs/35_BENCHMARK_V6_18_ADAPTIVE_MIXED_RESERVE.md`
+the current aggregation and sustained-reserve method, and `docs/32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md`
 describing public operation.

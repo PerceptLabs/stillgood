@@ -162,3 +162,12 @@ test("a uniformly strong system is described as well rounded", () => {
     "Everyday performance was consistently strong, with no clear weak area.",
   );
 });
+
+test("A-minus computer wording stays grounded in second-life capability", () => {
+  const guide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "A-",
+    score: 92,
+  });
+  assert.equal(guide.headline, "Excellent second-life computer");
+});

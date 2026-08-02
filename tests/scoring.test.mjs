@@ -38,11 +38,11 @@ test("an upper reserve tier is isolated from ordinary category and headroom scor
 });
 
 test("headroom ceilings remain continuous instead of collapsing at 87", () => {
-  assert.equal(continuousHeadroomCeiling(82), 89);
-  assert.equal(continuousHeadroomCeiling(84), 91);
-  assert.equal(continuousHeadroomCeiling(87), 94);
+  assert.equal(continuousHeadroomCeiling(82), 94);
+  assert.equal(continuousHeadroomCeiling(84), 96);
+  assert.equal(continuousHeadroomCeiling(87), 99);
   assert.equal(continuousHeadroomCeiling(88), 100);
-  assert.equal(continuousHeadroomCeiling(55), 62);
+  assert.equal(continuousHeadroomCeiling(55), 67);
 });
 
 test("upper reserve evidence creates additional top-end score strata", () => {
@@ -80,6 +80,36 @@ test("upper reserve evidence creates additional top-end score strata", () => {
   assert.ok(strong.gradeCeiling < exceptional.gradeCeiling);
   assert.equal(exceptional.gradeCeiling, 100);
   assert.ok(exceptional.score > strong.score);
+});
+
+test("a mixed reserve stage rewards quick overlapping work and penalizes catch-up delay", () => {
+  const strong = summarizeUpperReserve({
+    mixedReserve: {
+      tested: true,
+      loadedP95Ms: 82,
+      loadedWorstMs: 190,
+      slowdownRatio: 1.35,
+      onTimeRatio: 0.96,
+    },
+  });
+  const constrained = summarizeUpperReserve({
+    mixedReserve: {
+      tested: true,
+      loadedP95Ms: 460,
+      loadedWorstMs: 1450,
+      slowdownRatio: 4.2,
+      onTimeRatio: 0.7,
+    },
+  });
+
+  assert.equal(strong.tested, true);
+  assert.ok(strong.score >= 90);
+  assert.ok(strong.score > constrained.score + 20);
+  assert.ok(strong.gradeCeiling > constrained.gradeCeiling);
+  assert.deepEqual(
+    strong.components.map((component) => component.id),
+    ["mixed-response", "slowdown", "tail", "frame-delivery"],
+  );
 });
 
 test("upper reserve does not feed back into ordinary scores or confidence", () => {
@@ -472,6 +502,19 @@ test("continuous latency scoring separates devices inside the same status band",
   assert.ok(faster.score > slower.score);
 });
 
+test("sub-100 ms ordinary work retains useful workstation headroom strata", () => {
+  const workstation = summarizeLatencyTiers([
+    { id: "basic", label: "Basic", samples: [34, 37, 40, 36, 38] },
+  ]);
+  const mobile = summarizeLatencyTiers([
+    { id: "basic", label: "Basic", samples: [78, 84, 90, 86, 82] },
+  ]);
+
+  assert.equal(workstation.tiers[0].status, "comfortable");
+  assert.equal(mobile.tiers[0].status, "comfortable");
+  assert.ok(workstation.score >= mobile.score + 4);
+});
+
 test("action-level tails distinguish a consistently fast tier from a hitchy one", () => {
   const sample = (journeyMs, actionDurations) => ({
     durationMs: journeyMs,
@@ -599,7 +642,7 @@ test("good everyday speed cannot conceal a lower-power reserve ceiling", () => {
   const result = summarizeThoroughRun(metrics);
 
   assert.ok(result.headroom.score < 88);
-  assert.ok(result.score <= result.headroom.score + 7);
+  assert.ok(result.score <= result.headroom.score + 12);
   assert.notEqual(result.grade, "A+");
 });
 
@@ -635,10 +678,11 @@ test("adaptive reserve tiers do not redefine everyday capability", () => {
 
   const result = summarizeThoroughRun(metrics);
 
-  assert.ok(result.email.score < 86);
   assert.ok(result.email.everydayScore >= 96);
+  assert.ok(result.email.capacityScore < result.email.everydayScore);
+  assert.ok(result.email.score > result.email.capacityScore);
   assert.ok(result.score > 83);
-  assert.ok(result.score <= result.headroom.score + 7);
+  assert.ok(result.score <= result.headroom.score + 12);
 });
 
 function latencyTiers(values) {
@@ -746,6 +790,22 @@ test("only broadly fast and stable hardware reaches the ceiling", () => {
   );
   assert.equal(result.ceilingReached, false);
   assert.ok(result.score >= 84);
+});
+
+test("a completed run without reserve evidence cannot claim modern-performance grades", () => {
+  const metrics = fullMetrics([
+    [34, 36, 38],
+    [38, 40, 42],
+    [42, 44, 46],
+    [46, 48, 50],
+    [50, 52, 54],
+  ]);
+  metrics.reserveEvaluationComplete = true;
+  const result = summarizeThoroughRun(metrics);
+
+  assert.equal(result.upperReserve.tested, false);
+  assert.ok(result.score <= 87);
+  assert.ok(result.grade.startsWith("B"));
 });
 
 test("a dense graphics stress tier reports headroom without capping everyday use", () => {

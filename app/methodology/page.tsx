@@ -45,12 +45,12 @@ const modules = [
   },
   {
     name: "Memory pressure",
-    work: "Reads the browser's coarse 2, 4, or 8+ GB hint when available, then touches and revisits bounded WebAssembly working sets while object-heavy JavaScript creates garbage-collection pressure. Only top preliminary results continue as far as 2 GB.",
+    work: "Reads the browser's coarse 2, 4, or 8+ GB hint when available, then touches and revisits bounded WebAssembly working sets while object-heavy JavaScript creates garbage-collection pressure. Only strong measured paths continue as far as 1.5 GB.",
     evidence: "Usable browser reserve, allocation and revisit behavior, garbage-collection pauses, foreground tail latency, and recovery—not installed RAM.",
   },
   {
     name: "Persistent saves",
-    work: "Commits IndexedDB transactions and writes, flushes, reopens, randomly reads, and verifies local OPFS files. A 256 MB sustained save is reserved for the top-end check.",
+    work: "Commits IndexedDB transactions and writes, flushes, reopens, randomly reads, and verifies local OPFS files up to 64 MB on mobile and 128 MB on computers. The mixed reserve scene adds a concurrent verified 64 MB save.",
     evidence: "Small-save latency, large-file flush tails, data integrity, and foreground lag.",
   },
 ];
@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.17.1</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.18</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.17.1</span>
+            <span>Profile 6.18</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.17.1.md" download>
+            <a href="/stillgood-methodology-v6.18.md" download>
               Download Markdown
             </a>
             <a
@@ -327,28 +327,32 @@ export default function MethodologyPage() {
             they cannot alone trigger the hard minimum intended for everyday
             capability.
           </p>
-          <h3>Upper-reserve confirmation</h3>
+          <h3>Mixed-workload reserve confirmation</h3>
           <p>
-            A clean preliminary result of 94 or above does not immediately
-            receive a top grade. When all core categories and ordinary
-            headroom are also strong, StillGood runs a short upper-reserve
-            stage. It times preparation and interaction with substantially
-            larger inbox, document, and spreadsheet fixtures; sustains
-            multitasking for 10 seconds; renders a dense visual scene for 7
-            seconds under worker pressure; extends the touched memory set as
-            far as 2 GB; and verifies a 256 MB persistent save.
+            A clean preliminary result of 89 or above does not immediately
+            receive a top grade. When every core category is at least 86 and
+            measured headroom is at least 83, StillGood opens one visibly
+            different reserve dashboard. For about 12 seconds it overlaps a
+            demanding browser page, inbox, document, spreadsheet, 1080p
+            video, a real Canvas photo edit, worker calculations, a bounded
+            live memory set, and a verified background save.
           </p>
           <p>
-            The ordinary tiers still determine everyday capability. The
-            upper-reserve stage answers a narrower question: how much sustained
-            capacity remains after a device has already proved fast. Its
-            geometric score can distinguish strong, very strong, and
-            exceptional reserve, and can cap only the A-level grade bands.
-            Reserve tiers remain separate from ordinary category, headroom,
-            responsiveness, graphics, and confidence calculations. They affect
-            the final result once through the upper-reserve ceiling. Devices
-            below the entry gate skip this work and keep exactly the
-            normal scoring path.
+            The stage compares loaded 95th-percentile response with the same
+            device&apos;s ordinary-action baseline. Loaded response, slowdown,
+            worst repeated delay, and frame delivery are combined with a
+            weighted geometric mean. This reveals whether a device merely
+            completes large isolated jobs or keeps quick work quick when jobs
+            overlap. Its ceiling is the reserve score plus seven, bounded from
+            87 through 100, so a one-point reserve change cannot cause a
+            multi-point grade jump. Temporary reserve storage and memory work
+            are not counted a second time in their ordinary categories.
+          </p>
+          <p>
+            Devices below the gate skip this extra work. Their everyday score
+            remains valid, but without sustained reserve evidence the completed
+            run cannot claim an A-range modern-performance result; B+ remains
+            available. The reserve stage can cap a result but never raise it.
           </p>
           <h3>Memory hint and measured reserve</h3>
           <p>
@@ -378,15 +382,15 @@ export default function MethodologyPage() {
             comfortable, usable, limited, and failed descriptions.
           </p>
           <div className="score-weight-grid">
-            <span><strong>22</strong>browsing</span>
-            <span><strong>17</strong>multitasking</span>
-            <span><strong>13</strong>visuals</span>
-            <span><strong>12</strong>video</span>
-            <span><strong>10</strong>spreadsheets</span>
-            <span><strong>9</strong>email</span>
-            <span><strong>9</strong>documents</span>
-            <span><strong>8</strong>consistency</span>
-            <span><strong>5</strong>recovery</span>
+            <span><strong>25</strong>browsing</span>
+            <span><strong>19</strong>multitasking</span>
+            <span><strong>12</strong>spreadsheets</span>
+            <span><strong>12</strong>documents</span>
+            <span><strong>10</strong>email</span>
+            <span><strong>10</strong>consistency</span>
+            <span><strong>8</strong>visuals</span>
+            <span><strong>4</strong>video</span>
+            <span><strong>4</strong>recovery</span>
           </div>
           <p className="paper-note">
             Relative weights are renormalized when an optional measurement is
@@ -403,7 +407,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.17.1 applies no post-score browser normalization. Web
+            Version 6.18 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -454,19 +458,19 @@ export default function MethodologyPage() {
             for a cleaner retest.
           </p>
           <p className="paper-note">
-            An A-level preliminary result must additionally pass the
-            upper-reserve confirmation. A reserve score of 94 or more leaves
-            A+ available; lower sustained results apply progressively lower
-            A-level ceilings. This avoids treating a brief burst of speed as
-            equal to workstation-class sustained capacity.
+            Within browsing, email, documents, and spreadsheets, ordinary
+            interaction contributes 78% and extended capacity contributes
+            22%. That preserves useful differences among already-comfortable
+            devices without allowing enormous synthetic tiers to dominate what
+            everyday use feels like.
           </p>
           <p>
-            Ordinary headroom below 88 now produces a continuous ceiling of
-            headroom plus seven points. It has no shared 87-point shelf: a
-            headroom result of 82, 84, or 87 permits a final score up to 89, 91,
-            or 94 respectively. Qualifying top results use a one-point entry
-            buffer so minor variation around the former gate does not
-            unpredictably skip the upper-reserve stage.
+            Headroom applies a smooth ceiling of its measured score plus 12,
+            capped at 100. There is no threshold jump: moving headroom by one
+            point can move this ceiling by at most one point. Qualifying
+            top results additionally need the mixed reserve evidence described
+            above, which avoids treating a brief burst of speed as equal to
+            sustained workstation capacity.
           </p>
         </section>
 
@@ -546,6 +550,14 @@ export default function MethodologyPage() {
               {" "}— adaptive graphics complexity and browser-dependent frame scheduling.
             </li>
             <li>
+              <a href="https://browserbench.org/ARES-6/about.html">ARES-6 methodology</a>
+              {" "}— warm, steady-state, and worst-iteration evidence with repeated sampling.
+            </li>
+            <li>
+              <a href="https://support.benchmarks.ul.com/support/solutions/articles/44002182065-how-are-pcmark-10-benchmark-scores-calculated-">PCMark 10 score calculation</a>
+              {" "}— balanced category aggregation with geometric means.
+            </li>
+            <li>
               <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/localeCompare">Locale-aware sorting guidance</a>
               {" "}— reuse an <code>Intl.Collator</code> when sorting large arrays.
             </li>
@@ -592,7 +604,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.17.1</strong>
+            <strong>StillGood methodology v6.18</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

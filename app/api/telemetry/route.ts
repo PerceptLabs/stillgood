@@ -291,6 +291,7 @@ function sanitizeSubmission(payload: unknown) {
   const responsiveness = objectValue(outcome.responsiveness);
   const headroom = objectValue(outcome.headroom);
   const upperReserve = objectValue(outcome.upperReserve);
+  const mixedReserve = objectValue(outcome.mixedReserve);
   const boundaryConfirmation = objectValue(outcome.boundaryConfirmation);
   const categories = objectValue(outcome.categories);
   const evidence = objectValue(root.evidence);
@@ -386,6 +387,10 @@ function sanitizeSubmission(payload: unknown) {
                   "memory",
                   "storage",
                   "recovery",
+                  "mixed-response",
+                  "slowdown",
+                  "tail",
+                  "frame-delivery",
                 ].includes(component.id)
               ) {
                 return [];
@@ -398,6 +403,24 @@ function sanitizeSubmission(payload: unknown) {
               ];
             })
           : [],
+      },
+      mixedReserve: {
+        tested: Boolean(mixedReserve.tested),
+        durationMs: finiteNumber(mixedReserve.durationMs),
+        baselineP95Ms: finiteNumber(mixedReserve.baselineP95Ms),
+        loadedP95Ms: finiteNumber(mixedReserve.loadedP95Ms),
+        loadedWorstMs: finiteNumber(mixedReserve.loadedWorstMs),
+        slowdownRatio: finiteNumber(mixedReserve.slowdownRatio),
+        actionCount: finiteNumber(mixedReserve.actionCount),
+        hitch250Ratio: finiteNumber(mixedReserve.hitch250Ratio),
+        hitch500Ratio: finiteNumber(mixedReserve.hitch500Ratio),
+        onTimeRatio: finiteNumber(mixedReserve.onTimeRatio),
+        longFrameRatio: finiteNumber(mixedReserve.longFrameRatio),
+        worstFrameMs: finiteNumber(mixedReserve.worstFrameMs),
+        videoDroppedRatio: finiteNumber(mixedReserve.videoDroppedRatio),
+        imageEditP95Ms: finiteNumber(mixedReserve.imageEditP95Ms),
+        memoryPressureMB: finiteNumber(mixedReserve.memoryPressureMB),
+        storagePressureMB: finiteNumber(mixedReserve.storagePressureMB),
       },
       boundaryConfirmation: sanitizeBoundaryConfirmation(boundaryConfirmation),
       categories: Object.fromEntries(

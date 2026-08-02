@@ -102,8 +102,8 @@ test("anonymous telemetry stores only the server allowlist", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         schemaVersion: "stillgood-telemetry.v1",
-        resultSchemaVersion: "stillgood-result.v6.17.1",
-        profileVersion: "6.17.1-headroom-continuity",
+        resultSchemaVersion: "stillgood-result.v6.18",
+        profileVersion: "6.18.0-adaptive-mixed-reserve",
         context: {
           browserFamily: "Chromium",
           browserMajor: "150",
@@ -141,6 +141,14 @@ test("anonymous telemetry stores only the server allowlist", async () => {
               { id: "memory", score: 84, privateNote: "must-not-be-stored" },
               { id: "private-component", score: 100 },
             ],
+          },
+          mixedReserve: {
+            tested: true,
+            baselineP95Ms: 38,
+            loadedP95Ms: 92,
+            slowdownRatio: 2.42,
+            onTimeRatio: 0.94,
+            privateNote: "must-not-be-stored",
           },
           categories: {},
         },
@@ -185,12 +193,13 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(captured.sql, /anonymous_benchmark_runs/);
   const serializedBindings = JSON.stringify(captured.values);
   assert.doesNotMatch(serializedBindings, /must-not-be-stored/);
-  assert.match(serializedBindings, /6\.17\.1-headroom-continuity/);
+  assert.match(serializedBindings, /6\.18\.0-adaptive-mixed-reserve/);
   assert.match(serializedBindings, /webassembly/);
   assert.match(serializedBindings, /grade-boundary/);
   assert.match(serializedBindings, /scoreBefore/);
   assert.match(serializedBindings, /setupMs/);
   assert.match(serializedBindings, /upperReserve/);
+  assert.match(serializedBindings, /mixedReserve/);
   assert.match(serializedBindings, /\\"id\\":\\"memory\\"/);
   assert.doesNotMatch(serializedBindings, /private-component/);
 });
@@ -207,11 +216,11 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /Browser evidence boundary/);
   assert.match(html, /no post-score browser normalization/);
   assert.match(html, /Everyday capability and performance reserve/);
-  assert.match(html, /Upper-reserve confirmation/);
-  assert.match(html, /continuous ceiling/);
+  assert.match(html, /Mixed-workload reserve confirmation/);
+  assert.match(html, /smooth ceiling/);
   assert.match(html, /Memory hint and measured reserve/);
   assert.match(html, /What makes the result meaningful/);
-  assert.match(html, /stillgood-methodology-v6\.17\.1\.md/);
+  assert.match(html, /stillgood-methodology-v6\.18\.md/);
   assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
   assert.doesNotMatch(html, /flat browser bonus|user-agent bonus/i);
 });

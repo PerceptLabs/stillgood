@@ -10,6 +10,7 @@ import {
 import { flushSync } from "react-dom";
 import {
   median,
+  percentile,
   qualifiesForHeadroom,
   summarizeGraphicsFrames,
   summarizeThoroughRun,
@@ -61,7 +62,8 @@ type StageId =
   | "video"
   | "multitasking"
   | "memory"
-  | "storage";
+  | "storage"
+  | "reserve";
 type Tier = {
   id: string;
   label: string;
@@ -178,9 +180,6 @@ type LatencyTierResult = {
   label: string;
   samples: TimedSample[];
   earlyStopped?: boolean;
-  setupMs?: number;
-  setupWorkMs?: number;
-  setupPresentationMs?: number;
 };
 type GraphicsTierResult = {
   id: string;
@@ -284,6 +283,24 @@ type MemoryTierResult = {
   probeSamples: number[];
   checksum: number;
 };
+type MixedReserveResult = {
+  tested: true;
+  durationMs: number;
+  baselineP95Ms: number;
+  loadedP95Ms: number;
+  loadedWorstMs: number;
+  slowdownRatio: number;
+  actionCount: number;
+  hitch250Ratio: number;
+  hitch500Ratio: number;
+  onTimeRatio: number;
+  longFrameRatio: number;
+  worstFrameMs: number;
+  videoDroppedRatio: number | null;
+  imageEditP95Ms: number;
+  memoryPressureMB: number;
+  storagePressureMB: number;
+};
 type TierSummary = {
   id: string;
   label: string;
@@ -297,6 +314,7 @@ type TierSummary = {
 type LatencyCategory = {
   score: number;
   everydayScore?: number;
+  capacityScore?: number;
   available?: boolean;
   invalidTierCount?: number;
   highestComfortable: string;
@@ -493,6 +511,14 @@ const stages: Array<{
   },
 ];
 
+const reserveStage = {
+  id: "reserve" as const,
+  name: "Reserve",
+  title: "Performance reserve",
+  detail:
+    "Several different jobs now overlap to see whether everyday actions stay quick.",
+};
+
 const workloadTiers: Tier[] = [
   { id: "basic", label: "Basic", size: 1200, domRows: 30 },
   { id: "everyday", label: "Everyday", size: 4500, domRows: 90 },
@@ -588,47 +614,6 @@ const spreadsheetTiers: Tier[] = [
     headroom: true,
   },
 ];
-
-const upperReserveTiers: Record<
-  "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
-  Tier
-> = {
-  browsing: {
-    id: "reserve",
-    label: "Upper reserve",
-    size: 400000,
-    domRows: 360,
-    headroom: true,
-  },
-  email: {
-    id: "reserve",
-    label: "Upper reserve",
-    size: 750000,
-    domRows: 300,
-    headroom: true,
-  },
-  writing: {
-    id: "reserve",
-    label: "Upper reserve",
-    size: 750000,
-    domRows: 7500,
-    headroom: true,
-  },
-  spreadsheets: {
-    id: "reserve",
-    label: "Upper reserve",
-    size: 4000000,
-    domRows: 140,
-    headroom: true,
-  },
-  multitasking: {
-    id: "reserve",
-    label: "Sustained reserve",
-    size: 200000,
-    domRows: 1400,
-    headroom: true,
-  },
-};
 
 const ordinaryVideoTiers = [
   {
@@ -861,7 +846,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.17.1",
+    schemaVersion: "stillgood-result.v6.18",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1240,6 +1225,7 @@ async function runOpfsStorageTier(
 export function StillGoodApp() {
   const [phase, setPhase] = useState<Phase>("home");
   const [stageIndex, setStageIndex] = useState(0);
+  const [reserveStageActive, setReserveStageActive] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [visualTick, setVisualTick] = useState(0);
@@ -1293,7 +1279,8 @@ export function StillGoodApp() {
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [showGuide, showHistory]);
-  const stage = stages[stageIndex] ?? stages[0];
+  const visibleStages = reserveStageActive ? [...stages, reserveStage] : stages;
+  const stage = visibleStages[stageIndex] ?? stages[0];
 
   function stop() {
     cancelledRef.current = true;
@@ -1568,139 +1555,251 @@ export function StillGoodApp() {
     return output;
   }
 
-  function buildJourneyDataset(
-    stageId: "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
-    tier: Tier,
-    seed: number,
-  ) {
-    return stageId === "browsing"
-      ? buildBrowsingDataset(seed, tier.size)
-      : stageId === "writing"
-        ? buildWritingDataset(seed, tier.size)
-        : stageId === "spreadsheets"
-          ? buildSpreadsheetDataset(seed, tier.size)
-          : buildEmailDataset(seed, tier.size);
-  }
-
-  async function buildMeasuredReserveDataset(
-    stageId: "browsing" | "email" | "writing" | "spreadsheets" | "multitasking",
-    tier: Tier,
-    seed: number,
-  ) {
+  async function measureImageEdit(seed: number) {
+    const width = 960;
+    const height = 540;
     const started = performance.now();
-    const dataset = buildJourneyDataset(stageId, tier, seed);
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    let checksum = seed >>> 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      const value = (index * 13 + seed * 17) & 255;
+      pixels[index] = Math.min(255, value * 1.08 + 12);
+      pixels[index + 1] = Math.min(255, ((value * 3) & 255) * 0.92 + 8);
+      pixels[index + 2] = 255 - value;
+      pixels[index + 3] = 255;
+      checksum = (checksum + pixels[index] + pixels[index + 2]) >>> 0;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Image editing canvas unavailable");
+    context.putImageData(new ImageData(pixels, width, height), 0, 0);
+    context.filter = "contrast(1.08) saturate(1.12)";
+    context.drawImage(canvas, 0, 0, width / 2, height / 2);
     const workMs = performance.now() - started;
+    setVisualTick((value) => value + 1);
     await nextPaint();
     const durationMs = performance.now() - started;
     return {
-      dataset,
-      setupSample: {
-        durationMs,
-        workMs,
-        presentationMs: Math.max(0, durationMs - workMs),
-        checksum: 0,
-        actions: [
-          {
-            name: "Open an extra-large workload",
-            durationMs,
-            workMs,
-            presentationMs: Math.max(0, durationMs - workMs),
-          },
-        ],
-      } satisfies TimedSample,
+      name: "Edit and resize a photo",
+      durationMs,
+      workMs,
+      presentationMs: Math.max(0, durationMs - workMs),
+      checksum,
     };
   }
 
-  async function runUpperReserveOfficeTier(
-    stageId: "browsing" | "email" | "writing" | "spreadsheets",
-    seed: number,
-  ) {
-    const tier = upperReserveTiers[stageId];
-    const { dataset, setupSample } = await buildMeasuredReserveDataset(
-      stageId,
-      tier,
-      seed,
-    );
-    await measureJourney(stageId, tier, seed + 10, dataset);
-    const samples: TimedSample[] = [];
-    for (let repetition = 0; repetition < 3; repetition += 1) {
-      samples.push(
-        await measureJourney(
-          stageId,
-          tier,
-          seed + 20 + repetition,
-          dataset,
-        ),
-      );
-      await sleep(120);
-    }
-    return {
-      id: tier.id,
-      label: tier.label,
-      samples,
-      setupMs: setupSample.durationMs,
-      setupWorkMs: setupSample.workMs,
-      setupPresentationMs: setupSample.presentationMs,
+  async function runMixedReserveStage({
+    baselineP95Ms,
+    cadenceMs,
+    reportedMemoryGB,
+    storageTierIndex,
+  }: {
+    baselineP95Ms: number;
+    cadenceMs: number;
+    reportedMemoryGB: number | null;
+    storageTierIndex: number;
+  }) {
+    const mixedTiers = {
+      browsing: browsingTiers[3],
+      email: emailTiers[3],
+      writing: writingTiers[3],
+      spreadsheets: spreadsheetTiers[3],
     };
-  }
-
-  async function runUpperReserveMultitasking(seed: number) {
-    const tier = upperReserveTiers.multitasking;
-    const { dataset, setupSample } = await buildMeasuredReserveDataset(
-      "multitasking",
-      tier,
-      seed,
-    );
-    const maxWorkers = Math.max(
-      1,
-      Math.min(4, (navigator.hardwareConcurrency || 2) - 1),
-    );
-    workersRef.current = Array.from({ length: maxWorkers }, (_, index) => {
+    const datasets = {
+      browsing: buildBrowsingDataset(16100, mixedTiers.browsing.size),
+      email: buildEmailDataset(16200, mixedTiers.email.size),
+      writing: buildWritingDataset(16300, mixedTiers.writing.size),
+      spreadsheets: buildSpreadsheetDataset(
+        16400,
+        mixedTiers.spreadsheets.size,
+      ),
+    };
+    const pressureWorkers = Array.from({ length: 2 }, (_, index) => {
       const worker = new Worker("/benchmark-worker.js");
       worker.postMessage({
         type: "start",
-        seed: seed + index,
-        workUnits: 36,
-        durationMs: 16000,
+        seed: 16500 + index,
+        workUnits: 24,
+        durationMs: 30000,
       });
       return worker;
     });
-    await sleep(350);
-    const samples: TimedSample[] = [];
-    const started = performance.now();
+    const memoryWorker = new Worker("/benchmark-worker.js");
+    const storageWorker = new Worker("/benchmark-worker.js");
+    workersRef.current.push(...pressureWorkers, memoryWorker, storageWorker);
+    const memoryPressureMB = reportedMemoryGB === 4 ? 384 : 512;
+    const intervals: number[] = [];
+    let monitoring = true;
+    let previousFrame = 0;
+    let drawCount = 0;
+    let monitorStart = 0;
+    const monitor = (timestamp: number) => {
+      if (previousFrame) intervals.push(timestamp - previousFrame);
+      previousFrame = timestamp;
+      drawCount += 1;
+      if (monitoring) requestAnimationFrame(monitor);
+    };
+    const video = videoRef.current;
+    let qualityBefore: VideoPlaybackQuality | undefined;
+    if (video) {
+      video.pause();
+      video.loop = true;
+      video.src = ordinaryVideoTiers[2].src;
+      video.load();
+      await Promise.race([
+        new Promise<void>((resolve) =>
+          video.addEventListener("loadeddata", () => resolve(), { once: true }),
+        ),
+        sleep(5000),
+      ]);
+      qualityBefore = video.getVideoPlaybackQuality?.();
+      await video.play().catch(() => undefined);
+    }
+
+    const storagePromise = runOpfsStorageTier(
+      storageWorker,
+      64,
+      256,
+      storageTierIndex,
+    ).catch(() => null);
     try {
-      await measureJourney("multitasking", tier, seed + 10, dataset);
-      let repetition = 0;
+      await runMemoryTier(memoryWorker, memoryPressureMB, 0);
+    } catch {
+      // The mixed stage remains valid with worker and storage pressure.
+    }
+    await sleep(350);
+
+    const actions: TimedSample["actions"] = [];
+    const imageDurations: number[] = [];
+    monitorStart = performance.now();
+    requestAnimationFrame(monitor);
+    const started = performance.now();
+    let cycle = 0;
+    let journeyError: unknown = null;
+    try {
       while (
-        performance.now() - started < 10000 &&
-        repetition < 48 &&
+        performance.now() - started < 12000 &&
+        cycle < 4 &&
         !cancelledRef.current
       ) {
-        const sample = await measureJourney(
-          "multitasking",
-          tier,
-          seed + 20 + repetition,
-          dataset,
+        setStatus(
+          cycle < 2
+            ? "Several everyday jobs are active together"
+            : "Checking whether quick actions stay quick under sustained work",
         );
-        samples.push(sample);
-        if (sample.durationMs > 3000) break;
-        repetition += 1;
-        await sleep(90);
+        const journeys = [
+          await measureJourney(
+            "browsing",
+            mixedTiers.browsing,
+            17000 + cycle,
+            datasets.browsing,
+          ),
+          await measureJourney(
+            "email",
+            mixedTiers.email,
+            17100 + cycle,
+            datasets.email,
+          ),
+          await measureJourney(
+            "writing",
+            mixedTiers.writing,
+            17200 + cycle,
+            datasets.writing,
+          ),
+          await measureJourney(
+            "spreadsheets",
+            mixedTiers.spreadsheets,
+            17300 + cycle,
+            datasets.spreadsheets,
+          ),
+        ];
+        journeys.forEach((journey) => actions.push(...journey.actions));
+        const imageAction = await measureImageEdit(17400 + cycle);
+        actions.push(imageAction);
+        imageDurations.push(imageAction.durationMs);
+        cycle += 1;
+        setProgress(98 + Math.min(1.5, (performance.now() - started) / 8000));
+        await sleep(120);
       }
+    } catch (error) {
+      journeyError = error;
     } finally {
-      workersRef.current.forEach((worker) => {
+      monitoring = false;
+      video?.pause();
+      pressureWorkers.forEach((worker) => {
         worker.postMessage({ type: "cancel" });
         worker.terminate();
       });
-      workersRef.current = [];
     }
+
+    const storageMeasurement = await storagePromise;
+    try {
+      await requestWorkerResult(
+        memoryWorker,
+        { type: "memory-release", requestId: `mixed-release-${Date.now()}` },
+        "memory-released",
+        3000,
+      );
+    } catch {
+      // Termination below releases the temporary working set.
+    }
+    memoryWorker.terminate();
+    storageWorker.terminate();
+    workersRef.current = workersRef.current.filter(
+      (worker) =>
+        !pressureWorkers.includes(worker) &&
+        worker !== memoryWorker &&
+        worker !== storageWorker,
+    );
+    if (journeyError) throw journeyError;
+
+    const frameSummary = summarizeGraphicsFrames({
+      drawCount,
+      intervals,
+      displayCadenceMs: cadenceMs,
+      elapsedMs: performance.now() - monitorStart,
+    });
+    const actionDurations = actions
+      .map((action) => action.durationMs)
+      .filter((value) => Number.isFinite(value));
+    const loadedP95Ms = percentile(actionDurations, 0.95);
+    const qualityAfter = video?.getVideoPlaybackQuality?.();
+    const videoFrames =
+      qualityBefore && qualityAfter
+        ? qualityAfter.totalVideoFrames - qualityBefore.totalVideoFrames
+        : 0;
+    const videoDropped =
+      qualityBefore && qualityAfter
+        ? qualityAfter.droppedVideoFrames - qualityBefore.droppedVideoFrames
+        : 0;
     return {
-      id: tier.id,
-      label: tier.label,
-      samples,
-      setupMs: setupSample.durationMs,
-      setupWorkMs: setupSample.workMs,
-      setupPresentationMs: setupSample.presentationMs,
+      result: {
+        tested: true,
+        durationMs: performance.now() - started,
+        baselineP95Ms: Math.max(1, baselineP95Ms),
+        loadedP95Ms,
+        loadedWorstMs: Math.max(...actionDurations, 0),
+        slowdownRatio: loadedP95Ms / Math.max(1, baselineP95Ms),
+        actionCount: actionDurations.length,
+        hitch250Ratio: actionDurations.length
+          ? actionDurations.filter((value) => value > 250).length /
+            actionDurations.length
+          : 1,
+        hitch500Ratio: actionDurations.length
+          ? actionDurations.filter((value) => value > 500).length /
+            actionDurations.length
+          : 1,
+        onTimeRatio: frameSummary.onTimeRatio,
+        longFrameRatio: frameSummary.longFrameRatio,
+        worstFrameMs: frameSummary.worstFrameMs,
+        videoDroppedRatio: videoFrames > 0 ? videoDropped / videoFrames : null,
+        imageEditP95Ms: percentile(imageDurations, 0.95),
+        memoryPressureMB,
+        storagePressureMB: storageMeasurement?.sizeMB ?? 0,
+      } satisfies MixedReserveResult,
+      storageMeasurement,
     };
   }
 
@@ -2043,6 +2142,7 @@ export function StillGoodApp() {
     setResult(null);
     setProgress(0);
     setStageIndex(0);
+    setReserveStageActive(false);
     setPhase("prepare");
     setStatus("Caching the local workloads");
     const startedAt = new Date().toISOString();
@@ -2562,7 +2662,8 @@ export function StillGoodApp() {
       setStatus("Measuring recovery and run stability");
       let recoveryMs = await measureRecovery();
       const formFactor = detectFormFactor();
-      const buildSummaryMetrics = () => ({
+      let mixedReserve: MixedReserveResult | null = null;
+      const buildSummaryMetrics = (reserveEvaluationComplete = false) => ({
         browserFamily: browserFamily(),
         browsingTiers: browsingResults,
         emailTiers: emailResults,
@@ -2589,6 +2690,8 @@ export function StillGoodApp() {
         longAnimationFrameSupported,
         interruptionCount,
         baselineUnsettled: finalBaseline.unsettled,
+        mixedReserve,
+        reserveEvaluationComplete,
       });
       let summary = summarizeThoroughRun(buildSummaryMetrics());
       const upperReservePlan = planUpperReserve(summary);
@@ -2602,233 +2705,49 @@ export function StillGoodApp() {
         elapsedMs: 0,
       };
       if (upperReservePlan.needed) {
-        const upperReserveStart = performance.now();
-        const reserveOfficeStages = [
-          ["browsing", browsingResults, 0],
-          ["email", emailResults, 1],
-          ["writing", writingResults, 2],
-          ["spreadsheets", spreadsheetResults, 3],
-        ] as const;
-        for (const [index, [category, destination, displayStage]] of
-          reserveOfficeStages.entries()) {
-          if (cancelledRef.current) return;
-          setStageIndex(displayStage);
-          setStatus(`Checking extra reserve for ${stages[displayStage].name.toLowerCase()}`);
-          await nextPaint();
-          try {
-            destination.push(
-              await runUpperReserveOfficeTier(category, 12000 + index * 500),
-            );
-          } catch {
-            destination.push({
-              id: "reserve",
-              label: "Upper reserve",
-              earlyStopped: true,
-              samples: [
-                {
-                  durationMs: 6000,
-                  workMs: 6000,
-                  presentationMs: 0,
-                  checksum: 0,
-                  actions: [],
-                },
-              ],
-            });
-          }
-          setProgress(98 + ((index + 1) / 8) * 1.2);
-        }
-
-        if (cancelledRef.current) return;
-        setStageIndex(4);
-        setStatus("Checking sustained visual performance");
-        await nextPaint();
-        const reserveGraphicsWorkers = Math.max(
-          1,
-          Math.min(2, (navigator.hardwareConcurrency || 2) - 1),
-        );
-        workersRef.current = Array.from(
-          { length: reserveGraphicsWorkers },
-          (_, index) => {
-            const worker = new Worker("/benchmark-worker.js");
-            worker.postMessage({
-              type: "start",
-              seed: 14000 + index,
-              workUnits: 26,
-              durationMs: 9000,
-            });
-            return worker;
-          },
-        );
-        try {
-          await sleep(350);
-          graphicsTiers.push(
-            await runGraphicsTier(
-              "reserve",
-              "Sustained",
-              24000,
-              cadenceMs,
-              7000,
-            ),
-          );
-        } catch {
-          graphicsTiers.push({
-            id: "reserve",
-            label: "Sustained",
-            complexity: 24000,
-            onTimeRatio: 0,
-            longFrameRatio: 1,
-            worstFrameMs: 999,
-            frameCount: 0,
-            expectedFrameCount: 1,
-            displayCadenceMs: cadenceMs,
-            evaluationCadenceMs: Math.max(1000 / 60, cadenceMs),
-            valid: false,
-          });
-        } finally {
-          workersRef.current.forEach((worker) => {
-            worker.postMessage({ type: "cancel" });
-            worker.terminate();
-          });
-          workersRef.current = [];
-        }
-        setProgress(99.35);
-
-        if (cancelledRef.current) return;
-        setStageIndex(6);
-        setStatus("Checking sustained responsiveness while work overlaps");
+        const reserveStart = performance.now();
+        setReserveStageActive(true);
+        setStageIndex(stages.length);
+        setProgress(98);
+        setStatus("Everyday check complete · preparing overlapping work");
         await nextPaint();
         try {
-          multitaskTiers.push(await runUpperReserveMultitasking(15000));
-        } catch {
-          multitaskTiers.push({
-            id: "reserve",
-            label: "Sustained reserve",
-            earlyStopped: true,
-            samples: [
-              {
-                durationMs: 6000,
-                workMs: 6000,
-                presentationMs: 0,
-                checksum: 0,
-                actions: [],
-              },
-            ],
+          const ordinaryActionDurations = [
+            browsingResults,
+            emailResults,
+            writingResults,
+            spreadsheetResults,
+          ]
+            .flatMap((tiers) =>
+              tiers.filter(
+                (tier) => tier.id !== "headroom" && tier.id !== "limit",
+              ),
+            )
+            .flatMap((tier) => tier.samples)
+            .flatMap((sample) => sample.actions)
+            .map((action) => action.durationMs)
+            .filter((value) => Number.isFinite(value));
+          const measured = await runMixedReserveStage({
+            baselineP95Ms:
+              percentile(ordinaryActionDurations, 0.95) ||
+              summary.responsiveness.p95Ms ||
+              250,
+            cadenceMs,
+            reportedMemoryGB,
+            storageTierIndex: opfsStorageTiers.length,
           });
+          mixedReserve = measured.result;
+        } catch {
+          mixedReserve = null;
         }
-        setProgress(99.55);
-
         if (cancelledRef.current) return;
-        setStageIndex(7);
-        setStatus("Extending the measured memory working set");
-        await nextPaint();
-        const reserveMemoryWorker = new Worker("/benchmark-worker.js");
-        workersRef.current.push(reserveMemoryWorker);
-        try {
-          for (const [index, targetMB] of [1792, 2048].entries()) {
-            const measured = await runMemoryTier(
-              reserveMemoryWorker,
-              targetMB,
-              memoryTiers.length + index,
-            );
-            memoryTiers.push(measured);
-            if (
-              measured.probeWorstMs > 1000 ||
-              measured.gcWorstRoundMs > 1000 ||
-              measured.copyRoundTripMs > 10000
-            ) {
-              break;
-            }
-          }
-        } catch {
-          memoryTiers.push({
-            id: "memory-1792",
-            label: "1792 MB active",
-            targetMB: 1792,
-            retainedMB: 0,
-            addedMB: 0,
-            allocator: "typed-array",
-            allocationMs: 25000,
-            scanMs: 0,
-            scannedMB: 0,
-            sweepMBps: 0,
-            gcChurnMs: 1000,
-            gcWorstRoundMs: 1000,
-            gcObjectsCreated: 1,
-            copyRoundTripMs: 25000,
-            probeP95Ms: 1000,
-            probeWorstMs: 2000,
-            probeSamples: [1000, 2000],
-            checksum: 0,
-          });
-        } finally {
-          try {
-            await requestWorkerResult(
-              reserveMemoryWorker,
-              {
-                type: "memory-release",
-                requestId: `reserve-release-${Date.now()}`,
-              },
-              "memory-released",
-              3000,
-            );
-          } catch {
-            // Termination below also releases the temporary working set.
-          }
-          reserveMemoryWorker.terminate();
-          workersRef.current = workersRef.current.filter(
-            (worker) => worker !== reserveMemoryWorker,
-          );
-        }
-        setProgress(99.75);
-
-        if (cancelledRef.current) return;
-        setStageIndex(8);
-        setStatus("Checking a larger persistent save");
-        await nextPaint();
-        const reserveStorageWorker = new Worker("/benchmark-worker.js");
-        workersRef.current.push(reserveStorageWorker);
-        try {
-          opfsStorageTiers.push(
-            await runOpfsStorageTier(
-              reserveStorageWorker,
-              256,
-              640,
-              opfsStorageTiers.length,
-            ),
-          );
-        } catch {
-          opfsStorageTiers.push({
-            id: "opfs-256",
-            label: "256 MB persistent file",
-            sizeMB: 256,
-            randomReads: 640,
-            writeMs: 60000,
-            flushMs: 60000,
-            reopenMs: 60000,
-            randomReadMs: 60000,
-            flushP95Ms: 60000,
-            flushWorstMs: 60000,
-            foregroundP95Ms: 2000,
-            foregroundWorstMs: 4000,
-            samples: [],
-            verified: false,
-            available: true,
-            error: "The extended persistent save did not complete.",
-          });
-        } finally {
-          reserveStorageWorker.terminate();
-          workersRef.current = workersRef.current.filter(
-            (worker) => worker !== reserveStorageWorker,
-          );
-        }
-
-        setStatus("Measuring recovery after the extended workload");
+        setStatus("Checking how quickly normal response returns");
         recoveryMs = await measureRecovery();
-        summary = summarizeThoroughRun(buildSummaryMetrics());
-        upperReserveRun.scoreAfter = summary.score;
-        upperReserveRun.gradeAfter = summary.grade;
-        upperReserveRun.elapsedMs = performance.now() - upperReserveStart;
+        upperReserveRun.elapsedMs = performance.now() - reserveStart;
       }
+      summary = summarizeThoroughRun(buildSummaryMetrics(true));
+      upperReserveRun.scoreAfter = summary.score;
+      upperReserveRun.gradeAfter = summary.grade;
       const initialBoundarySummary = {
         score: summary.score,
         grade: summary.grade,
@@ -2872,7 +2791,7 @@ export function StillGoodApp() {
           );
           if (confirmed) boundaryConfirmationRuns.push(confirmed);
         }
-        summary = summarizeThoroughRun(buildSummaryMetrics());
+        summary = summarizeThoroughRun(buildSummaryMetrics(true));
       }
 
       const boundaryConfirmation = {
@@ -2898,7 +2817,7 @@ export function StillGoodApp() {
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.17.1-headroom-continuity",
+        profileVersion: "6.18.0-adaptive-mixed-reserve",
         boundaryConfirmation,
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
@@ -2926,13 +2845,13 @@ export function StillGoodApp() {
             minimumScore: upperReservePlan.minimumScore,
             minimumHeadroom: upperReservePlan.minimumHeadroom,
             minimumCoreScore: upperReservePlan.minimumCoreScore,
-            officeRepetitions: 3,
-            sustainedMultitaskingMs: 10000,
-            sustainedGraphicsMs: 7000,
-            maximumMemoryWorkingSetMB: 2048,
-            persistentSaveMB: 256,
+            mode: "mixed-workload",
+            sustainedWorkMs: 12000,
+            memoryPressureMB: mixedReserve?.memoryPressureMB ?? null,
+            persistentSaveMB: mixedReserve?.storagePressureMB ?? null,
           },
           upperReserveRun,
+          mixedReserve,
           browsingTiers: browsingResults,
           emailTiers: emailResults,
           writingTiers: writingResults,
@@ -3117,7 +3036,7 @@ export function StillGoodApp() {
             aria-label={`${Math.round(progress)} percent complete`}
           >
             <strong>{stageIndex + 1}</strong>
-            <span>of {stages.length}</span>
+            <span>of {visibleStages.length}</span>
           </div>
           <div className="run-message">
             <p className="kicker">{stage.name}</p>
@@ -3139,7 +3058,7 @@ export function StillGoodApp() {
           />
         </section>
         <ol className="run-steps">
-          {stages.map((item, index) => (
+          {visibleStages.map((item, index) => (
             <li
               key={item.id}
               className={
@@ -3700,6 +3619,18 @@ function BenchmarkVisual({
       </div>
     );
   }
+  if (stage === "reserve") {
+    return (
+      <ReserveDashboard
+        tick={tick}
+        browsingView={browsingView}
+        emailView={emailView}
+        writingView={writingView}
+        spreadsheetView={spreadsheetView}
+        videoRef={videoRef}
+      />
+    );
+  }
   if (stage === "multitasking") {
     return (
       <div className="test-visual multitask-fixture">
@@ -3759,6 +3690,80 @@ function BenchmarkVisual({
   return (
     <div className="test-visual fixture-host">
       <EmailFixture view={emailView} />
+    </div>
+  );
+}
+
+function ReserveDashboard({
+  tick,
+  browsingView,
+  emailView,
+  writingView,
+  spreadsheetView,
+  videoRef,
+}: {
+  tick: number;
+  browsingView: BrowsingView | null;
+  emailView: EmailView | null;
+  writingView: WritingView | null;
+  spreadsheetView: SpreadsheetView | null;
+  videoRef: RefObject<HTMLVideoElement | null>;
+}) {
+  const activity = ["Browsing", "Mail", "Document", "Spreadsheet", "Photo", "Saving"];
+  return (
+    <div className="test-visual reserve-dashboard">
+      <header>
+        <div>
+          <strong>Several jobs at once</strong>
+          <span>Foreground response is still being measured</span>
+        </div>
+        <em>{tick % 2 ? "Busy workload" : "Sustained workload"}</em>
+      </header>
+      <div className="reserve-grid">
+        <article className="reserve-panel reserve-browser">
+          <small>Web</small>
+          <strong>{browsingView?.actionName ?? "Updating a busy page"}</strong>
+          {(browsingView?.items ?? []).slice(0, 8).map((item) => (
+            <i key={item.id} style={{ width: `${45 + (item.id % 45)}%` }} />
+          ))}
+        </article>
+        <article className="reserve-panel reserve-mail">
+          <small>Inbox</small>
+          <strong>{emailView?.actionName ?? "Searching and switching mail"}</strong>
+          {(emailView?.rows ?? []).slice(0, 7).map((row) => (
+            <span key={row.id}>{row.sender}</span>
+          ))}
+        </article>
+        <article className="reserve-panel reserve-document">
+          <small>Document</small>
+          <strong>{writingView?.actionName ?? "Reflowing a long document"}</strong>
+          {(writingView?.paragraphs ?? []).slice(0, 7).map((paragraph) => (
+            <i key={paragraph.id} style={{ width: `${55 + (paragraph.id % 38)}%` }} />
+          ))}
+        </article>
+        <article className="reserve-panel reserve-sheet">
+          <small>Spreadsheet</small>
+          <strong>{spreadsheetView?.actionName ?? "Recalculating formulas"}</strong>
+          <div>
+            {(spreadsheetView?.rows ?? []).slice(0, 12).map((row) => (
+              <i key={row.row}>{row.row}</i>
+            ))}
+          </div>
+        </article>
+        <article className="reserve-panel reserve-media">
+          <small>Media</small>
+          <video ref={videoRef} muted playsInline preload="auto" />
+          <span>Video playing while a photo is edited</span>
+        </article>
+        <article className="reserve-panel reserve-activity">
+          <small>Active work</small>
+          {activity.map((label, index) => (
+            <span key={label} className={index === tick % activity.length ? "active" : ""}>
+              <i /> {label}
+            </span>
+          ))}
+        </article>
+      </div>
     </div>
   );
 }

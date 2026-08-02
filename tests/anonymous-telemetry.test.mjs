@@ -25,9 +25,9 @@ test("browser context keeps only broad, useful device information", () => {
 test("anonymous telemetry excludes exact identity and full browser strings", () => {
   const telemetry = buildAnonymousTelemetry(
     {
-      schemaVersion: "stillgood-result.v6.17.1",
+      schemaVersion: "stillgood-result.v6.18",
       result: {
-        profileVersion: "6.17.1-headroom-continuity",
+        profileVersion: "6.18.0-adaptive-mixed-reserve",
         browser: "Chrome 150 with a private marker",
         platform: "Private workstation name",
         startedAt: "2026-08-01T12:34:56.000Z",
@@ -69,6 +69,25 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
           tiers: [{ id: "everyday", medianMs: 220, worstMs: 410 }],
         },
         raw: {
+          mixedReserve: {
+            tested: true,
+            durationMs: 12040,
+            baselineP95Ms: 62,
+            loadedP95Ms: 118,
+            loadedWorstMs: 290,
+            slowdownRatio: 1.9,
+            actionCount: 84,
+            hitch250Ratio: 0.02,
+            hitch500Ratio: 0,
+            onTimeRatio: 0.94,
+            longFrameRatio: 0.03,
+            worstFrameMs: 48,
+            videoDroppedRatio: 0.004,
+            imageEditP95Ms: 82,
+            memoryPressureMB: 512,
+            storagePressureMB: 64,
+            privateDeviceName: "must-not-survive",
+          },
           browsingTiers: [
             {
               id: "everyday",
@@ -130,6 +149,24 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
     gradeBefore: "B",
     scoreAfter: 82,
     gradeAfter: "B+",
+  });
+  assert.deepEqual(telemetry.outcome.mixedReserve, {
+    tested: true,
+    durationMs: 12040,
+    baselineP95Ms: 62,
+    loadedP95Ms: 118,
+    loadedWorstMs: 290,
+    slowdownRatio: 1.9,
+    actionCount: 84,
+    hitch250Ratio: 0.02,
+    hitch500Ratio: 0,
+    onTimeRatio: 0.94,
+    longFrameRatio: 0.03,
+    worstFrameMs: 48,
+    videoDroppedRatio: 0.004,
+    imageEditP95Ms: 82,
+    memoryPressureMB: 512,
+    storagePressureMB: 64,
   });
   assert.doesNotMatch(serialized, /private-token|Private workstation|2026-08-01/);
   assert.doesNotMatch(serialized, /must-not-survive/);

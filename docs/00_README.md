@@ -65,6 +65,7 @@ Additional current-profile documents:
 - `32_PUBLIC_CLOUDFLARE_DEPLOYMENT.md` — account-free local history, optional anonymous calibration, and `stillgood.fyi` deployment
 - `33_BENCHMARK_V6_17_UPPER_RESERVE.md` — adaptive sustained-load confirmation for A-level preliminary results
 - `34_BENCHMARK_V6_17_1_HEADROOM_CONTINUITY.md` — removal of the 87-point shelf and isolation of upper-reserve evidence
+- `35_BENCHMARK_V6_18_ADAPTIVE_MIXED_RESERVE.md` — practical-speed weighting, smooth capacity treatment, and mixed-workload reserve
 
 Read the automation-first addendum after the base documents. Where it conflicts
 with guided or manual benchmark interaction requirements, the addendum takes
@@ -160,6 +161,14 @@ evidence before their separate ceiling is applied, and separates setup timing
 from repeated-interaction variability. A one-point reserve-entry buffer reduces
 one-run gate changes without admitting devices that miss the core-performance
 requirements.
+
+Benchmark v6.18 keeps the established grade ladder and public result layout but
+supersedes v6.17.1 category weighting, headroom ceiling, and upper-reserve
+execution. Ordinary responsiveness contributes 78% of core application scores,
+adaptive capacity contributes 22%, and a single mixed stage measures loaded
+response, slowdown, tail delay, and frame delivery while browser, office,
+video, worker, memory, storage, and image work overlap. A completed run without
+that evidence can still earn B+ but cannot claim modern-performance grades.
 
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and

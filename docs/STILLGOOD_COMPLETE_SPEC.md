@@ -2,7 +2,24 @@
 
 > Combined on 2026-07-29. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.13 browser evidence boundary
+## Current benchmark addendum: v6.18 practical speed and mixed reserve
+
+The current profile is `6.18.0-adaptive-mixed-reserve`. Core application
+categories are 78% ordinary responsiveness and 22% adaptive capacity.
+Sub-100 ms performance remains continuous, aggregate headroom uses a smooth
+`headroom + 12` ceiling, and the established grade ladder remains unchanged.
+
+A High-confidence preliminary result of at least 89, with headroom of at least
+83 and every core category at least 86, runs one distinct 12-second mixed
+reserve scene. Browser, inbox, document, spreadsheet, video, Canvas image,
+worker, memory, and persistent-save work overlap. Loaded p95 response, slowdown
+from the ordinary baseline, worst tail, and frame delivery determine the
+reserve ceiling. A completed run without this evidence can earn B+ but cannot
+claim an A-range modern-performance result.
+
+See `35_BENCHMARK_V6_18_ADAPTIVE_MIXED_RESERVE.md`.
+
+## Continuing benchmark policy: v6.13 browser evidence boundary
 
 The current benchmark profile is
 `6.13.0-browser-evidence-boundary`. Browser-visible work remains raw in the
