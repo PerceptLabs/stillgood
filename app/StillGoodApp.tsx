@@ -3067,12 +3067,12 @@ function PerformanceProfile({
       aria-label="Performance profile"
     >
       <header>
-        <p className="kicker">How it differs</p>
+        <p className="kicker">What stands out</p>
         <h2>{profile.summary}</h2>
       </header>
       <div className="performance-profile-columns">
         <article>
-          <strong>{profile.wellRounded ? "Across the board" : "Best results"}</strong>
+          <strong>{profile.wellRounded ? "Overall result" : "Best at"}</strong>
           {profile.strengths.length ? (
             <ul>
               {profile.strengths.map((item) => (
@@ -3090,7 +3090,7 @@ function PerformanceProfile({
           )}
         </article>
         <article>
-          <strong>Less reserve</strong>
+          <strong>Likely to slow first</strong>
           {profile.limits.length ? (
             <ul>
               {profile.limits.map((item) => (

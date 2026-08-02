@@ -95,8 +95,10 @@ test("the performance profile explains similar totals with stable meaningful dif
     video: { score: 100, available: true, highestComfortable: "4K" },
   };
   const hpGuide = buildCapabilityGuide(hpResult);
-  assert.match(hpGuide.performanceProfile.summary, /Best results came from video playback/);
-  assert.match(hpGuide.performanceProfile.summary, /large documents/);
+  assert.equal(
+    hpGuide.performanceProfile.summary,
+    "Video playback and email were especially strong. Large documents may slow first.",
+  );
   assert.ok(
     hpGuide.performanceProfile.limits.some(
       (item) => item.title === "Writing and documents" && item.relative,
@@ -137,7 +139,7 @@ test("the performance profile explains similar totals with stable meaningful dif
   });
   assert.deepEqual(
     phoneGuide.performanceProfile.strengths.map((item) => item.title),
-    ["Video playback", "Using several things", "Scrolling and visual pages"],
+    ["Video playback", "Multitasking", "Scrolling and visual pages"],
   );
 });
 
@@ -155,5 +157,8 @@ test("a uniformly strong system is described as well rounded", () => {
   });
   assert.equal(guide.performanceProfile.wellRounded, true);
   assert.equal(guide.performanceProfile.limits.length, 0);
-  assert.match(guide.performanceProfile.summary, /well balanced/);
+  assert.equal(
+    guide.performanceProfile.summary,
+    "Everyday performance was consistently strong, with no clear weak area.",
+  );
 });

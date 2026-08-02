@@ -118,6 +118,21 @@ test("anonymous telemetry stores only the server allowlist", async () => {
           score: 75,
           grade: "C+",
           confidence: "High",
+          boundaryConfirmation: {
+            triggered: true,
+            reason: "grade-boundary",
+            margin: 1,
+            gradeBoundary: 74,
+            plannedCategories: ["browsing", "email", "private-category"],
+            runs: [
+              { category: "browsing", tier: "extreme", addedSamples: 2 },
+              { category: "private-category", privateNote: "must-not-be-stored" },
+            ],
+            scoreBefore: 74,
+            gradeBefore: "C+",
+            scoreAfter: 75,
+            gradeAfter: "C+",
+          },
           categories: {},
         },
         evidence: {
@@ -155,6 +170,8 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.doesNotMatch(serializedBindings, /must-not-be-stored/);
   assert.match(serializedBindings, /6\.16\.0-media-confirmation/);
   assert.match(serializedBindings, /webassembly/);
+  assert.match(serializedBindings, /grade-boundary/);
+  assert.match(serializedBindings, /scoreBefore/);
 });
 
 test("server-renders the public methodology whitepaper", async () => {

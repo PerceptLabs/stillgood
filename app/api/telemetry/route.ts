@@ -15,6 +15,21 @@ const CATEGORY_NAMES = [
   "memory",
   "storage",
 ] as const;
+const CONFIRMATION_CATEGORIES = [
+  "browsing",
+  "email",
+  "writing",
+  "spreadsheets",
+  "multitasking",
+] as const;
+const CONFIRMATION_REASONS = [
+  "grade-boundary",
+  "capability-boundary",
+  "low-confidence",
+  "not-near-boundary",
+  "no-summary",
+] as const;
+const GRADES = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D", "E"] as const;
 const EVIDENCE_NAMES = [
   "browsingTiers",
   "emailTiers",
@@ -117,6 +132,10 @@ function constrainedString(
   return typeof value === "string" && allowed.includes(value) ? value : fallback;
 }
 
+function optionalConstrainedString(value: unknown, allowed: readonly string[]) {
+  return typeof value === "string" && allowed.includes(value) ? value : null;
+}
+
 function versionString(value: unknown, fallback = "unknown") {
   return typeof value === "string" && /^[a-z0-9._-]{1,80}$/i.test(value)
     ? value
@@ -207,6 +226,58 @@ function sanitizeEvidenceTier(value: unknown) {
   return clean;
 }
 
+function sanitizeBoundaryConfirmation(value: unknown) {
+  const confirmation = objectValue(value);
+  const plannedCategories = Array.isArray(confirmation.plannedCategories)
+    ? confirmation.plannedCategories
+        .filter(
+          (category): category is (typeof CONFIRMATION_CATEGORIES)[number] =>
+            typeof category === "string" &&
+            CONFIRMATION_CATEGORIES.includes(
+              category as (typeof CONFIRMATION_CATEGORIES)[number],
+            ),
+        )
+        .slice(0, 3)
+    : [];
+  const runs = Array.isArray(confirmation.runs)
+    ? confirmation.runs.slice(0, 3).flatMap((runValue) => {
+        const run = objectValue(runValue);
+        if (
+          typeof run.category !== "string" ||
+          !CONFIRMATION_CATEGORIES.includes(
+            run.category as (typeof CONFIRMATION_CATEGORIES)[number],
+          )
+        ) {
+          return [];
+        }
+        return [
+          {
+            category: run.category,
+            tier: versionString(run.tier),
+            addedSamples: finiteNumber(run.addedSamples),
+          },
+        ];
+      })
+    : [];
+
+  return {
+    triggered: Boolean(confirmation.triggered),
+    reason: constrainedString(
+      confirmation.reason,
+      CONFIRMATION_REASONS,
+      "not-near-boundary",
+    ),
+    margin: finiteNumber(confirmation.margin),
+    gradeBoundary: finiteNumber(confirmation.gradeBoundary),
+    plannedCategories,
+    runs,
+    scoreBefore: finiteNumber(confirmation.scoreBefore),
+    gradeBefore: optionalConstrainedString(confirmation.gradeBefore, GRADES),
+    scoreAfter: finiteNumber(confirmation.scoreAfter),
+    gradeAfter: optionalConstrainedString(confirmation.gradeAfter, GRADES),
+  };
+}
+
 function sanitizeSubmission(payload: unknown) {
   const root = objectValue(payload);
   if (root.schemaVersion !== "stillgood-telemetry.v1") {
@@ -216,6 +287,7 @@ function sanitizeSubmission(payload: unknown) {
   const outcome = objectValue(root.outcome);
   const responsiveness = objectValue(outcome.responsiveness);
   const headroom = objectValue(outcome.headroom);
+  const boundaryConfirmation = objectValue(outcome.boundaryConfirmation);
   const categories = objectValue(outcome.categories);
   const evidence = objectValue(root.evidence);
   const integrity = objectValue(root.integrity);
@@ -291,6 +363,7 @@ function sanitizeSubmission(payload: unknown) {
         openCeilings: finiteNumber(headroom.openCeilings),
         extendedCategories: finiteNumber(headroom.extendedCategories),
       },
+      boundaryConfirmation: sanitizeBoundaryConfirmation(boundaryConfirmation),
       categories: Object.fromEntries(
         CATEGORY_NAMES.map((name) => [name, sanitizeCategory(categories[name])]),
       ),

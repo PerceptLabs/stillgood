@@ -40,6 +40,21 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
         responsiveness: { score: 80, p95Ms: 320 },
         headroom: { score: 65, openCeilings: 1 },
         memory: { score: 92, reportedMemoryGB: 8 },
+        boundaryConfirmation: {
+          triggered: true,
+          reason: "grade-boundary",
+          margin: 1,
+          gradeBoundary: 82,
+          plannedCategories: ["writing", "browsing", "email"],
+          runs: [
+            { category: "writing", tier: "extreme", addedSamples: 2 },
+          ],
+          scoreBefore: 81,
+          gradeBefore: "B",
+          scoreAfter: 82,
+          gradeAfter: "B+",
+          privateNote: "must-not-survive",
+        },
         browsing: {
           score: 79,
           tiers: [{ id: "everyday", medianMs: 220, worstMs: 410 }],
@@ -87,6 +102,19 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
   assert.equal(telemetry.context.reportedMemoryClass, "8+");
   assert.equal(telemetry.outcome.score, 82);
   assert.equal(telemetry.evidence.memoryTiers[0].allocator, "webassembly");
+  assert.deepEqual(telemetry.outcome.boundaryConfirmation, {
+    triggered: true,
+    reason: "grade-boundary",
+    margin: 1,
+    gradeBoundary: 82,
+    plannedCategories: ["writing", "browsing", "email"],
+    runs: [{ category: "writing", tier: "extreme", addedSamples: 2 }],
+    scoreBefore: 81,
+    gradeBefore: "B",
+    scoreAfter: 82,
+    gradeAfter: "B+",
+  });
   assert.doesNotMatch(serialized, /private-token|Private workstation|2026-08-01/);
+  assert.doesNotMatch(serialized, /must-not-survive/);
   assert.doesNotMatch(serialized, /userAgent|startedAt|browser\":\"Chrome/);
 });
