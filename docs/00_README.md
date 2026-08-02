@@ -170,6 +170,14 @@ response, slowdown, tail delay, and frame delivery while browser, office,
 video, worker, memory, storage, and image work overlap. A completed run without
 that evidence can still earn B+ but cannot claim modern-performance grades.
 
+Benchmark v6.19 preserves that ladder and result presentation while making the
+top-end reserve comparison paired. The same deterministic journeys run
+unloaded and loaded, and only an exceptional first pressure level unlocks a
+larger second level. Persistent-file scoring separates the first cold
+observation from repeated steady behavior, avoids charging the same slow flush
+twice, and locally reports a recent comparable-run range when enough results
+exist.
+
 `STILLGOOD_METHODOLOGY_WHITEPAPER.md` is the public technical explanation of
 the benchmark's goals, protocol, workloads, measurement, scoring, validity, and
 limitations.

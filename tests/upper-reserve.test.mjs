@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { planUpperReserve } from "../lib/upper-reserve.mjs";
+import {
+  planUpperReserve,
+  shouldRunExtendedReserve,
+} from "../lib/upper-reserve.mjs";
 
 function strongSummary(overrides = {}) {
   return {
@@ -61,4 +64,25 @@ test("noisy runs are not made longer", () => {
   const plan = planUpperReserve(strongSummary({ confidence: "Medium" }));
   assert.equal(plan.needed, false);
   assert.equal(plan.reason, "confidence-not-high");
+});
+
+test("only an exceptionally responsive standard reserve escalates", () => {
+  assert.equal(
+    shouldRunExtendedReserve({
+      loadedP95Ms: 42,
+      loadedWorstMs: 92,
+      slowdownRatio: 1.28,
+      onTimeRatio: 0.98,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRunExtendedReserve({
+      loadedP95Ms: 82,
+      loadedWorstMs: 170,
+      slowdownRatio: 1.6,
+      onTimeRatio: 0.92,
+    }),
+    false,
+  );
 });

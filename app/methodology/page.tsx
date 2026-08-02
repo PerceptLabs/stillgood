@@ -50,7 +50,7 @@ const modules = [
   },
   {
     name: "Persistent saves",
-    work: "Commits IndexedDB transactions and writes, flushes, reopens, randomly reads, and verifies local OPFS files up to 64 MB on mobile and 128 MB on computers. The mixed reserve scene adds a concurrent verified 64 MB save.",
+    work: "Commits IndexedDB transactions and writes, flushes, reopens, randomly reads, and verifies local OPFS files up to 64 MB on mobile and 128 MB on computers. Reserve adds a concurrent verified 64 MB save, escalating to 128 MB only on exceptional systems.",
     evidence: "Small-save latency, large-file flush tails, data integrity, and foreground lag.",
   },
 ];
@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.18</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.19</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.18</span>
+            <span>Profile 6.19</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.18.md" download>
+            <a href="/stillgood-methodology-v6.19.md" download>
               Download Markdown
             </a>
             <a
@@ -332,14 +332,16 @@ export default function MethodologyPage() {
             A clean preliminary result of 89 or above does not immediately
             receive a top grade. When every core category is at least 86 and
             measured headroom is at least 83, StillGood opens one visibly
-            different reserve dashboard. For about 12 seconds it overlaps a
-            demanding browser page, inbox, document, spreadsheet, 1080p
-            video, a real Canvas photo edit, worker calculations, a bounded
-            live memory set, and a verified background save.
+            different reserve dashboard. It first warms the fixture and
+            measures a fixed set of demanding browser, inbox, document,
+            spreadsheet, and Canvas photo actions without added pressure. It
+            then repeats the exact same data, seeds, and actions while video,
+            worker calculations, a bounded live memory set, and a verified
+            background save overlap.
           </p>
           <p>
-            The stage compares loaded 95th-percentile response with the same
-            device&apos;s ordinary-action baseline. Loaded response, slowdown,
+            The paired stage compares loaded 95th-percentile response with its
+            immediately preceding unloaded match. Loaded response, slowdown,
             worst repeated delay, and frame delivery are combined with a
             weighted geometric mean. This reveals whether a device merely
             completes large isolated jobs or keeps quick work quick when jobs
@@ -347,6 +349,27 @@ export default function MethodologyPage() {
             87 through 100, so a one-point reserve change cannot cause a
             multi-point grade jump. Temporary reserve storage and memory work
             are not counted a second time in their ordinary categories.
+          </p>
+          <p>
+            Only an exceptionally quick and steady first pressure level opens
+            a higher level. That escalation uses more worker calculation, a
+            larger live memory set, a larger persistent save, and
+            higher-resolution video. Its score contributes 35% of the reserve
+            result; the standard paired level remains 65%.
+          </p>
+          <h3>Cold stalls and steady behavior</h3>
+          <p>
+            Canvas, WebAssembly, IndexedDB, and persistent-file paths receive
+            an untimed initialization before scored repetitions. The first
+            full-size persistent-file observation is kept as a cold diagnostic
+            while repeated observations determine steady scoring. It is not
+            charged again through both storage and the large-save limit.
+          </p>
+          <p>
+            Saved results are compared locally only with recent runs from the
+            same profile, browser family, platform, and processor-count class.
+            A span greater than five points is reported as variable
+            performance. The range never changes the score.
           </p>
           <p>
             Devices below the gate skip this extra work. Their everyday score
@@ -407,7 +430,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.18 applies no post-score browser normalization. Web
+            Version 6.19 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -604,7 +627,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.18</strong>
+            <strong>StillGood methodology v6.19</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

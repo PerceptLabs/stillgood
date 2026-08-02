@@ -103,12 +103,35 @@ test("a mixed reserve stage rewards quick overlapping work and penalizes catch-u
   });
 
   assert.equal(strong.tested, true);
-  assert.ok(strong.score >= 90);
+  assert.ok(strong.score >= 80);
   assert.ok(strong.score > constrained.score + 20);
   assert.ok(strong.gradeCeiling > constrained.gradeCeiling);
   assert.deepEqual(
     strong.components.map((component) => component.id),
     ["mixed-response", "slowdown", "tail", "frame-delivery"],
+  );
+});
+
+test("paired reserve scoring preserves top-end latency strata", () => {
+  const reserve = (loadedP95Ms) => summarizeUpperReserve({
+    mixedReserve: {
+      tested: true,
+      paired: true,
+      levels: [{
+        id: "standard",
+        loadedP95Ms,
+        loadedWorstMs: 48,
+        slowdownRatio: 1.2,
+        onTimeRatio: 0.98,
+      }],
+    },
+  });
+  const sixteen = reserve(16);
+  const twentySeven = reserve(27);
+  assert.ok(sixteen.score >= twentySeven.score + 3);
+  assert.ok(
+    sixteen.components.find((component) => component.id === "mixed-response").score >
+      twentySeven.components.find((component) => component.id === "mixed-response").score,
   );
 });
 
@@ -450,6 +473,38 @@ test("a large flush stall is not hidden by fast small storage operations", () =>
   assert.ok(hpLike.score - lenovoLike.score >= 15);
   assert.equal(lenovoLike.largeSaveStatus, "usable");
   assert.equal(lenovoLike.largeFlushMs, 678);
+});
+
+test("a cold persistent-file stall is retained without replacing steady scoring", () => {
+  const bulk = [{ id: "1", label: "1 MB", writeMs: 20, readMs: 5 }];
+  const strict = [{
+    id: "strict-8",
+    label: "8 small saves",
+    p95CommitMs: 8,
+    worstCommitMs: 14,
+    verified: true,
+  }];
+  const persistent = {
+    id: "opfs-16",
+    label: "16 MB persistent file",
+    sizeMB: 16,
+    randomReads: 128,
+    writeMs: 140,
+    flushMs: 110,
+    flushP95Ms: 110,
+    flushWorstMs: 125,
+    coldFlushMs: 1400,
+    randomReadMs: 18,
+    verified: true,
+    available: true,
+  };
+  const cold = summarizeStorage(bulk, strict, [persistent]);
+  const steadyOnly = summarizeStorage(bulk, strict, [
+    { ...persistent, coldFlushMs: null },
+  ]);
+  assert.equal(cold.score, steadyOnly.score);
+  assert.equal(cold.coldLargeFlushMs, 1400);
+  assert.equal(cold.largeFlushMs, 110);
 });
 
 test("grade bands provide useful extra strata", () => {

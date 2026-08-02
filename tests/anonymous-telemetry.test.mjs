@@ -25,9 +25,9 @@ test("browser context keeps only broad, useful device information", () => {
 test("anonymous telemetry excludes exact identity and full browser strings", () => {
   const telemetry = buildAnonymousTelemetry(
     {
-      schemaVersion: "stillgood-result.v6.18",
+      schemaVersion: "stillgood-result.v6.19",
       result: {
-        profileVersion: "6.18.0-adaptive-mixed-reserve",
+        profileVersion: "6.19.0-paired-reserve-repeatability",
         browser: "Chrome 150 with a private marker",
         platform: "Private workstation name",
         startedAt: "2026-08-01T12:34:56.000Z",
@@ -85,7 +85,9 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
             videoDroppedRatio: 0.004,
             imageEditP95Ms: 82,
             memoryPressureMB: 512,
-            storagePressureMB: 64,
+      storagePressureMB: 64,
+      paired: false,
+      levels: [],
             privateDeviceName: "must-not-survive",
           },
           browsingTiers: [
@@ -167,6 +169,8 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
     imageEditP95Ms: 82,
     memoryPressureMB: 512,
     storagePressureMB: 64,
+    paired: false,
+    levels: [],
   });
   assert.doesNotMatch(serialized, /private-token|Private workstation|2026-08-01/);
   assert.doesNotMatch(serialized, /must-not-survive/);

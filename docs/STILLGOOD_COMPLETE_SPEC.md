@@ -2,7 +2,22 @@
 
 > Combined on 2026-07-29. Individual source files remain authoritative.
 
-## Current benchmark addendum: v6.18 practical speed and mixed reserve
+## Current benchmark addendum: v6.19 paired reserve and repeatability
+
+The current profile is `6.19.0-paired-reserve-repeatability`. It preserves the
+v6.18 grade ladder and everyday scoring, but the mixed reserve baseline now
+uses the exact same deterministic journeys immediately before pressure. Only
+an exceptional standard pressure level unlocks a larger second level.
+
+Cold Canvas, WebAssembly, IndexedDB, and OPFS paths initialize outside scored
+repetitions. The first full-size persistent-file observation remains a cold
+diagnostic while repeated observations determine steady scoring. Recent local
+comparable results form a displayed repeatability range without changing the
+score or anonymous telemetry.
+
+See `36_BENCHMARK_V6_19_PAIRED_RESERVE_REPEATABILITY.md`.
+
+## Previous benchmark addendum: v6.18 practical speed and mixed reserve
 
 The current profile is `6.18.0-adaptive-mixed-reserve`. Core application
 categories are 78% ordinary responsiveness and 22% adaptive capacity.

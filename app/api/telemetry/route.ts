@@ -101,6 +101,10 @@ const TIER_NUMBER_FIELDS = new Set([
   "randomReadMs",
   "flushP95Ms",
   "flushWorstMs",
+  "coldWriteMs",
+  "coldFlushMs",
+  "coldReopenMs",
+  "coldRandomReadMs",
   "foregroundP95Ms",
   "foregroundWorstMs",
 ]);
@@ -421,6 +425,28 @@ function sanitizeSubmission(payload: unknown) {
         imageEditP95Ms: finiteNumber(mixedReserve.imageEditP95Ms),
         memoryPressureMB: finiteNumber(mixedReserve.memoryPressureMB),
         storagePressureMB: finiteNumber(mixedReserve.storagePressureMB),
+        paired: Boolean(mixedReserve.paired),
+        levels: Array.isArray(mixedReserve.levels)
+          ? mixedReserve.levels.slice(0, 2).flatMap((levelValue) => {
+              const level = objectValue(levelValue);
+              if (
+                typeof level.id !== "string" ||
+                !["standard", "extended"].includes(level.id)
+              )
+                return [];
+              return [{
+                id: level.id,
+                baselineP95Ms: finiteNumber(level.baselineP95Ms),
+                loadedP95Ms: finiteNumber(level.loadedP95Ms),
+                loadedWorstMs: finiteNumber(level.loadedWorstMs),
+                slowdownRatio: finiteNumber(level.slowdownRatio),
+                onTimeRatio: finiteNumber(level.onTimeRatio),
+                memoryPressureMB: finiteNumber(level.memoryPressureMB),
+                storagePressureMB: finiteNumber(level.storagePressureMB),
+                workerCount: finiteNumber(level.workerCount),
+              }];
+            })
+          : [],
       },
       boundaryConfirmation: sanitizeBoundaryConfirmation(boundaryConfirmation),
       categories: Object.fromEntries(

@@ -16,6 +16,16 @@ export type LocalRunSummary = {
   headroomScore: number;
 };
 
+export type RecentRunRange = {
+  available: boolean;
+  comparableRuns: number;
+  minimumScore: number | null;
+  maximumScore: number | null;
+  span: number | null;
+  variable: boolean;
+  message: string;
+};
+
 type ResultEnvelope = {
   schemaVersion?: unknown;
   result?: Record<string, unknown>;

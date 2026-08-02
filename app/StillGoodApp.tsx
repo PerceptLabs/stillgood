@@ -18,7 +18,10 @@ import {
 import { classifyFormFactor } from "@/lib/context.mjs";
 import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
 import { planBoundaryConfirmation } from "@/lib/boundary-confirmation.mjs";
-import { planUpperReserve } from "@/lib/upper-reserve.mjs";
+import {
+  planUpperReserve,
+  shouldRunExtendedReserve,
+} from "@/lib/upper-reserve.mjs";
 import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
 import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
 import { buildAnonymousTelemetry } from "@/lib/anonymous-telemetry.mjs";
@@ -34,7 +37,9 @@ import {
   listLocalRuns,
   saveLocalRun,
   type LocalRunSummary,
+  type RecentRunRange,
 } from "@/lib/local-run-history";
+import { summarizeRecentRunRange } from "@/lib/run-repeatability.mjs";
 import {
   browsingActionNames,
   buildBrowsingDataset,
@@ -250,6 +255,10 @@ type OpfsStorageTierResult = {
   randomReadMs: number;
   flushP95Ms: number;
   flushWorstMs: number;
+  coldWriteMs: number | null;
+  coldFlushMs: number | null;
+  coldReopenMs: number | null;
+  coldRandomReadMs: number | null;
   foregroundP95Ms: number;
   foregroundWorstMs: number;
   samples: Array<{
@@ -283,10 +292,12 @@ type MemoryTierResult = {
   probeSamples: number[];
   checksum: number;
 };
-type MixedReserveResult = {
-  tested: true;
+type MixedReserveLevel = {
+  id: "standard" | "extended";
+  label: string;
   durationMs: number;
   baselineP95Ms: number;
+  baselineWorstMs: number;
   loadedP95Ms: number;
   loadedWorstMs: number;
   slowdownRatio: number;
@@ -300,6 +311,12 @@ type MixedReserveResult = {
   imageEditP95Ms: number;
   memoryPressureMB: number;
   storagePressureMB: number;
+  workerCount: number;
+};
+type MixedReserveResult = MixedReserveLevel & {
+  tested: true;
+  paired: true;
+  levels: MixedReserveLevel[];
 };
 type TierSummary = {
   id: string;
@@ -378,6 +395,7 @@ type SimpleCategory = {
   largeSaveLabel?: string;
   largeFlushMs?: number | null;
   largeFlushWorstMs?: number | null;
+  coldLargeFlushMs?: number | null;
   saveForegroundP95Ms?: number | null;
   reserveLabel?: string;
   reportedMemoryLabel?: string;
@@ -442,6 +460,7 @@ type ThoroughResult = {
     scoreAfter: number;
     gradeAfter: string;
   };
+  recentRunRange?: RecentRunRange;
   raw: unknown;
 };
 type SavedRunSummary = LocalRunSummary;
@@ -846,7 +865,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.18",
+    schemaVersion: "stillgood-result.v6.19",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1198,10 +1217,14 @@ async function runOpfsStorageTier(
     measureForegroundLagUntil(workerMeasurement, 55000),
   ]);
   const samples = measured.samples ?? [];
-  const writeValues = samples.map((sample) => sample.writeMs);
-  const flushValues = samples.map((sample) => sample.flushMs);
-  const reopenValues = samples.map((sample) => sample.reopenMs);
-  const randomReadValues = samples.map((sample) => sample.randomReadMs);
+  const coldSample = samples[0] ?? null;
+  // The first observation remains useful evidence of a cold catch-up pause,
+  // but repeat measurements describe normal sustained storage behavior.
+  const steadySamples = samples.length > 1 ? samples.slice(1) : samples;
+  const writeValues = steadySamples.map((sample) => sample.writeMs);
+  const flushValues = steadySamples.map((sample) => sample.flushMs);
+  const reopenValues = steadySamples.map((sample) => sample.reopenMs);
+  const randomReadValues = steadySamples.map((sample) => sample.randomReadMs);
   return {
     id: `opfs-${sizeMB}`,
     label: `${sizeMB} MB persistent file`,
@@ -1213,6 +1236,10 @@ async function runOpfsStorageTier(
     randomReadMs: median(randomReadValues),
     flushP95Ms: percentileValue(flushValues, 0.95),
     flushWorstMs: Math.max(...flushValues, 0),
+    coldWriteMs: coldSample?.writeMs ?? null,
+    coldFlushMs: coldSample?.flushMs ?? null,
+    coldReopenMs: coldSample?.reopenMs ?? null,
+    coldRandomReadMs: coldSample?.randomReadMs ?? null,
     foregroundP95Ms: percentileValue(foregroundSamples, 0.95),
     foregroundWorstMs: Math.max(...foregroundSamples, 0),
     samples,
@@ -1305,6 +1332,7 @@ export function StillGoodApp() {
     const envelope = resultEnvelope(completedResult);
     try {
       await saveLocalRun(envelope);
+      setSavedRuns(await listLocalRuns());
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
@@ -1591,12 +1619,10 @@ export function StillGoodApp() {
   }
 
   async function runMixedReserveStage({
-    baselineP95Ms,
     cadenceMs,
     reportedMemoryGB,
     storageTierIndex,
   }: {
-    baselineP95Ms: number;
     cadenceMs: number;
     reportedMemoryGB: number | null;
     storageTierIndex: number;
@@ -1616,190 +1642,199 @@ export function StillGoodApp() {
         mixedTiers.spreadsheets.size,
       ),
     };
-    const pressureWorkers = Array.from({ length: 2 }, (_, index) => {
-      const worker = new Worker("/benchmark-worker.js");
-      worker.postMessage({
-        type: "start",
-        seed: 16500 + index,
-        workUnits: 24,
-        durationMs: 30000,
-      });
-      return worker;
-    });
-    const memoryWorker = new Worker("/benchmark-worker.js");
-    const storageWorker = new Worker("/benchmark-worker.js");
-    workersRef.current.push(...pressureWorkers, memoryWorker, storageWorker);
-    const memoryPressureMB = reportedMemoryGB === 4 ? 384 : 512;
-    const intervals: number[] = [];
-    let monitoring = true;
-    let previousFrame = 0;
-    let drawCount = 0;
-    let monitorStart = 0;
-    const monitor = (timestamp: number) => {
-      if (previousFrame) intervals.push(timestamp - previousFrame);
-      previousFrame = timestamp;
-      drawCount += 1;
-      if (monitoring) requestAnimationFrame(monitor);
-    };
-    const video = videoRef.current;
-    let qualityBefore: VideoPlaybackQuality | undefined;
-    if (video) {
-      video.pause();
-      video.loop = true;
-      video.src = ordinaryVideoTiers[2].src;
-      video.load();
-      await Promise.race([
-        new Promise<void>((resolve) =>
-          video.addEventListener("loadeddata", () => resolve(), { once: true }),
-        ),
-        sleep(5000),
-      ]);
-      qualityBefore = video.getVideoPlaybackQuality?.();
-      await video.play().catch(() => undefined);
-    }
-
-    const storagePromise = runOpfsStorageTier(
-      storageWorker,
-      64,
-      256,
-      storageTierIndex,
-    ).catch(() => null);
-    try {
-      await runMemoryTier(memoryWorker, memoryPressureMB, 0);
-    } catch {
-      // The mixed stage remains valid with worker and storage pressure.
-    }
-    await sleep(350);
-
-    const actions: TimedSample["actions"] = [];
-    const imageDurations: number[] = [];
-    monitorStart = performance.now();
-    requestAnimationFrame(monitor);
-    const started = performance.now();
-    let cycle = 0;
-    let journeyError: unknown = null;
-    try {
-      while (
-        performance.now() - started < 12000 &&
-        cycle < 4 &&
-        !cancelledRef.current
-      ) {
-        setStatus(
-          cycle < 2
-            ? "Several everyday jobs are active together"
-            : "Checking whether quick actions stay quick under sustained work",
-        );
+    const runJourneys = async (cycles: number) => {
+      const actions: TimedSample["actions"] = [];
+      const imageDurations: number[] = [];
+      for (let cycle = 0; cycle < cycles && !cancelledRef.current; cycle += 1) {
         const journeys = [
-          await measureJourney(
-            "browsing",
-            mixedTiers.browsing,
-            17000 + cycle,
-            datasets.browsing,
-          ),
-          await measureJourney(
-            "email",
-            mixedTiers.email,
-            17100 + cycle,
-            datasets.email,
-          ),
-          await measureJourney(
-            "writing",
-            mixedTiers.writing,
-            17200 + cycle,
-            datasets.writing,
-          ),
-          await measureJourney(
-            "spreadsheets",
-            mixedTiers.spreadsheets,
-            17300 + cycle,
-            datasets.spreadsheets,
-          ),
+          await measureJourney("browsing", mixedTiers.browsing, 17000 + cycle, datasets.browsing),
+          await measureJourney("email", mixedTiers.email, 17100 + cycle, datasets.email),
+          await measureJourney("writing", mixedTiers.writing, 17200 + cycle, datasets.writing),
+          await measureJourney("spreadsheets", mixedTiers.spreadsheets, 17300 + cycle, datasets.spreadsheets),
         ];
         journeys.forEach((journey) => actions.push(...journey.actions));
         const imageAction = await measureImageEdit(17400 + cycle);
         actions.push(imageAction);
         imageDurations.push(imageAction.durationMs);
-        cycle += 1;
-        setProgress(98 + Math.min(1.5, (performance.now() - started) / 8000));
-        await sleep(120);
+        await sleep(90);
       }
-    } catch (error) {
-      journeyError = error;
-    } finally {
-      monitoring = false;
-      video?.pause();
-      pressureWorkers.forEach((worker) => {
-        worker.postMessage({ type: "cancel" });
-        worker.terminate();
+      const durations = actions
+        .map((action) => action.durationMs)
+        .filter((value) => Number.isFinite(value));
+      return {
+        durations,
+        p95Ms: percentile(durations, 0.95),
+        worstMs: Math.max(...durations, 0),
+        imageEditP95Ms: percentile(imageDurations, 0.95),
+      };
+    };
+
+    setStatus("Preparing the same everyday actions for a fair comparison");
+    await runJourneys(1); // untimed initialization of DOM, canvas, and WASM paths
+    const baseline = await runJourneys(2);
+
+    const runPressureLevel = async (
+      id: "standard" | "extended",
+      baselineResult: Awaited<ReturnType<typeof runJourneys>>,
+    ): Promise<MixedReserveLevel> => {
+      const extended = id === "extended";
+      const workerCount = extended ? 4 : 2;
+      const memoryPressureMB = extended
+        ? reportedMemoryGB === 4
+          ? 512
+          : 768
+        : reportedMemoryGB === 4
+          ? 384
+          : 512;
+      const storagePressureMB = extended ? 128 : 64;
+      const pressureWorkers = Array.from({ length: workerCount }, (_, index) => {
+        const worker = new Worker("/benchmark-worker.js");
+        worker.postMessage({
+          type: "start",
+          seed: 16500 + index + (extended ? 100 : 0),
+          workUnits: extended ? 38 : 24,
+          durationMs: 35000,
+        });
+        return worker;
       });
-    }
-
-    const storageMeasurement = await storagePromise;
-    try {
-      await requestWorkerResult(
-        memoryWorker,
-        { type: "memory-release", requestId: `mixed-release-${Date.now()}` },
-        "memory-released",
-        3000,
+      const memoryWorker = new Worker("/benchmark-worker.js");
+      const storageWorker = new Worker("/benchmark-worker.js");
+      workersRef.current.push(...pressureWorkers, memoryWorker, storageWorker);
+      const intervals: number[] = [];
+      let monitoring = true;
+      let previousFrame = 0;
+      let drawCount = 0;
+      const monitorStart = performance.now();
+      const monitor = (timestamp: number) => {
+        if (previousFrame) intervals.push(timestamp - previousFrame);
+        previousFrame = timestamp;
+        drawCount += 1;
+        if (monitoring) requestAnimationFrame(monitor);
+      };
+      const video = videoRef.current;
+      let qualityBefore: VideoPlaybackQuality | undefined;
+      if (video) {
+        video.pause();
+        video.loop = true;
+        video.src = extended ? extendedVideoTiers[0].src : ordinaryVideoTiers[2].src;
+        video.load();
+        await Promise.race([
+          new Promise<void>((resolve) =>
+            video.addEventListener("loadeddata", () => resolve(), { once: true }),
+          ),
+          sleep(5000),
+        ]);
+        qualityBefore = video.getVideoPlaybackQuality?.();
+        await video.play().catch(() => undefined);
+      }
+      try {
+        await runMemoryTier(memoryWorker, memoryPressureMB, extended ? 1 : 0);
+      } catch {
+        // Other overlapping pressure remains valid when allocation is limited.
+      }
+      await sleep(250);
+      // Start persistent I/O immediately before the paired loaded journeys so
+      // fast storage cannot finish while the memory working set is prepared.
+      const storagePromise = runOpfsStorageTier(
+        storageWorker,
+        storagePressureMB,
+        extended ? 384 : 256,
+        storageTierIndex + (extended ? 1 : 0),
+      ).catch(() => null);
+      setStatus(
+        extended
+          ? "Escalating to a higher reserve check"
+          : "Comparing the same actions while several jobs overlap",
       );
-    } catch {
-      // Termination below releases the temporary working set.
-    }
-    memoryWorker.terminate();
-    storageWorker.terminate();
-    workersRef.current = workersRef.current.filter(
-      (worker) =>
-        !pressureWorkers.includes(worker) &&
-        worker !== memoryWorker &&
-        worker !== storageWorker,
-    );
-    if (journeyError) throw journeyError;
-
-    const frameSummary = summarizeGraphicsFrames({
-      drawCount,
-      intervals,
-      displayCadenceMs: cadenceMs,
-      elapsedMs: performance.now() - monitorStart,
-    });
-    const actionDurations = actions
-      .map((action) => action.durationMs)
-      .filter((value) => Number.isFinite(value));
-    const loadedP95Ms = percentile(actionDurations, 0.95);
-    const qualityAfter = video?.getVideoPlaybackQuality?.();
-    const videoFrames =
-      qualityBefore && qualityAfter
-        ? qualityAfter.totalVideoFrames - qualityBefore.totalVideoFrames
-        : 0;
-    const videoDropped =
-      qualityBefore && qualityAfter
-        ? qualityAfter.droppedVideoFrames - qualityBefore.droppedVideoFrames
-        : 0;
-    return {
-      result: {
-        tested: true,
+      requestAnimationFrame(monitor);
+      const started = performance.now();
+      let loaded: Awaited<ReturnType<typeof runJourneys>>;
+      try {
+        loaded = await runJourneys(2);
+      } finally {
+        monitoring = false;
+        video?.pause();
+        pressureWorkers.forEach((worker) => {
+          worker.postMessage({ type: "cancel" });
+          worker.terminate();
+        });
+      }
+      const storageMeasurement = await storagePromise;
+      try {
+        await requestWorkerResult(
+          memoryWorker,
+          { type: "memory-release", requestId: `mixed-release-${Date.now()}` },
+          "memory-released",
+          3000,
+        );
+      } catch {
+        // Termination below releases the temporary working set.
+      }
+      memoryWorker.terminate();
+      storageWorker.terminate();
+      workersRef.current = workersRef.current.filter(
+        (worker) =>
+          !pressureWorkers.includes(worker) &&
+          worker !== memoryWorker &&
+          worker !== storageWorker,
+      );
+      const frameSummary = summarizeGraphicsFrames({
+        drawCount,
+        intervals,
+        displayCadenceMs: cadenceMs,
+        elapsedMs: performance.now() - monitorStart,
+      });
+      const qualityAfter = video?.getVideoPlaybackQuality?.();
+      const videoFrames =
+        qualityBefore && qualityAfter
+          ? qualityAfter.totalVideoFrames - qualityBefore.totalVideoFrames
+          : 0;
+      const videoDropped =
+        qualityBefore && qualityAfter
+          ? qualityAfter.droppedVideoFrames - qualityBefore.droppedVideoFrames
+          : 0;
+      return {
+        id,
+        label: extended ? "Higher mixed pressure" : "Standard mixed pressure",
         durationMs: performance.now() - started,
-        baselineP95Ms: Math.max(1, baselineP95Ms),
-        loadedP95Ms,
-        loadedWorstMs: Math.max(...actionDurations, 0),
-        slowdownRatio: loadedP95Ms / Math.max(1, baselineP95Ms),
-        actionCount: actionDurations.length,
-        hitch250Ratio: actionDurations.length
-          ? actionDurations.filter((value) => value > 250).length /
-            actionDurations.length
+        baselineP95Ms: Math.max(1, baselineResult.p95Ms),
+        baselineWorstMs: baselineResult.worstMs,
+        loadedP95Ms: loaded.p95Ms,
+        loadedWorstMs: loaded.worstMs,
+        slowdownRatio: loaded.p95Ms / Math.max(1, baselineResult.p95Ms),
+        actionCount: loaded.durations.length,
+        hitch250Ratio: loaded.durations.length
+          ? loaded.durations.filter((value) => value > 250).length / loaded.durations.length
           : 1,
-        hitch500Ratio: actionDurations.length
-          ? actionDurations.filter((value) => value > 500).length /
-            actionDurations.length
+        hitch500Ratio: loaded.durations.length
+          ? loaded.durations.filter((value) => value > 500).length / loaded.durations.length
           : 1,
         onTimeRatio: frameSummary.onTimeRatio,
         longFrameRatio: frameSummary.longFrameRatio,
         worstFrameMs: frameSummary.worstFrameMs,
         videoDroppedRatio: videoFrames > 0 ? videoDropped / videoFrames : null,
-        imageEditP95Ms: percentile(imageDurations, 0.95),
+        imageEditP95Ms: loaded.imageEditP95Ms,
         memoryPressureMB,
         storagePressureMB: storageMeasurement?.sizeMB ?? 0,
+        workerCount,
+      };
+    };
+
+    const standard = await runPressureLevel("standard", baseline);
+    const levels = [standard];
+    if (shouldRunExtendedReserve(standard) && !cancelledRef.current) {
+      setProgress(99.2);
+      levels.push(await runPressureLevel("extended", baseline));
+    }
+    const finalLevel = levels.at(-1) ?? standard;
+    return {
+      result: {
+        ...finalLevel,
+        tested: true,
+        paired: true,
+        durationMs: levels.reduce((sum, level) => sum + level.durationMs, 0),
+        levels,
       } satisfies MixedReserveResult,
-      storageMeasurement,
     };
   }
 
@@ -2264,6 +2299,7 @@ export function StillGoodApp() {
         ["busy", "Busy", 4200],
         ["dense", "Dense", 12000],
       ] as const;
+      await runGraphicsTier("warmup", "Warm-up", 240, cadenceMs, 450);
       for (let index = 0; index < graphicsLevels.length; index += 1) {
         const [id, label, complexity] = graphicsLevels[index];
         graphicsTiers.push(
@@ -2505,6 +2541,12 @@ export function StillGoodApp() {
       const memoryWorker = new Worker("/benchmark-worker.js");
       workersRef.current.push(memoryWorker);
       try {
+        await requestWorkerResult(
+          memoryWorker,
+          { type: "memory-initialize", requestId: `memory-init-${Date.now()}` },
+          "memory-initialized",
+          3000,
+        );
         const memoryLevels =
           reportedMemoryGB === 2
             ? [64, 128, 256, 384]
@@ -2642,6 +2684,10 @@ export function StillGoodApp() {
           randomReadMs: 0,
           flushP95Ms: 0,
           flushWorstMs: 0,
+          coldWriteMs: null,
+          coldFlushMs: null,
+          coldReopenMs: null,
+          coldRandomReadMs: null,
           foregroundP95Ms: 0,
           foregroundWorstMs: 0,
           samples: [],
@@ -2712,26 +2758,7 @@ export function StillGoodApp() {
         setStatus("Everyday check complete · preparing overlapping work");
         await nextPaint();
         try {
-          const ordinaryActionDurations = [
-            browsingResults,
-            emailResults,
-            writingResults,
-            spreadsheetResults,
-          ]
-            .flatMap((tiers) =>
-              tiers.filter(
-                (tier) => tier.id !== "headroom" && tier.id !== "limit",
-              ),
-            )
-            .flatMap((tier) => tier.samples)
-            .flatMap((sample) => sample.actions)
-            .map((action) => action.durationMs)
-            .filter((value) => Number.isFinite(value));
           const measured = await runMixedReserveStage({
-            baselineP95Ms:
-              percentile(ordinaryActionDurations, 0.95) ||
-              summary.responsiveness.p95Ms ||
-              250,
             cadenceMs,
             reportedMemoryGB,
             storageTierIndex: opfsStorageTiers.length,
@@ -2807,17 +2834,33 @@ export function StillGoodApp() {
         scoreAfter: summary.score,
         gradeAfter: summary.grade,
       };
+      const completedBrowser = browserLabel();
+      const completedPlatform = navigator.platform || "Platform not reported";
+      const completedProcessors = navigator.hardwareConcurrency || null;
+      const completedProfileVersion = "6.19.0-paired-reserve-repeatability";
+      const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
+      const recentRunRange = summarizeRecentRunRange(
+        {
+          score: summary.score,
+          browser: completedBrowser,
+          platform: completedPlatform,
+          logicalProcessors: completedProcessors,
+          profileVersion: completedProfileVersion,
+        },
+        previousLocalRuns,
+      );
       const completedResult: ThoroughResult = {
         ...summary,
-        browser: browserLabel(),
-        platform: navigator.platform || "Platform not reported",
+        browser: completedBrowser,
+        platform: completedPlatform,
         formFactor,
         powerSource: "not-reported",
-        logicalProcessors: navigator.hardwareConcurrency || null,
+        logicalProcessors: completedProcessors,
         cadenceMs,
         startedAt,
         elapsedMs: performance.now() - testStart,
-        profileVersion: "6.18.0-adaptive-mixed-reserve",
+        profileVersion: completedProfileVersion,
+        recentRunRange,
         boundaryConfirmation,
         raw: {
           compatibilityAdapters: compatibilityAdapterProfile,
@@ -2845,8 +2888,11 @@ export function StillGoodApp() {
             minimumScore: upperReservePlan.minimumScore,
             minimumHeadroom: upperReservePlan.minimumHeadroom,
             minimumCoreScore: upperReservePlan.minimumCoreScore,
-            mode: "mixed-workload",
-            sustainedWorkMs: 12000,
+            mode: "paired-mixed-workload",
+            baselineAndLoadedUseIdenticalJourneys: true,
+            standardPressureWeight: 0.65,
+            extendedPressureWeight: 0.35,
+            extendedPressureRan: (mixedReserve?.levels.length ?? 0) > 1,
             memoryPressureMB: mixedReserve?.memoryPressureMB ?? null,
             persistentSaveMB: mixedReserve?.storagePressureMB ?? null,
           },
@@ -3048,6 +3094,7 @@ export function StillGoodApp() {
           </div>
           <BenchmarkVisual
             stage={stage.id}
+            status={status}
             tick={visualTick}
             browsingView={browsingView}
             emailView={emailView}
@@ -3144,6 +3191,16 @@ export function StillGoodApp() {
               "A borderline result was confirmed with extra measurements. "}
             {guide.variation.message}
           </p>
+          {result.recentRunRange?.available && (
+            <p className={`result-stability${result.recentRunRange.variable ? " result-variable" : ""}`}>
+              <strong>
+                {result.recentRunRange.variable
+                  ? "Variable between runs."
+                  : "Repeatable result."}
+              </strong>{" "}
+              {result.recentRunRange.message}
+            </p>
+          )}
         </div>
       </section>
       <section className="capability-overview" aria-label="Everyday capabilities">
@@ -3585,6 +3642,7 @@ function SavedRunsDialog({
 
 function BenchmarkVisual({
   stage,
+  status,
   tick,
   browsingView,
   emailView,
@@ -3594,6 +3652,7 @@ function BenchmarkVisual({
   canvasRef,
 }: {
   stage: StageId;
+  status: string;
   tick: number;
   browsingView: BrowsingView | null;
   emailView: EmailView | null;
@@ -3623,6 +3682,7 @@ function BenchmarkVisual({
     return (
       <ReserveDashboard
         tick={tick}
+        status={status}
         browsingView={browsingView}
         emailView={emailView}
         writingView={writingView}
@@ -3696,6 +3756,7 @@ function BenchmarkVisual({
 
 function ReserveDashboard({
   tick,
+  status,
   browsingView,
   emailView,
   writingView,
@@ -3703,6 +3764,7 @@ function ReserveDashboard({
   videoRef,
 }: {
   tick: number;
+  status: string;
   browsingView: BrowsingView | null;
   emailView: EmailView | null;
   writingView: WritingView | null;
@@ -3710,14 +3772,36 @@ function ReserveDashboard({
   videoRef: RefObject<HTMLVideoElement | null>;
 }) {
   const activity = ["Browsing", "Mail", "Document", "Spreadsheet", "Photo", "Saving"];
+  const higherLevel = status.includes("Escalating");
+  const baseline = status.includes("fair comparison") || status.includes("preparing");
   return (
     <div className="test-visual reserve-dashboard">
       <header>
         <div>
-          <strong>Several jobs at once</strong>
-          <span>Foreground response is still being measured</span>
+          <strong>
+            {higherLevel
+              ? "Higher reserve level"
+              : baseline
+                ? "Unloaded comparison"
+                : "Several jobs at once"}
+          </strong>
+          <span>
+            {baseline
+              ? "Establishing the paired baseline"
+              : higherLevel
+                ? "More compute, memory, saving, and media are active"
+                : "Repeating the same actions under pressure"}
+          </span>
         </div>
-        <em>{tick % 2 ? "Busy workload" : "Sustained workload"}</em>
+        <em>
+          {higherLevel
+            ? "Level 2 · higher pressure"
+            : baseline
+              ? "Paired baseline"
+              : tick % 2
+                ? "Level 1 · mixed pressure"
+                : "Level 1 · sustained pressure"}
+        </em>
       </header>
       <div className="reserve-grid">
         <article className="reserve-panel reserve-browser">

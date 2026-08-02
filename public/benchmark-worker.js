@@ -327,6 +327,18 @@ self.onmessage = (event) => {
     return;
   }
 
+  if (event.data?.type === "memory-initialize") {
+    const block = createRetainedMemoryBlock(1024 * 1024);
+    block.view[0] = 1;
+    retainedMemoryBlocks = [];
+    self.postMessage({
+      type: "memory-initialized",
+      requestId: event.data.requestId,
+      allocator: block.allocator,
+    });
+    return;
+  }
+
   if (event.data?.type === "memory-pressure") {
     cancelled = false;
     void runMemoryPressure(event.data);
