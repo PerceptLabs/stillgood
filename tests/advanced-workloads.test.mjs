@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parse } from "acorn";
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
@@ -8,6 +9,12 @@ import {
   buildJsonRecords,
   buildParserSource,
 } from "../lib/advanced-workloads.mjs";
+
+test("production policy permits WebAssembly without enabling general eval", async () => {
+  const headers = await readFile(new URL("../public/_headers", import.meta.url), "utf8");
+  assert.match(headers, /script-src[^;]*'wasm-unsafe-eval'/);
+  assert.doesNotMatch(headers, /script-src[^;]*'unsafe-eval'/);
+});
 
 test("the advanced PDF fixture is valid, searchable, and deterministic", async () => {
   const first = buildBenchmarkPdf({ pageCount: 8, linesPerPage: 22, seed: 77 });

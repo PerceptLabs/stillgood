@@ -1,6 +1,6 @@
 # StillGood methodology v6.20
 
-**Benchmark profile:** `6.20.0-advanced-web-work`  
+**Benchmark profile:** `6.20.1-advanced-web-work`
 **Result schema:** `stillgood-result.v6.20`  
 **Published:** August 2026  
 **Status:** experimental, physical-device calibration in progress

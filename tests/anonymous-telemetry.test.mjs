@@ -27,7 +27,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
     {
       schemaVersion: "stillgood-result.v6.20",
       result: {
-        profileVersion: "6.20.0-advanced-web-work",
+        profileVersion: "6.20.1-advanced-web-work",
         browser: "Chrome 150 with a private marker",
         platform: "Private workstation name",
         startedAt: "2026-08-01T12:34:56.000Z",

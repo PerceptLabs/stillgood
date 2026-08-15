@@ -103,7 +103,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
       body: JSON.stringify({
         schemaVersion: "stillgood-telemetry.v1",
         resultSchemaVersion: "stillgood-result.v6.20",
-        profileVersion: "6.20.0-advanced-web-work",
+        profileVersion: "6.20.1-advanced-web-work",
         context: {
           browserFamily: "Chromium",
           browserMajor: "150",
@@ -193,7 +193,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(captured.sql, /anonymous_benchmark_runs/);
   const serializedBindings = JSON.stringify(captured.values);
   assert.doesNotMatch(serializedBindings, /must-not-be-stored/);
-  assert.match(serializedBindings, /6\.20\.0-advanced-web-work/);
+  assert.match(serializedBindings, /6\.20\.1-advanced-web-work/);
   assert.match(serializedBindings, /webassembly/);
   assert.match(serializedBindings, /grade-boundary/);
   assert.match(serializedBindings, /scoreBefore/);
