@@ -135,6 +135,39 @@ test("paired reserve scoring preserves top-end latency strata", () => {
   );
 });
 
+test("advanced web work adds top-end reserve detail without replacing foreground evidence", () => {
+  const reserve = (advancedLoadedP95Ms, advancedSlowdownRatio) =>
+    summarizeUpperReserve({
+      mixedReserve: {
+        tested: true,
+        paired: true,
+        levels: [{
+          id: "standard",
+          loadedP95Ms: 28,
+          loadedWorstMs: 92,
+          slowdownRatio: 1.25,
+          onTimeRatio: 0.97,
+          advancedAvailable: true,
+          advancedLoadedP95Ms,
+          advancedSlowdownRatio,
+          advancedStartupMs: 700,
+        }],
+      },
+    });
+  const roomy = reserve(280, 1.18);
+  const constrained = reserve(2100, 3.2);
+
+  assert.ok(roomy.score > constrained.score + 6);
+  assert.equal(
+    roomy.components.find((component) => component.id === "advanced-web-work")?.weight,
+    0.18,
+  );
+  assert.equal(
+    roomy.components.find((component) => component.id === "mixed-response")?.score,
+    constrained.components.find((component) => component.id === "mixed-response")?.score,
+  );
+});
+
 test("upper reserve does not feed back into ordinary scores or confidence", () => {
   const baseMetrics = fullMetrics([
     [45, 48, 50],

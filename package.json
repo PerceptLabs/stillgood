@@ -18,8 +18,11 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
+    "acorn": "8.18.0",
     "drizzle-orm": "0.45.2",
     "next": "16.2.12",
+    "pdfjs-dist": "6.2.108",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

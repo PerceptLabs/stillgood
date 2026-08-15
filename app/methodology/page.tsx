@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.19</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.20</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.19</span>
+            <span>Profile 6.20</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.19.md" download>
+            <a href="/stillgood-methodology-v6.20.md" download>
               Download Markdown
             </a>
             <a
@@ -357,6 +357,25 @@ export default function MethodologyPage() {
             higher-resolution video. Its score contributes 35% of the reserve
             result; the standard paired level remains 65%.
           </p>
+          <h3>Advanced web work</h3>
+          <p>
+            Reserve-qualified devices also process a deterministic large PDF
+            with PDF.js and run an in-memory data application in a Web Worker.
+            That worker uses SQLite compiled to WebAssembly for indexed queries
+            and updates, Acorn for real JavaScript parsing, and repeated JSON
+            serialization and parsing. These are application components used
+            by document viewers, local-first data tools, editors, dashboards,
+            and other demanding browser software rather than invented math loops.
+          </p>
+          <p>
+            The data workload is measured once without added pressure and then
+            repeated with the same size and content while other jobs overlap.
+            Startup, typical repeated work, worst repeated work, and paired
+            slowdown are retained. Advanced evidence contributes a limited
+            share of reserve scoring, can expose a lack of top-end headroom,
+            and cannot raise the ordinary browsing, office, media, memory, or
+            storage scores. A larger variant runs only at the second reserve level.
+          </p>
           <h3>Cold stalls and steady behavior</h3>
           <p>
             Canvas, WebAssembly, IndexedDB, and persistent-file paths receive
@@ -430,7 +449,7 @@ export default function MethodologyPage() {
             profile version.
           </p>
           <p>
-            Version 6.19 applies no post-score browser normalization. Web
+            Version 6.20 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -577,6 +596,22 @@ export default function MethodologyPage() {
               {" "}— warm, steady-state, and worst-iteration evidence with repeated sampling.
             </li>
             <li>
+              <a href="https://browserbench.org/JetStream/in-depth.html">JetStream 3 in-depth methodology</a>
+              {" "}— startup, average, and worst-case evidence across real JavaScript and WebAssembly workloads.
+            </li>
+            <li>
+              <a href="https://mozilla.github.io/pdf.js/examples/">PDF.js examples</a>
+              {" "}— the document parsing, text extraction, layout, and rendering path used by the reserve PDF workload.
+            </li>
+            <li>
+              <a href="https://sqlite.org/wasm/doc/trunk/index.md">SQLite WebAssembly documentation</a>
+              {" "}— the real in-memory database engine used by the advanced data workload.
+            </li>
+            <li>
+              <a href="https://github.com/acornjs/acorn">Acorn JavaScript parser</a>
+              {" "}— the production parser used to create a real abstract syntax tree during advanced work.
+            </li>
+            <li>
               <a href="https://support.benchmarks.ul.com/support/solutions/articles/44002182065-how-are-pcmark-10-benchmark-scores-calculated-">PCMark 10 score calculation</a>
               {" "}— balanced category aggregation with geometric means.
             </li>
@@ -627,7 +662,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.19</strong>
+            <strong>StillGood methodology v6.20</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

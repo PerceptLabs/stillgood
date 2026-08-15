@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from "react";
 import { flushSync } from "react-dom";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import {
   median,
   percentile,
@@ -56,6 +57,7 @@ import {
   spreadsheetActionNames,
   writingActionNames,
 } from "@/lib/office-workloads.mjs";
+import { buildBenchmarkPdf } from "@/lib/advanced-workloads.mjs";
 
 type Phase = "home" | "prepare" | "run" | "result";
 type StageId =
@@ -312,11 +314,59 @@ type MixedReserveLevel = {
   memoryPressureMB: number;
   storagePressureMB: number;
   workerCount: number;
+  pdfP95Ms: number | null;
+  advancedAvailable: boolean;
+  advancedBaselineP95Ms: number | null;
+  advancedLoadedP95Ms: number | null;
+  advancedWorstMs: number | null;
+  advancedSlowdownRatio: number | null;
+  advancedBaselineStartupMs: number | null;
+  advancedStartupMs: number | null;
+  advancedCombinedMedianMs: number | null;
+  advancedSqliteP95Ms: number | null;
+  advancedParserP95Ms: number | null;
+  advancedJsonP95Ms: number | null;
+  advancedIterations: number | null;
 };
 type MixedReserveResult = MixedReserveLevel & {
   tested: true;
   paired: true;
   levels: MixedReserveLevel[];
+};
+type AdvancedWorkSummary = {
+  medianMs: number;
+  p95Ms: number;
+  worstMs: number;
+};
+type AdvancedWorkResult = {
+  type: "advanced-web-work-complete";
+  requestId: string;
+  level: "baseline" | "standard" | "extended";
+  available: boolean;
+  startupMs?: number;
+  elapsedMs?: number;
+  iterations?: number;
+  checksum?: number;
+  sqliteVersion?: string;
+  error?: string;
+  summary?: {
+    sqlite: AdvancedWorkSummary;
+    parser: AdvancedWorkSummary;
+    json: AdvancedWorkSummary;
+    combined: AdvancedWorkSummary;
+  };
+};
+type PdfBenchmarkDocument = {
+  numPages: number;
+  getPage(pageNumber: number): Promise<{
+    getViewport(options: { scale: number }): { width: number; height: number };
+    getTextContent(): Promise<{ items: Array<{ str?: string }> }>;
+    render(options: {
+      canvas: HTMLCanvasElement;
+      canvasContext: CanvasRenderingContext2D;
+      viewport: { width: number; height: number };
+    }): { promise: Promise<void> };
+  }>;
 };
 type TierSummary = {
   id: string;
@@ -535,7 +585,7 @@ const reserveStage = {
   name: "Reserve",
   title: "Performance reserve",
   detail:
-    "Several different jobs now overlap to see whether everyday actions stay quick.",
+    "Everyday actions are repeated while a large PDF, data app, and other jobs overlap.",
 };
 
 const workloadTiers: Tier[] = [
@@ -865,7 +915,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.19",
+    schemaVersion: "stillgood-result.v6.20",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1642,9 +1692,80 @@ export function StillGoodApp() {
         mixedTiers.spreadsheets.size,
       ),
     };
+    let pdfDocument: PdfBenchmarkDocument | null = null;
+    let pdfLoadingTask: { destroy(): Promise<void> } | null = null;
+    try {
+      const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+      const loadingTask = pdfjs.getDocument({
+        data: buildBenchmarkPdf({ pageCount: 32, linesPerPage: 40, seed: 16450 }),
+        isEvalSupported: false,
+      });
+      pdfLoadingTask = loadingTask;
+      pdfDocument = (await loadingTask.promise) as PdfBenchmarkDocument;
+    } catch {
+      // The reserve remains valid without PDF evidence, but reports it as unavailable.
+      pdfDocument = null;
+    }
+
+    const createAdvancedWorker = () =>
+      new Worker(
+        new URL("../lib/advanced-benchmark-worker.ts", import.meta.url),
+        { type: "module" },
+      );
+    const runAdvancedWorker = (
+      worker: Worker,
+      level: "standard" | "extended",
+      minimumDurationMs: number,
+      suffix: string,
+    ) => {
+      const requestId = `advanced-${level}-${suffix}-${Date.now()}`;
+      return requestWorkerResult<AdvancedWorkResult>(
+        worker,
+        {
+          type: "advanced-web-work",
+          requestId,
+          level,
+          minimumDurationMs,
+        },
+        "advanced-web-work-complete",
+        Math.max(90000, minimumDurationMs + 45000),
+      );
+    };
+
+    const measurePdfWork = async (seed: number) => {
+      if (!pdfDocument) return null;
+      const started = performance.now();
+      const pageNumber = 1 + ((seed * 7) % pdfDocument.numPages);
+      const page = await pdfDocument.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const text = textContent.items.map((item) => item.str ?? "").join(" ");
+      const viewport = page.getViewport({ scale: 1.15 });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const context = canvas.getContext("2d", { alpha: false });
+      if (!context) throw new Error("PDF rendering canvas unavailable");
+      await page.render({ canvas, canvasContext: context, viewport }).promise;
+      const workMs = performance.now() - started;
+      setVisualTick((value) => value + 1);
+      await nextPaint();
+      const durationMs = performance.now() - started;
+      return {
+        name: "Open, search, and render a large PDF",
+        durationMs,
+        workMs,
+        presentationMs: Math.max(0, durationMs - workMs),
+        checksum:
+          text.length +
+          (text.includes("SECOND-LIFE CHECKPOINT") ? 8191 : 0) +
+          pageNumber,
+      };
+    };
     const runJourneys = async (cycles: number) => {
       const actions: TimedSample["actions"] = [];
       const imageDurations: number[] = [];
+      const pdfDurations: number[] = [];
       for (let cycle = 0; cycle < cycles && !cancelledRef.current; cycle += 1) {
         const journeys = [
           await measureJourney("browsing", mixedTiers.browsing, 17000 + cycle, datasets.browsing),
@@ -1656,6 +1777,11 @@ export function StillGoodApp() {
         const imageAction = await measureImageEdit(17400 + cycle);
         actions.push(imageAction);
         imageDurations.push(imageAction.durationMs);
+        const pdfAction = await measurePdfWork(17500 + cycle);
+        if (pdfAction) {
+          actions.push(pdfAction);
+          pdfDurations.push(pdfAction.durationMs);
+        }
         await sleep(90);
       }
       const durations = actions
@@ -1666,11 +1792,12 @@ export function StillGoodApp() {
         p95Ms: percentile(durations, 0.95),
         worstMs: Math.max(...durations, 0),
         imageEditP95Ms: percentile(imageDurations, 0.95),
+        pdfP95Ms: pdfDurations.length ? percentile(pdfDurations, 0.95) : null,
       };
     };
 
     setStatus("Preparing the same everyday actions for a fair comparison");
-    await runJourneys(1); // untimed initialization of DOM, canvas, and WASM paths
+    await runJourneys(1); // untimed initialization of DOM, canvas, and PDF paths
     const baseline = await runJourneys(2);
 
     const runPressureLevel = async (
@@ -1679,6 +1806,23 @@ export function StillGoodApp() {
     ): Promise<MixedReserveLevel> => {
       const extended = id === "extended";
       const workerCount = extended ? 4 : 2;
+      setStatus(
+        extended
+          ? "Preparing the higher advanced-work baseline"
+          : "Preparing advanced web work for a paired comparison",
+      );
+      const advancedBaselineWorker = createAdvancedWorker();
+      workersRef.current.push(advancedBaselineWorker);
+      const advancedBaseline = await runAdvancedWorker(
+        advancedBaselineWorker,
+        id,
+        0,
+        "baseline",
+      ).catch(() => null);
+      advancedBaselineWorker.terminate();
+      workersRef.current = workersRef.current.filter(
+        (worker) => worker !== advancedBaselineWorker,
+      );
       const memoryPressureMB = extended
         ? reportedMemoryGB === 4
           ? 512
@@ -1687,7 +1831,7 @@ export function StillGoodApp() {
           ? 384
           : 512;
       const storagePressureMB = extended ? 128 : 64;
-      const pressureWorkers = Array.from({ length: workerCount }, (_, index) => {
+      const pressureWorkers = Array.from({ length: workerCount - 1 }, (_, index) => {
         const worker = new Worker("/benchmark-worker.js");
         worker.postMessage({
           type: "start",
@@ -1697,9 +1841,15 @@ export function StillGoodApp() {
         });
         return worker;
       });
+      const advancedWorker = createAdvancedWorker();
       const memoryWorker = new Worker("/benchmark-worker.js");
       const storageWorker = new Worker("/benchmark-worker.js");
-      workersRef.current.push(...pressureWorkers, memoryWorker, storageWorker);
+      workersRef.current.push(
+        ...pressureWorkers,
+        advancedWorker,
+        memoryWorker,
+        storageWorker,
+      );
       const intervals: number[] = [];
       let monitoring = true;
       let previousFrame = 0;
@@ -1741,6 +1891,12 @@ export function StillGoodApp() {
         extended ? 384 : 256,
         storageTierIndex + (extended ? 1 : 0),
       ).catch(() => null);
+      const advancedPromise = runAdvancedWorker(
+        advancedWorker,
+        id,
+        extended ? 10000 : 7000,
+        "loaded",
+      ).catch(() => null);
       setStatus(
         extended
           ? "Escalating to a higher reserve check"
@@ -1749,8 +1905,12 @@ export function StillGoodApp() {
       requestAnimationFrame(monitor);
       const started = performance.now();
       let loaded: Awaited<ReturnType<typeof runJourneys>>;
+      let advancedLoaded: AdvancedWorkResult | null;
       try {
-        loaded = await runJourneys(2);
+        [loaded, advancedLoaded] = await Promise.all([
+          runJourneys(2),
+          advancedPromise,
+        ]);
       } finally {
         monitoring = false;
         video?.pause();
@@ -1758,6 +1918,7 @@ export function StillGoodApp() {
           worker.postMessage({ type: "cancel" });
           worker.terminate();
         });
+        advancedWorker.terminate();
       }
       const storageMeasurement = await storagePromise;
       try {
@@ -1775,6 +1936,7 @@ export function StillGoodApp() {
       workersRef.current = workersRef.current.filter(
         (worker) =>
           !pressureWorkers.includes(worker) &&
+          worker !== advancedWorker &&
           worker !== memoryWorker &&
           worker !== storageWorker,
       );
@@ -1793,6 +1955,14 @@ export function StillGoodApp() {
         qualityBefore && qualityAfter
           ? qualityAfter.droppedVideoFrames - qualityBefore.droppedVideoFrames
           : 0;
+      const advancedBaselineP95Ms =
+        advancedBaseline?.available && advancedBaseline.summary
+          ? advancedBaseline.summary.combined.p95Ms
+          : null;
+      const advancedLoadedP95Ms =
+        advancedLoaded?.available && advancedLoaded.summary
+          ? advancedLoaded.summary.combined.p95Ms
+          : null;
       return {
         id,
         label: extended ? "Higher mixed pressure" : "Standard mixed pressure",
@@ -1814,9 +1984,50 @@ export function StillGoodApp() {
         worstFrameMs: frameSummary.worstFrameMs,
         videoDroppedRatio: videoFrames > 0 ? videoDropped / videoFrames : null,
         imageEditP95Ms: loaded.imageEditP95Ms,
+        pdfP95Ms: loaded.pdfP95Ms,
         memoryPressureMB,
         storagePressureMB: storageMeasurement?.sizeMB ?? 0,
         workerCount,
+        advancedAvailable:
+          advancedBaselineP95Ms !== null && advancedLoadedP95Ms !== null,
+        advancedBaselineP95Ms,
+        advancedLoadedP95Ms,
+        advancedWorstMs:
+          advancedLoaded?.available && advancedLoaded.summary
+            ? advancedLoaded.summary.combined.worstMs
+            : null,
+        advancedSlowdownRatio:
+          advancedBaselineP95Ms !== null && advancedLoadedP95Ms !== null
+            ? advancedLoadedP95Ms / Math.max(1, advancedBaselineP95Ms)
+            : null,
+        advancedBaselineStartupMs:
+          advancedBaseline?.available && Number.isFinite(advancedBaseline.startupMs)
+            ? advancedBaseline.startupMs ?? null
+            : null,
+        advancedStartupMs:
+          advancedLoaded?.available && Number.isFinite(advancedLoaded.startupMs)
+            ? advancedLoaded.startupMs ?? null
+            : null,
+        advancedCombinedMedianMs:
+          advancedLoaded?.available && advancedLoaded.summary
+            ? advancedLoaded.summary.combined.medianMs
+            : null,
+        advancedSqliteP95Ms:
+          advancedLoaded?.available && advancedLoaded.summary
+            ? advancedLoaded.summary.sqlite.p95Ms
+            : null,
+        advancedParserP95Ms:
+          advancedLoaded?.available && advancedLoaded.summary
+            ? advancedLoaded.summary.parser.p95Ms
+            : null,
+        advancedJsonP95Ms:
+          advancedLoaded?.available && advancedLoaded.summary
+            ? advancedLoaded.summary.json.p95Ms
+            : null,
+        advancedIterations:
+          advancedLoaded?.available && Number.isFinite(advancedLoaded.iterations)
+            ? advancedLoaded.iterations ?? null
+            : null,
       };
     };
 
@@ -1827,7 +2038,7 @@ export function StillGoodApp() {
       levels.push(await runPressureLevel("extended", baseline));
     }
     const finalLevel = levels.at(-1) ?? standard;
-    return {
+    const output = {
       result: {
         ...finalLevel,
         tested: true,
@@ -1836,6 +2047,8 @@ export function StillGoodApp() {
         levels,
       } satisfies MixedReserveResult,
     };
+    await pdfLoadingTask?.destroy().catch(() => undefined);
+    return output;
   }
 
   async function measureRecovery() {
@@ -2837,7 +3050,7 @@ export function StillGoodApp() {
       const completedBrowser = browserLabel();
       const completedPlatform = navigator.platform || "Platform not reported";
       const completedProcessors = navigator.hardwareConcurrency || null;
-      const completedProfileVersion = "6.19.0-paired-reserve-repeatability";
+      const completedProfileVersion = "6.20.0-advanced-web-work";
       const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
       const recentRunRange = summarizeRecentRunRange(
         {
@@ -3127,6 +3340,18 @@ export function StillGoodApp() {
 
   if (!result) return null;
   const guide = buildCapabilityGuide(result);
+  const advancedWebWork = result.upperReserve.components.find(
+    (component) => component.id === "advanced-web-work",
+  );
+  const advancedWebWorkLabel = advancedWebWork
+    ? advancedWebWork.score >= 90
+      ? "Strong reserve"
+      : advancedWebWork.score >= 78
+        ? "Comfortable reserve"
+        : advancedWebWork.score >= 64
+          ? "Moderate reserve"
+          : "Limited reserve"
+    : null;
   const categoryCards = [
     ["Web browsing", result.browsing],
     ["Email and webmail", result.email],
@@ -3361,6 +3586,12 @@ export function StillGoodApp() {
                <article>
                  <span>Performance under extended load</span>
                  <strong>{result.upperReserve.label}</strong>
+               </article>
+             )}
+             {advancedWebWorkLabel && (
+               <article>
+                 <span>Large PDFs and data-heavy web apps</span>
+                 <strong>{advancedWebWorkLabel}</strong>
                </article>
              )}
              <article>
@@ -3771,9 +4002,9 @@ function ReserveDashboard({
   spreadsheetView: SpreadsheetView | null;
   videoRef: RefObject<HTMLVideoElement | null>;
 }) {
-  const activity = ["Browsing", "Mail", "Document", "Spreadsheet", "Photo", "Saving"];
+  const activity = ["Browsing", "Mail", "PDF", "Data app", "Photo", "Saving"];
   const higherLevel = status.includes("Escalating");
-  const baseline = status.includes("fair comparison") || status.includes("preparing");
+  const baseline = status.toLowerCase().includes("preparing");
   return (
     <div className="test-visual reserve-dashboard">
       <header>
@@ -3789,8 +4020,8 @@ function ReserveDashboard({
             {baseline
               ? "Establishing the paired baseline"
               : higherLevel
-                ? "More compute, memory, saving, and media are active"
-                : "Repeating the same actions under pressure"}
+                ? "Larger data, memory, saving, and media work are active"
+                : "Repeating the same actions while advanced web work runs"}
           </span>
         </div>
         <em>

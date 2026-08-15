@@ -85,4 +85,28 @@ test("only an exceptionally responsive standard reserve escalates", () => {
     }),
     false,
   );
+  assert.equal(
+    shouldRunExtendedReserve({
+      loadedP95Ms: 42,
+      loadedWorstMs: 92,
+      slowdownRatio: 1.28,
+      onTimeRatio: 0.98,
+      advancedAvailable: true,
+      advancedLoadedP95Ms: 720,
+      advancedSlowdownRatio: 1.42,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRunExtendedReserve({
+      loadedP95Ms: 42,
+      loadedWorstMs: 92,
+      slowdownRatio: 1.28,
+      onTimeRatio: 0.98,
+      advancedAvailable: true,
+      advancedLoadedP95Ms: 1400,
+      advancedSlowdownRatio: 2.3,
+    }),
+    false,
+  );
 });

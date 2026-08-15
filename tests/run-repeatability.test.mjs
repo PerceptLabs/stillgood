@@ -4,7 +4,7 @@ import { summarizeRecentRunRange } from "../lib/run-repeatability.mjs";
 
 const current = {
   score: 78,
-  profileVersion: "6.19.0-paired-reserve-repeatability",
+  profileVersion: "6.20.0-advanced-web-work",
   browser: "Chromium 150",
   platform: "Linux x86_64",
   logicalProcessors: 8,
@@ -23,7 +23,7 @@ test("recent comparable runs expose variable performance without changing a scor
 
 test("different profiles and devices are not treated as comparable", () => {
   const range = summarizeRecentRunRange(current, [
-    { ...current, score: 66, profileVersion: "6.18.0-adaptive-mixed-reserve" },
+    { ...current, score: 66, profileVersion: "6.19.0-paired-reserve-repeatability" },
     { ...current, score: 65, logicalProcessors: 4 },
   ]);
   assert.equal(range.available, false);

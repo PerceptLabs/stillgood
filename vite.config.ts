@@ -46,6 +46,9 @@ export default defineConfig(async () => {
     process.env.STILLGOOD_PUBLIC_CLOUDFLARE === "1";
 
   return {
+    optimizeDeps: {
+      exclude: ["@sqlite.org/sqlite-wasm"],
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
