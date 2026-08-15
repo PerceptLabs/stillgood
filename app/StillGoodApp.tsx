@@ -342,6 +342,7 @@ type AdvancedWorkResult = {
   type: "advanced-web-work-complete";
   requestId: string;
   level: "baseline" | "standard" | "extended";
+  workloadProfile?: string;
   available: boolean;
   startupMs?: number;
   elapsedMs?: number;

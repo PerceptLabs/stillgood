@@ -23,6 +23,7 @@ type WorkloadSamples = {
 
 const workerScope = self as unknown as DedicatedWorkerGlobalScope;
 const cancelled = new Set<string>();
+const workloadProfile = "advanced-web-work.v1.0.1";
 
 function percentile(values: number[], ratio: number) {
   if (!values.length) return 0;
@@ -154,6 +155,7 @@ async function runAdvancedWebWork(request: AdvancedRequest) {
     type: "advanced-web-work-complete",
     requestId: request.requestId,
     level: request.level,
+    workloadProfile,
     available: true,
     sqliteVersion: sqlite3.version.libVersion,
     startupMs,
