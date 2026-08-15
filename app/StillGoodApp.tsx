@@ -326,6 +326,7 @@ type MixedReserveLevel = {
   advancedSqliteP95Ms: number | null;
   advancedParserP95Ms: number | null;
   advancedJsonP95Ms: number | null;
+  advancedBaselineIterations: number | null;
   advancedIterations: number | null;
 };
 type MixedReserveResult = MixedReserveLevel & {
@@ -481,6 +482,15 @@ type ThoroughResult = {
     label: string;
     gradeCeiling: number;
     components: Array<{ id: string; score: number; weight: number }>;
+  };
+  internalScoring: {
+    scale: 1000;
+    aggregation: string;
+    compositeBeforeSafeguards: number;
+    final: number;
+    publicScore: number;
+    matrix: Record<string, Record<string, number | null>>;
+    safeguards: Record<string, number>;
   };
   evidenceGroups: EvidenceGroupsSummary;
   browserSupport: BrowserSupportSummary;
@@ -916,7 +926,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.20",
+    schemaVersion: "stillgood-result.v6.21",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1799,14 +1809,13 @@ export function StillGoodApp() {
 
     setStatus("Preparing the same everyday actions for a fair comparison");
     await runJourneys(1); // untimed initialization of DOM, canvas, and PDF paths
-    const baseline = await runJourneys(2);
 
     const runPressureLevel = async (
       id: "standard" | "extended",
-      baselineResult: Awaited<ReturnType<typeof runJourneys>>,
     ): Promise<MixedReserveLevel> => {
       const extended = id === "extended";
       const workerCount = extended ? 4 : 2;
+      const advancedDurationMs = extended ? 10000 : 7000;
       setStatus(
         extended
           ? "Preparing the higher advanced-work baseline"
@@ -1817,13 +1826,19 @@ export function StillGoodApp() {
       const advancedBaseline = await runAdvancedWorker(
         advancedBaselineWorker,
         id,
-        0,
+        advancedDurationMs,
         "baseline",
       ).catch(() => null);
       advancedBaselineWorker.terminate();
       workersRef.current = workersRef.current.filter(
         (worker) => worker !== advancedBaselineWorker,
       );
+      setStatus(
+        extended
+          ? "Measuring the higher level without overlapping work"
+          : "Measuring the same actions without overlapping work",
+      );
+      const baselineResult = await runJourneys(2);
       const memoryPressureMB = extended
         ? reportedMemoryGB === 4
           ? 512
@@ -1895,7 +1910,7 @@ export function StillGoodApp() {
       const advancedPromise = runAdvancedWorker(
         advancedWorker,
         id,
-        extended ? 10000 : 7000,
+        advancedDurationMs,
         "loaded",
       ).catch(() => null);
       setStatus(
@@ -2025,6 +2040,10 @@ export function StillGoodApp() {
           advancedLoaded?.available && advancedLoaded.summary
             ? advancedLoaded.summary.json.p95Ms
             : null,
+        advancedBaselineIterations:
+          advancedBaseline?.available && Number.isFinite(advancedBaseline.iterations)
+            ? advancedBaseline.iterations ?? null
+            : null,
         advancedIterations:
           advancedLoaded?.available && Number.isFinite(advancedLoaded.iterations)
             ? advancedLoaded.iterations ?? null
@@ -2032,11 +2051,11 @@ export function StillGoodApp() {
       };
     };
 
-    const standard = await runPressureLevel("standard", baseline);
+    const standard = await runPressureLevel("standard");
     const levels = [standard];
     if (shouldRunExtendedReserve(standard) && !cancelledRef.current) {
       setProgress(99.2);
-      levels.push(await runPressureLevel("extended", baseline));
+      levels.push(await runPressureLevel("extended"));
     }
     const finalLevel = levels.at(-1) ?? standard;
     const output = {
@@ -3051,7 +3070,7 @@ export function StillGoodApp() {
       const completedBrowser = browserLabel();
       const completedPlatform = navigator.platform || "Platform not reported";
       const completedProcessors = navigator.hardwareConcurrency || null;
-      const completedProfileVersion = "6.20.1-advanced-web-work";
+      const completedProfileVersion = "6.21.0-internal-evidence-matrix";
       const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
       const recentRunRange = summarizeRecentRunRange(
         {
@@ -3104,6 +3123,9 @@ export function StillGoodApp() {
             minimumCoreScore: upperReservePlan.minimumCoreScore,
             mode: "paired-mixed-workload",
             baselineAndLoadedUseIdenticalJourneys: true,
+            advancedBaselineAndLoadedUseMatchedWindows: true,
+            advancedStandardWindowMs: 7000,
+            advancedExtendedWindowMs: 10000,
             standardPressureWeight: 0.65,
             extendedPressureWeight: 0.35,
             extendedPressureRan: (mixedReserve?.levels.length ?? 0) > 1,

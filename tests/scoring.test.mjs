@@ -590,6 +590,45 @@ test("continuous latency scoring separates devices inside the same status band",
   assert.ok(faster.score > slower.score);
 });
 
+test("the internal 1000-point scale preserves differences hidden by public rounding", () => {
+  const first = summarizeLatencyTiers([
+    { id: "everyday", label: "Everyday", samples: [80, 81, 82] },
+  ]);
+  const second = summarizeLatencyTiers([
+    { id: "everyday", label: "Everyday", samples: [80.5, 81.5, 82.5] },
+  ]);
+
+  assert.equal(first.score, second.score);
+  assert.notEqual(first.score1000, second.score1000);
+  assert.ok(first.score1000 > second.score1000);
+});
+
+test("the final public score is derived from the hidden evidence matrix", () => {
+  const result = summarizeThoroughRun(fullMetrics([
+    [45, 48, 50],
+    [50, 54, 58],
+    [65, 70, 74],
+    [82, 88, 94],
+    [145, 155, 165],
+  ]));
+
+  assert.equal(result.internalScoring.scale, 1000);
+  assert.equal(
+    result.internalScoring.aggregation,
+    "normalized-weighted-geometric-v1",
+  );
+  assert.equal(result.internalScoring.publicScore, result.score);
+  assert.ok(Math.abs(result.internalScoring.final / 10 - result.score) <= 0.5);
+  assert.equal(
+    result.internalScoring.matrix.browsing.combined,
+    result.browsing.score1000,
+  );
+  assert.equal(
+    result.internalScoring.matrix.storage.combined,
+    result.storage.score1000,
+  );
+});
+
 test("sub-100 ms ordinary work retains useful workstation headroom strata", () => {
   const workstation = summarizeLatencyTiers([
     { id: "basic", label: "Basic", samples: [34, 37, 40, 36, 38] },

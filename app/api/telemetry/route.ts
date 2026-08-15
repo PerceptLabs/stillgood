@@ -436,6 +436,9 @@ function sanitizeSubmission(payload: unknown) {
         advancedSqliteP95Ms: finiteNumber(mixedReserve.advancedSqliteP95Ms),
         advancedParserP95Ms: finiteNumber(mixedReserve.advancedParserP95Ms),
         advancedJsonP95Ms: finiteNumber(mixedReserve.advancedJsonP95Ms),
+        advancedBaselineIterations: finiteNumber(
+          mixedReserve.advancedBaselineIterations,
+        ),
         advancedIterations: finiteNumber(mixedReserve.advancedIterations),
         memoryPressureMB: finiteNumber(mixedReserve.memoryPressureMB),
         storagePressureMB: finiteNumber(mixedReserve.storagePressureMB),
@@ -470,6 +473,9 @@ function sanitizeSubmission(payload: unknown) {
                 advancedSqliteP95Ms: finiteNumber(level.advancedSqliteP95Ms),
                 advancedParserP95Ms: finiteNumber(level.advancedParserP95Ms),
                 advancedJsonP95Ms: finiteNumber(level.advancedJsonP95Ms),
+                advancedBaselineIterations: finiteNumber(
+                  level.advancedBaselineIterations,
+                ),
                 advancedIterations: finiteNumber(level.advancedIterations),
               }];
             })

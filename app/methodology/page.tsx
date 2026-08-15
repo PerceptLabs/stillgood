@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.20</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.21</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.20</span>
+            <span>Profile 6.21</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.20.md" download>
+            <a href="/stillgood-methodology-v6.21.md" download>
               Download Markdown
             </a>
             <a
@@ -368,10 +368,13 @@ export default function MethodologyPage() {
             and other demanding browser software rather than invented math loops.
           </p>
           <p>
-            The data workload is measured once without added pressure and then
-            repeated with the same size and content while other jobs overlap.
-            Startup, typical repeated work, worst repeated work, and paired
-            slowdown are retained. Advanced evidence contributes a limited
+            The data workload uses the same size, content, and observation
+            window without added pressure and while other jobs overlap: seven
+            seconds at the standard level and ten seconds at the higher level.
+            Both iteration counts are retained rather than forcing unequal
+            sample populations into the same percentile. Startup, typical
+            repeated work, worst repeated work, and paired slowdown are retained.
+            Advanced evidence contributes a limited
             share of reserve scoring, can expose a lack of top-end headroom,
             and cannot raise the ordinary browsing, office, media, memory, or
             storage scores. A larger variant runs only at the second reserve level.
@@ -448,8 +451,26 @@ export default function MethodologyPage() {
             saves. The exported report retains the underlying observations and
             profile version.
           </p>
+          <h3>Internal evidence matrix</h3>
           <p>
-            Version 6.20 applies no post-score browser normalization. Web
+            The public score remains a whole number from 0 to 100. Internally,
+            every measured category keeps an unrounded normalized score on a
+            0-to-1000 scale. Browsing, email, writing, spreadsheets, and
+            multitasking retain separate everyday, capacity, and combined
+            values; visuals, video, consistency, memory, storage, recovery,
+            headroom, and reserve retain their own cells. The weighted
+            geometric composite is calculated from these higher-resolution
+            values before practical ceilings and penalties are applied.
+          </p>
+          <p className="paper-note">
+            The extra digit preserves interpolation that was previously lost
+            to intermediate rounding. It does not invent measurement accuracy:
+            the public result remains a whole number, repeatability guidance
+            remains visible, and a 50 still describes a narrow,
+            single-purpose experience rather than an average modern computer.
+          </p>
+          <p>
+            Version 6.21 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -662,7 +683,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.20</strong>
+            <strong>StillGood methodology v6.21</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>
