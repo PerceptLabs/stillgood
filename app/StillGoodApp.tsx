@@ -490,6 +490,7 @@ type ThoroughResult = {
     compositeBeforeSafeguards: number;
     baseBeforeReserve: number;
     baseAfterReserveCap: number;
+    baseForReserve: number;
     reserveAward: {
       tested: boolean;
       standardScore1000: number | null;
@@ -497,6 +498,10 @@ type ThoroughResult = {
       standardBonus1000: number;
       extendedBonus1000: number;
       totalBonus1000: number;
+      standardStrength: number;
+      extendedStrength: number;
+      fillFraction: number;
+      remaining1000: number;
     };
     final: number;
     publicScore: number;
@@ -937,7 +942,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.22",
+    schemaVersion: "stillgood-result.v6.23",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -1881,12 +1886,15 @@ export function StillGoodApp() {
       let monitoring = true;
       let previousFrame = 0;
       let drawCount = 0;
-      const monitorStart = performance.now();
+      let monitorStart = 0;
+      let monitorEnd = 0;
       const monitor = (timestamp: number) => {
+        if (!monitoring) return;
+        if (!monitorStart) monitorStart = timestamp;
         if (previousFrame) intervals.push(timestamp - previousFrame);
         previousFrame = timestamp;
         drawCount += 1;
-        if (monitoring) requestAnimationFrame(monitor);
+        requestAnimationFrame(monitor);
       };
       const video = videoRef.current;
       let qualityBefore: VideoPlaybackQuality | undefined;
@@ -1940,6 +1948,7 @@ export function StillGoodApp() {
         ]);
       } finally {
         monitoring = false;
+        monitorEnd = performance.now();
         video?.pause();
         pressureWorkers.forEach((worker) => {
           worker.postMessage({ type: "cancel" });
@@ -1971,7 +1980,8 @@ export function StillGoodApp() {
         drawCount,
         intervals,
         displayCadenceMs: cadenceMs,
-        elapsedMs: performance.now() - monitorStart,
+        elapsedMs:
+          monitorStart > 0 ? Math.max(0, monitorEnd - monitorStart) : 0,
       });
       const qualityAfter = video?.getVideoPlaybackQuality?.();
       const videoFrames =
@@ -3081,7 +3091,7 @@ export function StillGoodApp() {
       const completedBrowser = browserLabel();
       const completedPlatform = navigator.platform || "Platform not reported";
       const completedProcessors = navigator.hardwareConcurrency || null;
-      const completedProfileVersion = "6.22.0-reserve-opportunity-bonus";
+      const completedProfileVersion = "6.23.0-anchored-reserve-fill";
       const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
       const recentRunRange = summarizeRecentRunRange(
         {

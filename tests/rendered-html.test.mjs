@@ -102,8 +102,8 @@ test("anonymous telemetry stores only the server allowlist", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         schemaVersion: "stillgood-telemetry.v1",
-        resultSchemaVersion: "stillgood-result.v6.22",
-        profileVersion: "6.22.0-reserve-opportunity-bonus",
+        resultSchemaVersion: "stillgood-result.v6.23",
+        profileVersion: "6.23.0-anchored-reserve-fill",
         context: {
           browserFamily: "Chromium",
           browserMajor: "150",
@@ -193,7 +193,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(captured.sql, /anonymous_benchmark_runs/);
   const serializedBindings = JSON.stringify(captured.values);
   assert.doesNotMatch(serializedBindings, /must-not-be-stored/);
-  assert.match(serializedBindings, /6\.22\.0-reserve-opportunity-bonus/);
+  assert.match(serializedBindings, /6\.23\.0-anchored-reserve-fill/);
   assert.match(serializedBindings, /webassembly/);
   assert.match(serializedBindings, /grade-boundary/);
   assert.match(serializedBindings, /scoreBefore/);
@@ -225,8 +225,8 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /SQLite compiled to WebAssembly/);
   assert.match(html, /Internal evidence matrix/);
   assert.match(html, /same size, content, and observation/);
-  assert.match(html, /opportunity bonus/);
-  assert.match(html, /stillgood-methodology-v6\.22\.md/);
+  assert.match(html, /fill up to 30%/);
+  assert.match(html, /stillgood-methodology-v6\.23\.md/);
   assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
   assert.doesNotMatch(html, /flat browser bonus|user-agent bonus/i);
 });

@@ -49,6 +49,21 @@ test("a capability boundary can trigger confirmation without a grade boundary", 
   assert.deepEqual(plan.categories, ["browsing"]);
 });
 
+test("boundary confirmation uses hidden precision before public rounding", () => {
+  const plan = planBoundaryConfirmation(
+    result(89, {
+      internalScoring: { final: 898 },
+      browsing: { score: 88, score1000: 884, medianCv: 0.08 },
+      email: { score: 93, score1000: 931, medianCv: 0.06 },
+      writing: { score: 79, score1000: 792, medianCv: 0.1 },
+      spreadsheets: { score: 91, score1000: 909, medianCv: 0.05 },
+      multitasking: { score: 92, score1000: 918, medianCv: 0.08 },
+    }),
+  );
+  assert.equal(plan.needed, true);
+  assert.equal(plan.gradeBoundary, 90);
+});
+
 test("low-confidence runs are not prolonged by boundary confirmation", () => {
   const plan = planBoundaryConfirmation(result(86, { confidence: "Low" }));
   assert.equal(plan.needed, false);

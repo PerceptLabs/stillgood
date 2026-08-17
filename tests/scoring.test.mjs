@@ -174,12 +174,12 @@ test("upper reserve awards points continuously without penalizing an attempt", (
     tested: true,
     score1000: 690,
     levels: [{ id: "standard", score1000: 690 }],
-  });
+  }, 900);
   const strong = reserveOpportunityAward({
     tested: true,
     score1000: 900,
     levels: [{ id: "standard", score1000: 900 }],
-  });
+  }, 900);
   const exceptional = reserveOpportunityAward({
     tested: true,
     score1000: 990,
@@ -187,13 +187,32 @@ test("upper reserve awards points continuously without penalizing an attempt", (
       { id: "standard", score1000: 990 },
       { id: "extended", score1000: 990 },
     ],
-  });
+  }, 900);
 
   assert.equal(constrained.totalBonus1000, 0);
   assert.ok(strong.standardBonus1000 > 0);
   assert.equal(strong.extendedBonus1000, 0);
   assert.ok(exceptional.totalBonus1000 > strong.totalBonus1000);
-  assert.ok(exceptional.totalBonus1000 <= 70);
+  assert.ok(exceptional.totalBonus1000 <= 50);
+  assert.ok(exceptional.fillFraction <= 0.5);
+  assert.equal(exceptional.remaining1000, 100);
+});
+
+test("remaining-distance reserve preserves meaningful everyday separation", () => {
+  const reserveEvidence = {
+    tested: true,
+    score1000: 994,
+    levels: [{ id: "standard", score1000: 994 }],
+  };
+  const lowerBase = reserveOpportunityAward(reserveEvidence, 929);
+  const higherBase = reserveOpportunityAward(reserveEvidence, 968);
+  const lowerFinal = 929 + lowerBase.totalBonus1000;
+  const higherFinal = 968 + higherBase.totalBonus1000;
+
+  assert.ok(higherFinal > lowerFinal);
+  assert.ok(higherFinal - lowerFinal >= 20);
+  assert.ok(lowerFinal < 1000);
+  assert.ok(higherFinal < 1000);
 });
 
 test("upper reserve does not feed back into ordinary scores or confidence", () => {
@@ -643,7 +662,7 @@ test("the final public score is derived from the hidden evidence matrix", () => 
   assert.equal(result.internalScoring.scale, 1000);
   assert.equal(
     result.internalScoring.aggregation,
-    "normalized-weighted-geometric-v1",
+    "normalized-weighted-geometric-with-reserve-fill-v2",
   );
   assert.equal(result.internalScoring.publicScore, result.score);
   assert.ok(Math.abs(result.internalScoring.final / 10 - result.score) <= 0.5);
@@ -947,7 +966,7 @@ test("only broadly fast and stable hardware reaches the ceiling", () => {
   assert.ok(result.score >= 84);
 });
 
-test("a completed run without reserve evidence keeps its established result up to A-minus", () => {
+test("a completed run without reserve evidence keeps its uncapped established result", () => {
   const metrics = fullMetrics([
     [34, 36, 38],
     [38, 40, 42],
@@ -959,12 +978,15 @@ test("a completed run without reserve evidence keeps its established result up t
   const result = summarizeThoroughRun(metrics);
 
   assert.equal(result.upperReserve.tested, false);
-  assert.ok(result.score >= 90 && result.score <= 93);
-  assert.equal(result.grade, "A-");
+  assert.ok(result.score >= 90);
   assert.equal(result.internalScoring.reserveAward.totalBonus1000, 0);
   assert.equal(
     result.internalScoring.baseAfterReserveCap,
-    Math.min(result.internalScoring.baseBeforeReserve, 930),
+    result.internalScoring.baseBeforeReserve,
+  );
+  assert.equal(
+    result.internalScoring.baseForReserve,
+    result.internalScoring.baseBeforeReserve,
   );
 });
 

@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.22</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.23</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.22</span>
+            <span>Profile 6.23</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.22.md" download>
+            <a href="/stillgood-methodology-v6.23.md" download>
               Download Markdown
             </a>
             <a
@@ -345,9 +345,10 @@ export default function MethodologyPage() {
             worst repeated delay, and frame delivery are combined with a
             weighted geometric mean. This reveals whether a device merely
             completes large isolated jobs or keeps quick work quick when jobs
-            overlap. Ordinary evidence establishes up to 93 points. Standard
-            reserve can earn up to four additional points through a smooth
-            curve; it can never subtract from that established result.
+            overlap. The complete ordinary result remains the scoring anchor.
+            Standard reserve follows a smooth strength curve and can fill up
+            to 30% of the distance still remaining to 100; it can never
+            subtract from that established result.
             Temporary reserve storage and memory work are not counted a second
             time in their ordinary categories.
           </p>
@@ -356,9 +357,9 @@ export default function MethodologyPage() {
             a higher level. That escalation uses more worker calculation, a
             larger live memory set, a larger persistent save, and
             higher-resolution video. Only an exceptional result at this
-            distinct level can earn the final three points. A failed,
-            interrupted, or merely adequate attempt earns no extra points and
-            never becomes a penalty.
+            distinct level can fill up to another 20% of the remaining
+            distance. A failed, interrupted, or merely adequate attempt earns
+            no extra points and never becomes a penalty.
           </p>
           <h3>Advanced web work</h3>
           <p>
@@ -397,12 +398,13 @@ export default function MethodologyPage() {
             performance. The range never changes the score.
           </p>
           <p>
-            Devices whose preliminary evidence cannot benefit from the final
-            seven points skip this extra work. They retain the result already
-            established by ordinary categories and practical safeguards. The
-            reserve stage is an opportunity bonus: poor performance adds
-            nothing, while strong and exceptional performance progressively
-            unlock the upper end of the scale.
+            Devices outside the upper range skip this extra work and retain the
+            result already established by ordinary categories and practical
+            safeguards. StillGood does not cap or replace that everyday score.
+            Strong standard reserve can fill up to 30% of the distance remaining
+            to the top of the scale; exceptional extended reserve can fill up to
+            another 20%. Poor reserve performance adds nothing and never lowers
+            the established everyday result.
           </p>
           <h3>Memory hint and measured reserve</h3>
           <p>
@@ -689,7 +691,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.22</strong>
+            <strong>StillGood methodology v6.23</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>
