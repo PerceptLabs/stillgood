@@ -56,17 +56,17 @@ const modules = [
 ];
 
 const gradeBands = [
-  ["98–100", "A+", "Modern-fast"],
-  ["94–97", "A", "Fast"],
-  ["90–93", "A−", "Very capable"],
-  ["86–89", "B+", "Strong second-life"],
-  ["82–85", "B", "Comfortable second-life"],
-  ["78–81", "B−", "Useful second-life"],
-  ["74–77", "C+", "Capable light-use"],
-  ["68–73", "C", "Light-use"],
-  ["58–67", "C−", "Focused-use"],
-  ["45–57", "D", "Single-purpose"],
-  ["0–44", "E", "Struggling"],
+  ["98–100", "A+", "Exceptionally fast and flexible"],
+  ["94–97", "A", "Fast and flexible"],
+  ["90–93", "A−", "Fast for everyday work"],
+  ["86–89", "B+", "Comfortable and capable"],
+  ["82–85", "B", "Comfortable for everyday work"],
+  ["78–81", "B−", "Useful with some limits"],
+  ["74–77", "C+", "Good for lighter work"],
+  ["68–73", "C", "Best for light everyday work"],
+  ["58–67", "C−", "Best for focused tasks"],
+  ["45–57", "D", "One simple job at a time"],
+  ["0–44", "E", "Not practical for general browser use"],
 ];
 
 export default function MethodologyPage() {
@@ -540,14 +540,30 @@ export default function MethodologyPage() {
               </tbody>
             </table>
           </div>
+          <h3>One score, three different questions</h3>
+          <p>
+            The grade describes the measured everyday experience. The result
+            separately reports <strong>room for heavier work</strong>: whether
+            that speed holds when large projects and demanding jobs overlap.
+            It also calls out <strong>consistency</strong> when occasional or
+            repeated hitches make a device feel slower than its average.
+          </p>
+          <p className="paper-note">
+            Reserve is never inferred from a high everyday score. If the
+            qualifying mixed-workload stage did not run, the report says
+            “Not checked” instead of assuming capacity the test did not
+            measure. Technical exports retain the underlying reserve index and
+            experimental v7 evidence.
+          </p>
           <h3>Stable plain-language results</h3>
           <p>
             The exact score stays continuous, but the practical description
-            does not treat every point as a meaningful change. A, B, and C
-            variants share broader everyday-use headlines, and the result page
-            tells users how much movement to treat as normal run-to-run
-            variation: two points for high-confidence runs, four for medium,
-            and six for low, increased when measured variation warrants it.
+            does not treat every point as a meaningful change. Each grade uses
+            a behavior-based description rather than a generic adjective, and
+            the result page tells users how much movement to treat as normal
+            run-to-run variation: two points for high-quality runs, four for
+            usable runs, and six when the run should be treated with caution,
+            increased when measured variation warrants it.
           </p>
           <p className="paper-note">
             A relative weak area appears only when the strongest and weakest

@@ -6,6 +6,7 @@ import {
   friendlyMultitaskingLevel,
   friendlyOfficeLevel,
   friendlyVideoLevel,
+  runQualityLabel,
 } from "../lib/capability-guide.mjs";
 
 const chromebookResult = {
@@ -37,7 +38,7 @@ test("technical tiers receive friendly, consistent names", () => {
 
 test("a light-use result becomes a concrete practical guide", () => {
   const guide = buildCapabilityGuide(chromebookResult);
-  assert.equal(guide.headline, "Useful for lighter everyday work");
+  assert.equal(guide.headline, "Good for lighter work");
   assert.match(guide.summary, /office and browser work/);
   assert.equal(guide.browsingLabel, "Busy websites");
   assert.equal(guide.officeLabel, "Everyday office work");
@@ -75,7 +76,7 @@ test("large save stalls become prominent practical advice", () => {
     ),
   );
   assert.ok(
-    guide.cautions.some((item) => item.title === "Occasional catch-up pauses"),
+    guide.cautions.some((item) => item.title === "Occasional catch-up"),
   );
 });
 
@@ -109,9 +110,9 @@ test("the performance profile explains similar totals with stable meaningful dif
     ["Writing and documents"],
   );
   assert.equal(hpGuide.variation.margin, 2);
-  assert.equal(hpGuide.capabilityCards[0].rating, "Very good");
-  assert.equal(hpGuide.capabilityCards[1].rating, "Good");
-  assert.equal(hpGuide.capabilityCards[2].rating, "Excellent · 4K");
+  assert.equal(hpGuide.capabilityCards[0].rating, "Comfortable");
+  assert.equal(hpGuide.capabilityCards[1].rating, "Practical");
+  assert.equal(hpGuide.capabilityCards[2].rating, "Comfortable · 4K");
 
   const hpOnePointHigher = buildCapabilityGuide({
     ...hpResult,
@@ -139,7 +140,7 @@ test("the performance profile explains similar totals with stable meaningful dif
   });
   assert.deepEqual(
     phoneGuide.performanceProfile.strengths.map((item) => item.title),
-    ["Video playback", "Multitasking", "Scrolling and visual pages"],
+    ["Video playback", "Multitasking", "Visual smoothness"],
   );
 });
 
@@ -169,5 +170,72 @@ test("A-minus computer wording stays grounded in second-life capability", () => 
     grade: "A-",
     score: 92,
   });
-  assert.equal(guide.headline, "Excellent second-life computer");
+  assert.equal(guide.headline, "Fast for everyday work");
+});
+
+test("heavy-work reserve is reported separately from everyday performance", () => {
+  const dellGuide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "A",
+    score: 96,
+    confidence: "High",
+    responsiveness: { label: "Steady" },
+    upperReserve: { tested: true, score: 98 },
+    shadowScoring: {
+      pressureIndex: 5883,
+      extendedPressureIndex: 4697,
+    },
+  });
+  assert.equal(dellGuide.reserve.label, "Exceptional");
+  assert.match(dellGuide.topSummary, /exceptionally responsive/);
+
+  const amdGuide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "A-",
+    score: 94,
+    confidence: "High",
+    responsiveness: { label: "Steady" },
+    upperReserve: { tested: true, score: 89 },
+    shadowScoring: {
+      pressureIndex: 3576,
+      extendedPressureIndex: 2773,
+    },
+  });
+  assert.equal(amdGuide.reserve.label, "Strong");
+
+  const hpGuide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "A-",
+    score: 91,
+    confidence: "High",
+    responsiveness: { label: "Steady" },
+    upperReserve: { tested: false, score: null },
+    shadowScoring: {
+      pressureIndex: null,
+      extendedPressureIndex: null,
+    },
+  });
+  assert.equal(hpGuide.reserve.label, "Not checked");
+  assert.match(hpGuide.topSummary, /did not verify/);
+});
+
+test("inconsistent response is stated before unverified reserve", () => {
+  const guide = buildCapabilityGuide({
+    ...chromebookResult,
+    grade: "B",
+    score: 82,
+    confidence: "Medium",
+    responsiveness: { label: "Noticeable hitches" },
+    upperReserve: { tested: false, score: null },
+  });
+  assert.equal(guide.consistency.label, "Noticeable hitches");
+  assert.match(guide.topSummary, /some take much longer/);
+  assert.doesNotMatch(guide.topSummary, /reserve/);
+  assert.equal(guide.runQuality.label, "Usable");
+});
+
+test("run quality translates technical confidence into user language", () => {
+  assert.equal(runQualityLabel("High"), "Clean");
+  assert.equal(runQualityLabel("Medium"), "Usable");
+  assert.equal(runQualityLabel("Low"), "Use with caution");
 });

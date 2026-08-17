@@ -17,7 +17,10 @@ import {
   summarizeThoroughRun,
 } from "@/lib/scoring.mjs";
 import { classifyFormFactor } from "@/lib/context.mjs";
-import { buildCapabilityGuide } from "@/lib/capability-guide.mjs";
+import {
+  buildCapabilityGuide,
+  runQualityLabel,
+} from "@/lib/capability-guide.mjs";
 import { planBoundaryConfirmation } from "@/lib/boundary-confirmation.mjs";
 import {
   planUpperReserve,
@@ -992,11 +995,11 @@ function categoryOutcome(
   if (category.headroomCeiling) return "Limit not reached";
   if (category.limitFound) return "Limit found";
   if (category.testedHeadroom) return "Extended range passed";
-  if (category.score >= 84) return "Comfortable";
-  if (category.score >= 68) return "Good for everyday use";
-  if (category.score >= 58) return "Usable with some limits";
-  if (category.score >= 48) return "Best for lighter use";
-  return "Likely to feel slow";
+  if (category.score >= 86) return "Comfortable";
+  if (category.score >= 76) return "Practical";
+  if (category.score >= 66) return "Best kept light";
+  if (category.score >= 56) return "May feel slow";
+  return "Not recommended";
 }
 
 const categoryDescriptions: Record<string, string> = {
@@ -3395,13 +3398,13 @@ export function StillGoodApp() {
     (component) => component.id === "advanced-web-work",
   );
   const advancedWebWorkLabel = advancedWebWork
-    ? advancedWebWork.score >= 90
-      ? "Strong reserve"
-      : advancedWebWork.score >= 78
-        ? "Comfortable reserve"
-        : advancedWebWork.score >= 64
-          ? "Moderate reserve"
-          : "Limited reserve"
+    ? advancedWebWork.score >= 86
+      ? "Comfortable"
+      : advancedWebWork.score >= 76
+        ? "Practical"
+        : advancedWebWork.score >= 66
+          ? "Best kept light"
+          : "Slowed under pressure"
     : null;
   const categoryCards = [
     ["Web browsing", result.browsing],
@@ -3456,13 +3459,13 @@ export function StillGoodApp() {
             <div className="answer-meta">
               {result.ceilingReached && <span>Above the current test ceiling</span>}
               {result.formFactor === "mobile" && <span>Mobile result</span>}
-              {result.upperReserve.tested && <span>Extra reserve checked</span>}
+              {result.upperReserve.tested && <span>Heavy-work reserve checked</span>}
             </div>
           )}
           <h1>{guide.headline}</h1>
           <p className="answer-summary">{guide.topSummary}</p>
           <p className="result-stability">
-            <strong>{result.confidence} confidence.</strong>{" "}
+            <strong>Run quality: {guide.runQuality.label}.</strong>{" "}
             {result.boundaryConfirmation?.triggered &&
               "A borderline result was confirmed with extra measurements. "}
             {guide.variation.message}
@@ -3478,6 +3481,23 @@ export function StillGoodApp() {
             </p>
           )}
         </div>
+      </section>
+      <section
+        className={`result-dimensions${guide.consistency.level === "steady" ? " result-dimensions-single" : ""}`}
+        aria-label="Performance context"
+      >
+        <article>
+          <span>Room for heavier work</span>
+          <strong>{guide.reserve.label}</strong>
+          <p>{guide.reserve.summary}</p>
+        </article>
+        {guide.consistency.level !== "steady" && (
+          <article>
+            <span>Consistency</span>
+            <strong>{guide.consistency.label}</strong>
+            <p>{guide.consistency.summary}</p>
+          </article>
+        )}
       </section>
       <section className="capability-overview" aria-label="Everyday capabilities">
         {guide.capabilityCards.map(
@@ -3603,9 +3623,9 @@ export function StillGoodApp() {
           <div className="flyer-hero">
              <div className="flyer-grade">{result.grade}</div>
              <div>
-               <p>{result.label}</p>
+               <p>{result.score} out of 100 · {result.grade} grade</p>
                <h2 id="report-title">{guide.headline}</h2>
-               <span>{guide.summary}</span>
+               <span>{guide.topSummary}</span>
              </div>
           </div>
           <PerformanceProfile
@@ -3623,20 +3643,24 @@ export function StillGoodApp() {
              )}
              <article>
                <span>Web experience in {result.browser.split(" ")[0]}</span>
-               <strong>{result.evidenceGroups.webExperience.label}</strong>
+               <strong>{categoryOutcome(result.evidenceGroups.webExperience)}</strong>
              </article>
              <article>
-               <span>Memory reserve</span>
-               <strong>{result.memory.reserveLabel ?? result.evidenceGroups.resourceResilience.label}</strong>
+               <span>Active-work capacity</span>
+               <strong>{categoryOutcome(result.memory)}</strong>
              </article>
              <article>
-               <span>Web workload reserve</span>
-               <strong>{result.headroom.label}</strong>
+               <span>Largest browser workloads</span>
+               <strong>{categoryOutcome(result.headroom)}</strong>
              </article>
-             {result.upperReserve.tested && (
+             <article>
+               <span>Room for heavier work</span>
+               <strong>{guide.reserve.label}</strong>
+             </article>
+             {guide.consistency.level !== "steady" && (
                <article>
-                 <span>Performance under extended load</span>
-                 <strong>{result.upperReserve.label}</strong>
+                 <span>Consistency</span>
+                 <strong>{guide.consistency.label}</strong>
                </article>
              )}
              {advancedWebWorkLabel && (
@@ -3720,8 +3744,8 @@ export function StillGoodApp() {
                  <strong>{result.memory.reportedMemoryLabel ?? "Not available"}</strong>
                </article>
                <article>
-                <span>Confidence</span>
-                <strong>{result.confidence}</strong>
+                <span>Run quality</span>
+                <strong>{guide.runQuality.label}</strong>
               </article>
             </div>
           </section>
@@ -3905,7 +3929,7 @@ function SavedRunsDialog({
                     </span>
                     <small>
                       {run.responsivenessLabel} · {run.headroomLabel} reserve ·{" "}
-                      {run.confidence} confidence
+                      {runQualityLabel(run.confidence)} run quality
                     </small>
                   </div>
                   <button onClick={() => onDownload(run)}>Download log</button>
