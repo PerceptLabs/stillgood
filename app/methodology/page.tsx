@@ -108,6 +108,9 @@ export default function MethodologyPage() {
             <a href="/stillgood-methodology-v6.24.md" download>
               Download Markdown
             </a>
+            <a href="/stillgood-shadow-scoring-v7.md">
+              v7 shadow experiment
+            </a>
             <a
               href="https://github.com/PerceptLabs/stillgood"
               target="_blank"
@@ -485,6 +488,31 @@ export default function MethodologyPage() {
             exceptional evidence for the final few points. Hardware age is
             never an input.
           </p>
+          <h3>Why a new scorer is running in shadow</h3>
+          <p>
+            A hidden 0-to-1000 value inside a bounded score preserves rounding
+            precision, but it does not by itself create more performance range.
+            StillGood is therefore evaluating an experimental v7 scorer beside
+            the public result. It records reference-to-measured speed ratios,
+            estimates the workload size that remains comfortable, and scores
+            the identical standard pressure workload separately. Its reference
+            index of 1000 is an anchor, not a ceiling.
+          </p>
+          <p>
+            The shadow result is included in exports and, when anonymous
+            measurement sharing is enabled, in a tightly allowlisted research
+            summary. It is not displayed as a grade and does not change the
+            public score, wording, reserve eligibility, or test path. It will
+            remain experimental until repeated physical-device runs establish
+            stable ordering, useful separation, and defensible reference values.
+          </p>
+          <p className="paper-note">
+            The full formulas, provisional weights, open-ceiling rules, and
+            promotion criteria are published in the{" "}
+            <a href="/stillgood-shadow-scoring-v7.md">
+              v7 shadow scoring design note
+            </a>.
+          </p>
           <p>
             StillGood applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
@@ -604,6 +632,10 @@ export default function MethodologyPage() {
           <p className="paper-number">07</p>
           <h2>Standards and methodological references</h2>
           <ul className="reference-list">
+            <li>
+              <a href="https://ftp.spec.org/cpu2026/docs/runrules.html">SPEC CPU 2026 run rules</a>
+              {" "}— reference-time ratios, repeated runs, and geometric aggregation.
+            </li>
             <li>
               <a href="https://browserbench.org/Speedometer3.0/about.html">Speedometer 3 methodology</a>
               {" "}— simulated interactions and holistic web-application response.

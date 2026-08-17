@@ -80,6 +80,8 @@ test("server-renders the privacy disclosure", async () => {
   assert.match(html, /sharing option is off by default/i);
   assert.match(html, /What we do not collect/);
   assert.match(html, /persistent device identifier/);
+  assert.match(html, /experimental reference indices/);
+  assert.match(html, /does not alter the result you see/);
   assert.match(html, /does not put that address into its benchmark database/);
   assert.match(html, /href="https:\/\/github\.com\/PerceptLabs\/stillgood"/);
 });
@@ -102,7 +104,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         schemaVersion: "stillgood-telemetry.v1",
-        resultSchemaVersion: "stillgood-result.v6.24",
+        resultSchemaVersion: "stillgood-result.v6.25",
         profileVersion: "6.24.0-calibrated-top-range",
         context: {
           browserFamily: "Chromium",
@@ -174,6 +176,46 @@ test("anonymous telemetry stores only the server allowlist", async () => {
             },
           ],
         },
+        shadow: {
+          version: "7.0.0-shadow.1",
+          status: "shadow",
+          calibration: "provisional-comfort-capacity-ratios-v1",
+          referenceIndex: 1000,
+          publicScoreAffected: false,
+          webIndex: 910,
+          pressureIndex: 720,
+          systemIndex: 859,
+          coverage: "web-and-standard-pressure",
+          categories: {
+            browsing: {
+              index: 940,
+              fixedWorkIndex: 880,
+              capacityIndex: 1070,
+              comfortableCapacity: 48150,
+              referenceCapacity: 45000,
+              openCeiling: false,
+              ordinaryTierCount: 5,
+              bracket: ["extreme", "headroom"],
+              privateNote: "must-not-be-stored",
+            },
+          },
+          pressure: {
+            available: true,
+            standardIndex: 720,
+            combinedIndex: 720,
+            levels: [{
+              id: "standard",
+              index: 720,
+              workerCount: 2,
+              memoryPressureMB: 512,
+              storagePressureMB: 64,
+              components: [
+                { id: "advanced-throughput", index: 760, weight: 0.27 },
+                { id: "private-component", index: 9000, weight: 1 },
+              ],
+            }],
+          },
+        },
         integrity: {},
         email: "must-not-be-stored@example.com",
       }),
@@ -200,6 +242,9 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(serializedBindings, /setupMs/);
   assert.match(serializedBindings, /upperReserve/);
   assert.match(serializedBindings, /mixedReserve/);
+  assert.match(serializedBindings, /7\.0\.0-shadow\.1/);
+  assert.match(serializedBindings, /systemIndex/);
+  assert.match(serializedBindings, /advanced-throughput/);
   assert.match(serializedBindings, /\\"id\\":\\"memory\\"/);
   assert.doesNotMatch(serializedBindings, /private-component/);
 });
@@ -224,6 +269,9 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /Advanced web work/);
   assert.match(html, /SQLite compiled to WebAssembly/);
   assert.match(html, /Internal evidence matrix/);
+  assert.match(html, /new scorer is running in shadow/);
+  assert.match(html, /reference index of 1000 is an anchor, not a ceiling/);
+  assert.match(html, /stillgood-shadow-scoring-v7\.md/);
   assert.match(html, /same size, content, and observation/);
   assert.match(html, /fill up to 30%/);
   assert.match(html, /stillgood-methodology-v6\.24\.md/);

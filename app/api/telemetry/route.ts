@@ -43,6 +43,21 @@ const EVIDENCE_NAMES = [
   "strictStorageTiers",
   "opfsStorageTiers",
 ] as const;
+const SHADOW_CATEGORY_NAMES = [
+  "browsing",
+  "email",
+  "writing",
+  "spreadsheets",
+  "multitasking",
+] as const;
+const SHADOW_PRESSURE_COMPONENTS = [
+  "foreground-latency",
+  "tail-latency",
+  "slowdown-resilience",
+  "frame-delivery",
+  "advanced-throughput",
+  "advanced-latency",
+] as const;
 const TIER_NUMBER_FIELDS = new Set([
   "size",
   "domRows",
@@ -285,6 +300,85 @@ function sanitizeBoundaryConfirmation(value: unknown) {
   };
 }
 
+function sanitizeShadowScoring(value: unknown) {
+  const shadow = objectValue(value);
+  const pressure = objectValue(shadow.pressure);
+  const categories = objectValue(shadow.categories);
+  const tierId = (value: unknown) =>
+    typeof value === "string" && /^[a-z0-9_-]{1,40}$/i.test(value)
+      ? value
+      : null;
+
+  return {
+    version: versionString(shadow.version),
+    status: constrainedString(shadow.status, ["shadow"], "unknown"),
+    calibration: versionString(shadow.calibration),
+    referenceIndex: finiteNumber(shadow.referenceIndex),
+    publicScoreAffected: Boolean(shadow.publicScoreAffected),
+    webIndex: finiteNumber(shadow.webIndex),
+    pressureIndex: finiteNumber(shadow.pressureIndex),
+    extendedPressureIndex: finiteNumber(shadow.extendedPressureIndex),
+    systemIndex: finiteNumber(shadow.systemIndex),
+    coverage: constrainedString(
+      shadow.coverage,
+      ["web-only", "web-and-standard-pressure"],
+      "unknown",
+    ),
+    categories: Object.fromEntries(
+      SHADOW_CATEGORY_NAMES.map((name) => {
+        const category = objectValue(categories[name]);
+        return [name, {
+          index: finiteNumber(category.index),
+          fixedWorkIndex: finiteNumber(category.fixedWorkIndex),
+          capacityIndex: finiteNumber(category.capacityIndex),
+          comfortableCapacity: finiteNumber(category.comfortableCapacity),
+          referenceCapacity: finiteNumber(category.referenceCapacity),
+          openCeiling: Boolean(category.openCeiling),
+          ordinaryTierCount: finiteNumber(category.ordinaryTierCount),
+          bracket: Array.isArray(category.bracket)
+            ? category.bracket.slice(0, 2).map(tierId)
+            : [],
+        }];
+      }),
+    ),
+    pressure: {
+      available: Boolean(pressure.available),
+      standardIndex: finiteNumber(pressure.standardIndex),
+      extendedIndex: finiteNumber(pressure.extendedIndex),
+      combinedIndex: finiteNumber(pressure.combinedIndex),
+      levels: Array.isArray(pressure.levels)
+        ? pressure.levels.slice(0, 2).flatMap((levelValue) => {
+            const level = objectValue(levelValue);
+            if (!['standard', 'extended'].includes(level.id)) return [];
+            return [{
+              id: level.id,
+              index: finiteNumber(level.index),
+              workerCount: finiteNumber(level.workerCount),
+              memoryPressureMB: finiteNumber(level.memoryPressureMB),
+              storagePressureMB: finiteNumber(level.storagePressureMB),
+              components: Array.isArray(level.components)
+                ? level.components.slice(0, 6).flatMap((componentValue) => {
+                    const component = objectValue(componentValue);
+                    if (
+                      typeof component.id !== "string" ||
+                      !SHADOW_PRESSURE_COMPONENTS.includes(
+                        component.id as (typeof SHADOW_PRESSURE_COMPONENTS)[number],
+                      )
+                    ) return [];
+                    return [{
+                      id: component.id,
+                      index: finiteNumber(component.index),
+                      weight: finiteNumber(component.weight),
+                    }];
+                  })
+                : [],
+            }];
+          })
+        : [],
+    },
+  };
+}
+
 function sanitizeSubmission(payload: unknown) {
   const root = objectValue(payload);
   if (root.schemaVersion !== "stillgood-telemetry.v1") {
@@ -299,6 +393,7 @@ function sanitizeSubmission(payload: unknown) {
   const boundaryConfirmation = objectValue(outcome.boundaryConfirmation);
   const categories = objectValue(outcome.categories);
   const evidence = objectValue(root.evidence);
+  const shadow = objectValue(root.shadow);
   const integrity = objectValue(root.integrity);
 
   const clean = {
@@ -494,6 +589,7 @@ function sanitizeSubmission(payload: unknown) {
           .map(sanitizeEvidenceTier),
       ]),
     ),
+    shadow: sanitizeShadowScoring(shadow),
     integrity: {
       baselineUnsettled: Boolean(integrity.baselineUnsettled),
       interruptionCount: finiteNumber(integrity.interruptionCount),

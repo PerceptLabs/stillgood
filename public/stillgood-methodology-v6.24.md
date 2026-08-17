@@ -1,7 +1,7 @@
 # StillGood methodology v6.24
 
 **Benchmark profile:** `6.24.0-calibrated-top-range`  
-**Result schema:** `stillgood-result.v6.24`  
+**Result schema:** `stillgood-result.v6.25`  
 **Published:** August 2026  
 **Status:** experimental, physical-device calibration in progress
 
@@ -121,6 +121,19 @@ ten-times-better measurement accuracy. Repeatability guidance remains part of
 the result. A public score around 50 remains a single-purpose or constrained
 result, not an average modern computer.
 
+### Experimental v7 shadow scorer
+
+StillGood is evaluating a separate reference-based scorer alongside v6.24. It
+keeps unbounded reference-to-measured performance ratios, estimates comfortable
+workload capacity, and reports the identical standard pressure stage separately.
+An index of 1000 is a reference anchor rather than a ceiling.
+
+The experiment does not change the public score, grade, wording, reserve path,
+or visible result. It remains in shadow until repeated physical-device runs and
+the anonymous calibration corpus demonstrate stable ordering, useful separation,
+and defensible reference values. Its formulas and promotion criteria are
+published in [the v7 shadow scoring design note](/stillgood-shadow-scoring-v7.md).
+
 ### Calibrated upper range
 
 Version 6.24 leaves internal results through 900 unchanged. Above that point,
@@ -176,5 +189,3 @@ measured computer-and-browser combination.
 - [W3C Long Tasks](https://www.w3.org/TR/longtasks-1/)
 - [Media Playback Quality](https://w3c.github.io/media-playback-quality/)
 - [WHATWG File System Standard](https://fs.spec.whatwg.org/)
-
-

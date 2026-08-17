@@ -82,10 +82,20 @@ export default function PrivacyPage() {
             <li>browser family and major version, plus broad operating-system family;</li>
             <li>broad processor-count and display-refresh buckets;</li>
             <li>overall score, grade, confidence, form factor, and integrity flags.</li>
+            <li>
+              experimental reference indices, workload-capacity summaries, and
+              pressure components used to validate future scoring.
+            </li>
           </ul>
           <p>
             Each submission receives a new random run ID on the server. It is
             not reused to follow a device over time.
+          </p>
+          <p>
+            Experimental scoring uses measurements the test already produces.
+            It does not add a device fingerprint, exact memory inventory, or
+            new access to files and other websites, and it does not alter the
+            result you see while the method remains in shadow.
           </p>
         </section>
 

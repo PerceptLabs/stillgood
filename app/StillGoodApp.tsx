@@ -41,6 +41,7 @@ import {
   type RecentRunRange,
 } from "@/lib/local-run-history";
 import { summarizeRecentRunRange } from "@/lib/run-repeatability.mjs";
+import { summarizeShadowV7 } from "@/lib/shadow-scoring-v7.mjs";
 import {
   browsingActionNames,
   buildBrowsingDataset,
@@ -538,6 +539,7 @@ type ThoroughResult = {
     gradeAfter: string;
   };
   recentRunRange?: RecentRunRange;
+  shadowScoring: ReturnType<typeof summarizeShadowV7>;
   raw: unknown;
 };
 type SavedRunSummary = LocalRunSummary;
@@ -942,7 +944,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.24",
+    schemaVersion: "stillgood-result.v6.25",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -3092,6 +3094,7 @@ export function StillGoodApp() {
       const completedPlatform = navigator.platform || "Platform not reported";
       const completedProcessors = navigator.hardwareConcurrency || null;
       const completedProfileVersion = "6.24.0-calibrated-top-range";
+      const shadowScoring = summarizeShadowV7(buildSummaryMetrics(true));
       const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
       const recentRunRange = summarizeRecentRunRange(
         {
@@ -3114,6 +3117,7 @@ export function StillGoodApp() {
         startedAt,
         elapsedMs: performance.now() - testStart,
         profileVersion: completedProfileVersion,
+        shadowScoring,
         recentRunRange,
         boundaryConfirmation,
         raw: {

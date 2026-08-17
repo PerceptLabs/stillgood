@@ -25,7 +25,7 @@ test("browser context keeps only broad, useful device information", () => {
 test("anonymous telemetry excludes exact identity and full browser strings", () => {
   const telemetry = buildAnonymousTelemetry(
     {
-      schemaVersion: "stillgood-result.v6.24",
+      schemaVersion: "stillgood-result.v6.25",
       result: {
         profileVersion: "6.24.0-calibrated-top-range",
         browser: "Chrome 150 with a private marker",
@@ -67,6 +67,49 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
         browsing: {
           score: 79,
           tiers: [{ id: "everyday", medianMs: 220, worstMs: 410 }],
+        },
+        shadowScoring: {
+          version: "7.0.0-shadow.1",
+          status: "shadow",
+          calibration: "provisional-comfort-capacity-ratios-v1",
+          referenceIndex: 1000,
+          publicScoreAffected: false,
+          webIndex: 1382,
+          pressureIndex: 824,
+          extendedPressureIndex: null,
+          systemIndex: 1221,
+          coverage: "web-and-standard-pressure",
+          categories: {
+            browsing: {
+              index: 1410,
+              fixedWorkIndex: 1290,
+              capacityIndex: 1660,
+              comfortableCapacity: 74700,
+              referenceCapacity: 45000,
+              openCeiling: false,
+              ordinaryTierCount: 5,
+              bracket: ["extreme", "headroom"],
+              observations: [{ privateFixture: "must-not-survive" }],
+            },
+          },
+          pressure: {
+            available: true,
+            standardIndex: 824,
+            extendedIndex: null,
+            combinedIndex: 824,
+            levels: [{
+              id: "standard",
+              index: 824,
+              workerCount: 2,
+              memoryPressureMB: 512,
+              storagePressureMB: 64,
+              components: [
+                { id: "foreground-latency", index: 1090, weight: 0.32 },
+                { id: "private-component", index: 9000, weight: 1 },
+              ],
+              privateNote: "must-not-survive",
+            }],
+          },
         },
         raw: {
           mixedReserve: {
@@ -146,6 +189,11 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
   assert.equal(telemetry.context.platformFamily, "Windows");
   assert.equal(telemetry.context.reportedMemoryClass, "8+");
   assert.equal(telemetry.outcome.score, 82);
+  assert.equal(telemetry.shadow.version, "7.0.0-shadow.1");
+  assert.equal(telemetry.shadow.systemIndex, 1221);
+  assert.equal(telemetry.shadow.categories.browsing.capacityIndex, 1660);
+  assert.equal(telemetry.shadow.pressure.levels[0].components.length, 1);
+  assert.equal(telemetry.shadow.publicScoreAffected, false);
   assert.equal(telemetry.evidence.memoryTiers[0].allocator, "webassembly");
   assert.equal(telemetry.evidence.browsingTiers[0].setupMs, 4200);
   assert.deepEqual(telemetry.outcome.upperReserve, {
