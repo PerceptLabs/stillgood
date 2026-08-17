@@ -109,6 +109,14 @@ for (const id of ids) {
         original: `${row.score} ${row.grade}`,
         replay: `${final.score} ${final.grade}`,
         preliminary: preliminary.score,
+        internalScoring: final.internalScoring
+          ? {
+              baseBeforeReserve: final.internalScoring.baseBeforeReserve,
+              baseAfterReserveCap: final.internalScoring.baseAfterReserveCap,
+              reserveAward: final.internalScoring.reserveAward,
+              final: final.internalScoring.final,
+            }
+          : null,
         reserve: {
           planned: plan.needed,
           reason: plan.reason,

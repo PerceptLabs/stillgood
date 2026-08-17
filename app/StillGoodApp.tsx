@@ -482,11 +482,22 @@ type ThoroughResult = {
     label: string;
     gradeCeiling: number;
     components: Array<{ id: string; score: number; weight: number }>;
+    levels?: Array<{ id: string; score: number; score1000: number }>;
   };
   internalScoring: {
     scale: 1000;
     aggregation: string;
     compositeBeforeSafeguards: number;
+    baseBeforeReserve: number;
+    baseAfterReserveCap: number;
+    reserveAward: {
+      tested: boolean;
+      standardScore1000: number | null;
+      extendedScore1000: number | null;
+      standardBonus1000: number;
+      extendedBonus1000: number;
+      totalBonus1000: number;
+    };
     final: number;
     publicScore: number;
     matrix: Record<string, Record<string, number | null>>;
@@ -926,7 +937,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.21",
+    schemaVersion: "stillgood-result.v6.22",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -3070,7 +3081,7 @@ export function StillGoodApp() {
       const completedBrowser = browserLabel();
       const completedPlatform = navigator.platform || "Platform not reported";
       const completedProcessors = navigator.hardwareConcurrency || null;
-      const completedProfileVersion = "6.21.0-internal-evidence-matrix";
+      const completedProfileVersion = "6.22.0-reserve-opportunity-bonus";
       const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
       const recentRunRange = summarizeRecentRunRange(
         {
@@ -3119,8 +3130,11 @@ export function StillGoodApp() {
           },
           upperReservePolicy: {
             minimumScore: upperReservePlan.minimumScore,
+            minimumScore1000: upperReservePlan.minimumScore1000,
             minimumHeadroom: upperReservePlan.minimumHeadroom,
             minimumCoreScore: upperReservePlan.minimumCoreScore,
+            minimumCoreScore1000: upperReservePlan.minimumCoreScore1000,
+            candidateScore1000: upperReservePlan.candidateScore1000 ?? null,
             mode: "paired-mixed-workload",
             baselineAndLoadedUseIdenticalJourneys: true,
             advancedBaselineAndLoadedUseMatchedWindows: true,

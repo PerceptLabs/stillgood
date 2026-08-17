@@ -8,6 +8,7 @@ import {
   normalizeLower,
   percentile,
   qualifiesForHeadroom,
+  reserveOpportunityAward,
   summarizeGraphicsFrames,
   summarizeHeadroom,
   summarizeLatencyTiers,
@@ -166,6 +167,33 @@ test("advanced web work adds top-end reserve detail without replacing foreground
     roomy.components.find((component) => component.id === "mixed-response")?.score,
     constrained.components.find((component) => component.id === "mixed-response")?.score,
   );
+});
+
+test("upper reserve awards points continuously without penalizing an attempt", () => {
+  const constrained = reserveOpportunityAward({
+    tested: true,
+    score1000: 690,
+    levels: [{ id: "standard", score1000: 690 }],
+  });
+  const strong = reserveOpportunityAward({
+    tested: true,
+    score1000: 900,
+    levels: [{ id: "standard", score1000: 900 }],
+  });
+  const exceptional = reserveOpportunityAward({
+    tested: true,
+    score1000: 990,
+    levels: [
+      { id: "standard", score1000: 990 },
+      { id: "extended", score1000: 990 },
+    ],
+  });
+
+  assert.equal(constrained.totalBonus1000, 0);
+  assert.ok(strong.standardBonus1000 > 0);
+  assert.equal(strong.extendedBonus1000, 0);
+  assert.ok(exceptional.totalBonus1000 > strong.totalBonus1000);
+  assert.ok(exceptional.totalBonus1000 <= 70);
 });
 
 test("upper reserve does not feed back into ordinary scores or confidence", () => {
@@ -919,7 +947,7 @@ test("only broadly fast and stable hardware reaches the ceiling", () => {
   assert.ok(result.score >= 84);
 });
 
-test("a completed run without reserve evidence cannot claim modern-performance grades", () => {
+test("a completed run without reserve evidence keeps its established result up to A-minus", () => {
   const metrics = fullMetrics([
     [34, 36, 38],
     [38, 40, 42],
@@ -931,8 +959,39 @@ test("a completed run without reserve evidence cannot claim modern-performance g
   const result = summarizeThoroughRun(metrics);
 
   assert.equal(result.upperReserve.tested, false);
-  assert.ok(result.score <= 87);
-  assert.ok(result.grade.startsWith("B"));
+  assert.ok(result.score >= 90 && result.score <= 93);
+  assert.equal(result.grade, "A-");
+  assert.equal(result.internalScoring.reserveAward.totalBonus1000, 0);
+  assert.equal(
+    result.internalScoring.baseAfterReserveCap,
+    Math.min(result.internalScoring.baseBeforeReserve, 930),
+  );
+});
+
+test("poor reserve performance cannot lower the everyday base score", () => {
+  const metrics = fullMetrics([
+    [34, 36, 38],
+    [38, 40, 42],
+    [42, 44, 46],
+    [46, 48, 50],
+    [50, 52, 54],
+  ]);
+  const withoutReserve = summarizeThoroughRun(metrics);
+  const withReserveMetrics = structuredClone(metrics);
+  withReserveMetrics.mixedReserve = {
+    tested: true,
+    levels: [{
+      id: "standard",
+      loadedP95Ms: 1800,
+      loadedWorstMs: 4200,
+      slowdownRatio: 7,
+      onTimeRatio: 0.35,
+    }],
+  };
+  const withReserve = summarizeThoroughRun(withReserveMetrics);
+
+  assert.equal(withReserve.score, withoutReserve.score);
+  assert.equal(withReserve.internalScoring.reserveAward.totalBonus1000, 0);
 });
 
 test("a dense graphics stress tier reports headroom without capping everyday use", () => {

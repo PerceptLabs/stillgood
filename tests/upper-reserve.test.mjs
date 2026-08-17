@@ -34,22 +34,30 @@ test("near-ceiling devices qualify for the upper reserve stage", () => {
   ]);
 });
 
-test("a one-point headroom fluctuation does not skip an otherwise top result", () => {
-  const plan = planUpperReserve(strongSummary({ headroom: { score: 83 } }));
-  assert.equal(plan.needed, true);
-  assert.equal(plan.minimumHeadroom, 83);
-});
-
-test("the headroom buffer does not pull ordinary machines into the extension", () => {
+test("headroom no longer acts as an upper-reserve participation cliff", () => {
   const plan = planUpperReserve(strongSummary({ headroom: { score: 82 } }));
-  assert.equal(plan.needed, false);
-  assert.equal(plan.reason, "headroom-below-gate");
+  assert.equal(plan.needed, true);
+  assert.equal(plan.minimumHeadroom, null);
+  assert.equal(plan.observedHeadroom, 82);
 });
 
 test("ordinary second-life results finish without the upper reserve stage", () => {
   const plan = planUpperReserve(strongSummary({ score: 88 }));
   assert.equal(plan.needed, false);
   assert.equal(plan.reason, "ordinary-range-is-enough");
+});
+
+test("reserve eligibility uses the hidden score instead of rounded display points", () => {
+  const qualifies = planUpperReserve(
+    strongSummary({ score: 88, internalScoring: { final: 890 } }),
+  );
+  const misses = planUpperReserve(
+    strongSummary({ score: 89, internalScoring: { final: 884 } }),
+  );
+
+  assert.equal(qualifies.needed, true);
+  assert.equal(qualifies.candidateScore1000, 890);
+  assert.equal(misses.needed, false);
 });
 
 test("one weak core area blocks a misleading top-end extension", () => {

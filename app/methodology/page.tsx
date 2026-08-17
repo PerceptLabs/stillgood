@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.21</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.22</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.21</span>
+            <span>Profile 6.22</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.21.md" download>
+            <a href="/stillgood-methodology-v6.22.md" download>
               Download Markdown
             </a>
             <a
@@ -329,15 +329,15 @@ export default function MethodologyPage() {
           </p>
           <h3>Mixed-workload reserve confirmation</h3>
           <p>
-            A clean preliminary result of 89 or above does not immediately
-            receive a top grade. When every core category is at least 86 and
-            measured headroom is at least 83, StillGood opens one visibly
-            different reserve dashboard. It first warms the fixture and
-            measures a fixed set of demanding browser, inbox, document,
-            spreadsheet, and Canvas photo actions without added pressure. It
-            then repeats the exact same data, seeds, and actions while video,
-            worker calculations, a bounded live memory set, and a verified
-            background save overlap.
+            A clean preliminary result of 89 or above can benefit from evidence
+            beyond the ordinary test. When every core category is at least 86,
+            StillGood opens one visibly different reserve dashboard. Measured
+            headroom remains evidence, but it is no longer a participation
+            threshold. The stage first warms the fixture and measures a fixed
+            set of demanding browser, inbox, document, spreadsheet, and Canvas
+            photo actions without added pressure. It then repeats the exact
+            same data, seeds, and actions while video, worker calculations, a
+            bounded live memory set, and a verified background save overlap.
           </p>
           <p>
             The paired stage compares loaded 95th-percentile response with its
@@ -345,17 +345,20 @@ export default function MethodologyPage() {
             worst repeated delay, and frame delivery are combined with a
             weighted geometric mean. This reveals whether a device merely
             completes large isolated jobs or keeps quick work quick when jobs
-            overlap. Its ceiling is the reserve score plus seven, bounded from
-            87 through 100, so a one-point reserve change cannot cause a
-            multi-point grade jump. Temporary reserve storage and memory work
-            are not counted a second time in their ordinary categories.
+            overlap. Ordinary evidence establishes up to 93 points. Standard
+            reserve can earn up to four additional points through a smooth
+            curve; it can never subtract from that established result.
+            Temporary reserve storage and memory work are not counted a second
+            time in their ordinary categories.
           </p>
           <p>
             Only an exceptionally quick and steady first pressure level opens
             a higher level. That escalation uses more worker calculation, a
             larger live memory set, a larger persistent save, and
-            higher-resolution video. Its score contributes 35% of the reserve
-            result; the standard paired level remains 65%.
+            higher-resolution video. Only an exceptional result at this
+            distinct level can earn the final three points. A failed,
+            interrupted, or merely adequate attempt earns no extra points and
+            never becomes a penalty.
           </p>
           <h3>Advanced web work</h3>
           <p>
@@ -394,10 +397,12 @@ export default function MethodologyPage() {
             performance. The range never changes the score.
           </p>
           <p>
-            Devices below the gate skip this extra work. Their everyday score
-            remains valid, but without sustained reserve evidence the completed
-            run cannot claim an A-range modern-performance result; B+ remains
-            available. The reserve stage can cap a result but never raise it.
+            Devices whose preliminary evidence cannot benefit from the final
+            seven points skip this extra work. They retain the result already
+            established by ordinary categories and practical safeguards. The
+            reserve stage is an opportunity bonus: poor performance adds
+            nothing, while strong and exceptional performance progressively
+            unlock the upper end of the scale.
           </p>
           <h3>Memory hint and measured reserve</h3>
           <p>
@@ -447,9 +452,10 @@ export default function MethodologyPage() {
             Category evidence is combined with a weighted geometric mean so a
             serious weakness cannot be hidden by several perfect categories.
             Explicit caps cover weak core work, poor everyday graphics or
-            video, inconsistent response, limited reserve, and slow persistent
-            saves. The exported report retains the underlying observations and
-            profile version.
+            video, inconsistent response, and slow persistent saves. Reserve
+            instead controls only the final seven opportunity points. The
+            exported report retains the underlying observations and profile
+            version.
           </p>
           <h3>Internal evidence matrix</h3>
           <p>
@@ -470,7 +476,7 @@ export default function MethodologyPage() {
             single-purpose experience rather than an average modern computer.
           </p>
           <p>
-            Version 6.21 applies no post-score browser normalization. Web
+            Version 6.22 applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -683,7 +689,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.21</strong>
+            <strong>StillGood methodology v6.22</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>
