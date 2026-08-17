@@ -25,9 +25,9 @@ test("browser context keeps only broad, useful device information", () => {
 test("anonymous telemetry excludes exact identity and full browser strings", () => {
   const telemetry = buildAnonymousTelemetry(
     {
-      schemaVersion: "stillgood-result.v6.23",
+      schemaVersion: "stillgood-result.v6.24",
       result: {
-        profileVersion: "6.23.0-anchored-reserve-fill",
+        profileVersion: "6.24.0-calibrated-top-range",
         browser: "Chrome 150 with a private marker",
         platform: "Private workstation name",
         startedAt: "2026-08-01T12:34:56.000Z",

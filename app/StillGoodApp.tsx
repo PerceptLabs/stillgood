@@ -942,7 +942,7 @@ async function measureIdleBaseline(durationMs = 2200) {
 
 function resultEnvelope(result: ThoroughResult) {
   return {
-    schemaVersion: "stillgood-result.v6.23",
+    schemaVersion: "stillgood-result.v6.24",
     result,
     disclosure:
       "This describes browser-observed behavior, not a system-wide hardware diagnosis.",
@@ -3091,7 +3091,7 @@ export function StillGoodApp() {
       const completedBrowser = browserLabel();
       const completedPlatform = navigator.platform || "Platform not reported";
       const completedProcessors = navigator.hardwareConcurrency || null;
-      const completedProfileVersion = "6.23.0-anchored-reserve-fill";
+      const completedProfileVersion = "6.24.0-calibrated-top-range";
       const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
       const recentRunRange = summarizeRecentRunRange(
         {

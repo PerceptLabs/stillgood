@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.23</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.24</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,9 +103,9 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.23</span>
+            <span>Profile 6.24</span>
             <span>Published August 2026</span>
-            <a href="/stillgood-methodology-v6.23.md" download>
+            <a href="/stillgood-methodology-v6.24.md" download>
               Download Markdown
             </a>
             <a
@@ -478,7 +478,15 @@ export default function MethodologyPage() {
             single-purpose experience rather than an average modern computer.
           </p>
           <p>
-            Version 6.22 applies no post-score browser normalization. Web
+            Version 6.24 leaves scores through 90 unchanged and calibrates only
+            the crowded upper end of the public scale. Internal results of 94,
+            98, 99, and 100 map to public scores of 93, 96, 98, and 100. This
+            preserves the measured ordering while requiring progressively more
+            exceptional evidence for the final few points. Hardware age is
+            never an input.
+          </p>
+          <p>
+            StillGood applies no post-score browser normalization. Web
             Experience keeps real browser differences, while Resource
             Resilience uses equal-work compatibility methods. Changing only a
             stored browser-family label cannot change the result.
@@ -691,7 +699,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.23</strong>
+            <strong>StillGood methodology v6.24</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

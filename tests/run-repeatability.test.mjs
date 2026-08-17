@@ -4,7 +4,7 @@ import { summarizeRecentRunRange } from "../lib/run-repeatability.mjs";
 
 const current = {
   score: 78,
-  profileVersion: "6.23.0-anchored-reserve-fill",
+  profileVersion: "6.24.0-calibrated-top-range",
   browser: "Chromium 150",
   platform: "Linux x86_64",
   logicalProcessors: 8,

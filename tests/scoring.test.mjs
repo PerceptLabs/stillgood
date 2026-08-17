@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   coefficientOfVariation,
+  calibrateTopEndScore1000,
   continuousHeadroomCeiling,
   gradeForScore,
   median,
@@ -19,6 +20,16 @@ import {
   summarizeUpperReserve,
   summarizeVideo,
 } from "../lib/scoring.mjs";
+
+test("top-end calibration preserves ordinary scores and reserves exceptional headroom", () => {
+  assert.equal(calibrateTopEndScore1000(680), 680);
+  assert.equal(calibrateTopEndScore1000(900), 900);
+  assert.equal(calibrateTopEndScore1000(940), 930);
+  assert.equal(calibrateTopEndScore1000(950), 938);
+  assert.equal(calibrateTopEndScore1000(980), 960);
+  assert.equal(calibrateTopEndScore1000(990), 980);
+  assert.equal(calibrateTopEndScore1000(1000), 1000);
+});
 
 test("an upper reserve tier is isolated from ordinary category and headroom scoring", () => {
   const withoutReserve = summarizeLatencyTiers([
@@ -662,7 +673,7 @@ test("the final public score is derived from the hidden evidence matrix", () => 
   assert.equal(result.internalScoring.scale, 1000);
   assert.equal(
     result.internalScoring.aggregation,
-    "normalized-weighted-geometric-with-reserve-fill-v2",
+    "normalized-weighted-geometric-with-calibrated-top-range-v3",
   );
   assert.equal(result.internalScoring.publicScore, result.score);
   assert.ok(Math.abs(result.internalScoring.final / 10 - result.score) <= 0.5);
