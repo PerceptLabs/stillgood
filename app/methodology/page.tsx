@@ -398,10 +398,13 @@ export default function MethodologyPage() {
             PDF and image processing are preflighted before either side of the
             paired comparison is measured. PDF.js starts with its modern build
             and falls back by capability to the project&apos;s legacy-compatible
-            build when necessary. The selected component set is then frozen so
-            the unloaded and loaded observations always perform identical work.
-            If an optional component remains unavailable, it is reported and
-            omitted from both sides rather than failing or biasing the pair.
+            build when necessary. If a browser cannot initialize the dedicated
+            PDF worker, a final conservative legacy path disables optional
+            decoder accelerations and uses PDF.js&apos;s main-thread worker handler.
+            The selected component set is then frozen so the unloaded and loaded
+            observations always perform identical work. If an optional component
+            remains unavailable, it is reported and omitted from both sides
+            rather than failing or biasing the pair.
           </p>
           <h3>Cold stalls and steady behavior</h3>
           <p>

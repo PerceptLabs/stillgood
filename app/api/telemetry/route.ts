@@ -564,7 +564,18 @@ function sanitizeSubmission(payload: unknown) {
         pdfAvailable: Boolean(mixedReserve.pdfAvailable),
         pdfBuild: optionalConstrainedString(
           mixedReserve.pdfBuild,
-          ["modern", "legacy"],
+          ["modern", "legacy", "legacy-safe"],
+        ),
+        pdfFailureStage: optionalConstrainedString(
+          mixedReserve.pdfFailureStage,
+          [
+            "modern-load",
+            "modern-render",
+            "legacy-load",
+            "legacy-render",
+            "legacy-safe-load",
+            "legacy-safe-render",
+          ],
         ),
         fallbackUsed: Boolean(mixedReserve.fallbackUsed),
         advancedAvailable: Boolean(mixedReserve.advancedAvailable),
@@ -608,7 +619,18 @@ function sanitizeSubmission(payload: unknown) {
                 pdfAvailable: Boolean(level.pdfAvailable),
                 pdfBuild: optionalConstrainedString(
                   level.pdfBuild,
-                  ["modern", "legacy"],
+                  ["modern", "legacy", "legacy-safe"],
+                ),
+                pdfFailureStage: optionalConstrainedString(
+                  level.pdfFailureStage,
+                  [
+                    "modern-load",
+                    "modern-render",
+                    "legacy-load",
+                    "legacy-render",
+                    "legacy-safe-load",
+                    "legacy-safe-render",
+                  ],
                 ),
                 advancedAvailable: Boolean(level.advancedAvailable),
                 advancedBaselineP95Ms: finiteNumber(level.advancedBaselineP95Ms),

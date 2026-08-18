@@ -323,7 +323,15 @@ type MixedReserveLevel = {
   workerCount: number;
   pdfP95Ms: number | null;
   pdfAvailable: boolean;
-  pdfBuild: "modern" | "legacy" | null;
+  pdfBuild: "modern" | "legacy" | "legacy-safe" | null;
+  pdfFailureStage:
+    | "modern-load"
+    | "modern-render"
+    | "legacy-load"
+    | "legacy-render"
+    | "legacy-safe-load"
+    | "legacy-safe-render"
+    | null;
   advancedAvailable: boolean;
   advancedBaselineP95Ms: number | null;
   advancedLoadedP95Ms: number | null;
@@ -1745,7 +1753,12 @@ export function StillGoodApp() {
     onPhase("component-preflight");
     let pdfDocument: PdfBenchmarkDocument | null = null;
     let pdfLoadingTask: { destroy(): Promise<void> } | null = null;
-    let pdfBuild: "modern" | "legacy" | null = null;
+    let pdfBuild: "modern" | "legacy" | "legacy-safe" | null = null;
+    let pdfFailureStage: MixedReserveLevel["pdfFailureStage"] = null;
+    const pdfWorkerGlobal = globalThis as typeof globalThis & {
+      pdfjsWorker?: unknown;
+    };
+    const previousPdfjsWorker = pdfWorkerGlobal.pdfjsWorker;
     const clearPdf = async () => {
       const loadingTask = pdfLoadingTask;
       pdfLoadingTask = null;
@@ -1753,20 +1766,41 @@ export function StillGoodApp() {
       pdfBuild = null;
       await loadingTask?.destroy().catch(() => undefined);
     };
-    const loadPdf = async (build: "modern" | "legacy") => {
+    const loadPdf = async (
+      build: "modern" | "legacy",
+      compatibilityMode: "default" | "safe" = "default",
+    ) => {
       const pdfjs = build === "modern"
         ? await import("pdfjs-dist/build/pdf.mjs")
         : await import("pdfjs-dist/legacy/build/pdf.mjs");
+      if (compatibilityMode === "safe") {
+        // PDF.js checks this documented worker handler before attempting a
+        // dedicated worker. It gives Safari a real PDF.js main-thread path
+        // when module-worker startup is the incompatible component.
+        pdfWorkerGlobal.pdfjsWorker = await import(
+          "pdfjs-dist/legacy/build/pdf.worker.mjs"
+        );
+      }
       pdfjs.GlobalWorkerOptions.workerSrc =
         build === "modern" ? pdfWorkerUrl : legacyPdfWorkerUrl;
       const loadingTask = pdfjs.getDocument({
         data: buildBenchmarkPdf({ pageCount: 32, linesPerPage: 40, seed: 16450 }),
+        ...(compatibilityMode === "safe"
+          ? {
+              ownerDocument: document,
+              isOffscreenCanvasSupported: false,
+              isImageDecoderSupported: false,
+              useWorkerFetch: false,
+              useWasm: false,
+            }
+          : {}),
       });
       pdfLoadingTask = loadingTask;
       pdfDocument = (await loadingTask.promise) as PdfBenchmarkDocument;
-      pdfBuild = build;
+      pdfBuild = compatibilityMode === "safe" ? "legacy-safe" : build;
     };
     try {
+      pdfFailureStage = "modern-load";
       await loadPdf("modern");
     } catch {
       await clearPdf();
@@ -1848,17 +1882,20 @@ export function StillGoodApp() {
         page.cleanup?.();
       }
     };
+    if (pdfDocument) pdfFailureStage = "modern-render";
     const initialPreflight = await preflightOptionalReserveComponents({
       image: () => measureImageEdit(16470),
       pdf: pdfDocument ? () => measurePdfWork(16480) : null,
     });
-    let imageEditAvailable = initialPreflight.available.image;
+    const imageEditAvailable = initialPreflight.available.image;
     let pdfAvailable = initialPreflight.available.pdf;
 
     if (!pdfAvailable) {
       await clearPdf();
       try {
+        pdfFailureStage = "legacy-load";
         await loadPdf("legacy");
+        pdfFailureStage = "legacy-render";
         const legacyPreflight = await preflightOptionalReserveComponents({
           image: null,
           pdf: () => measurePdfWork(16490),
@@ -1869,6 +1906,22 @@ export function StillGoodApp() {
       }
       if (!pdfAvailable) await clearPdf();
     }
+    if (!pdfAvailable) {
+      try {
+        pdfFailureStage = "legacy-safe-load";
+        await loadPdf("legacy", "safe");
+        pdfFailureStage = "legacy-safe-render";
+        const safePreflight = await preflightOptionalReserveComponents({
+          image: null,
+          pdf: () => measurePdfWork(16500),
+        });
+        pdfAvailable = safePreflight.available.pdf;
+      } catch {
+        pdfAvailable = false;
+      }
+      if (!pdfAvailable) await clearPdf();
+    }
+    if (pdfAvailable) pdfFailureStage = null;
     const runJourneys = async (cycles: number) => {
       const actions: TimedSample["actions"] = [];
       const imageDurations: number[] = [];
@@ -2131,6 +2184,7 @@ export function StillGoodApp() {
         pdfP95Ms: loaded.pdfP95Ms,
         pdfAvailable,
         pdfBuild,
+        pdfFailureStage,
         memoryPressureMB: memoryWorker ? memoryPressureMB : 0,
         storagePressureMB: storageMeasurement?.sizeMB ?? 0,
         workerCount: pressureWorkers.length + (advancedWorker ? 1 : 0),
@@ -2199,7 +2253,7 @@ export function StillGoodApp() {
               !level.advancedAvailable ||
               !level.imageEditAvailable ||
               !level.pdfAvailable ||
-              level.pdfBuild === "legacy",
+              level.pdfBuild !== "modern",
           ),
         durationMs: levels.reduce((sum, level) => sum + level.durationMs, 0),
         levels,
@@ -2216,6 +2270,11 @@ export function StillGoodApp() {
     } finally {
       if (completed) onPhase("cleanup");
       await clearPdf();
+      if (previousPdfjsWorker === undefined) {
+        delete pdfWorkerGlobal.pdfjsWorker;
+      } else {
+        pdfWorkerGlobal.pdfjsWorker = previousPdfjsWorker;
+      }
       workersRef.current.forEach((worker) => worker.terminate());
       workersRef.current = [];
       if (completed) onPhase("complete");

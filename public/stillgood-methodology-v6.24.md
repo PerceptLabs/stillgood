@@ -93,6 +93,8 @@ offset or invented replacement measurement is applied.
 PDF and image processing are preflighted before either side of the paired
 comparison is measured. PDF.js starts with its modern build and falls back by
 capability to the project's legacy-compatible build when necessary. The
+final compatibility attempt disables optional decoder accelerations and uses
+PDF.js's main-thread worker handler when a dedicated PDF worker cannot run. The
 selected component set is then frozen so unloaded and loaded observations
 perform identical work. A component that remains unavailable is reported and
 omitted from both sides rather than failing or biasing the pair.
