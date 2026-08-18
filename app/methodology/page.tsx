@@ -394,6 +394,15 @@ export default function MethodologyPage() {
             result records the fallback; no browser receives an offset or an
             invented estimate for the missing component.
           </p>
+          <p>
+            PDF and image processing are preflighted before either side of the
+            paired comparison is measured. PDF.js starts with its modern build
+            and falls back by capability to the project&apos;s legacy-compatible
+            build when necessary. The selected component set is then frozen so
+            the unloaded and loaded observations always perform identical work.
+            If an optional component remains unavailable, it is reported and
+            omitted from both sides rather than failing or biasing the pair.
+          </p>
           <h3>Cold stalls and steady behavior</h3>
           <p>
             Canvas, WebAssembly, IndexedDB, and persistent-file paths receive

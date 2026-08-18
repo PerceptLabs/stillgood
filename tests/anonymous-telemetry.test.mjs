@@ -115,6 +115,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
           upperReserveRun: {
             triggered: true,
             status: "completed-with-fallback",
+            phase: "complete",
             failureCode: null,
             privateError: "must-not-survive",
           },
@@ -133,7 +134,11 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
             worstFrameMs: 48,
             videoDroppedRatio: 0.004,
             imageEditP95Ms: 82,
+            imageEditAvailable: true,
             pdfP95Ms: 96,
+            pdfAvailable: true,
+            pdfBuild: "legacy",
+            fallbackUsed: true,
             advancedAvailable: true,
             advancedBaselineP95Ms: 240,
             advancedLoadedP95Ms: 360,
@@ -211,6 +216,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
   assert.deepEqual(telemetry.outcome.reserveExecution, {
     attempted: true,
     status: "completed-with-fallback",
+    phase: "complete",
     failureCode: null,
   });
   assert.deepEqual(telemetry.outcome.boundaryConfirmation, {
@@ -240,7 +246,11 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
     worstFrameMs: 48,
     videoDroppedRatio: 0.004,
     imageEditP95Ms: 82,
+    imageEditAvailable: true,
     pdfP95Ms: 96,
+    pdfAvailable: true,
+    pdfBuild: "legacy",
+    fallbackUsed: true,
     advancedAvailable: true,
     advancedBaselineP95Ms: 240,
     advancedLoadedP95Ms: 360,

@@ -147,6 +147,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
           reserveExecution: {
             attempted: true,
             status: "completed-with-fallback",
+            phase: "complete",
             failureCode: null,
             privateError: "must-not-be-stored",
           },
@@ -156,6 +157,10 @@ test("anonymous telemetry stores only the server allowlist", async () => {
             loadedP95Ms: 92,
             slowdownRatio: 2.42,
             onTimeRatio: 0.94,
+            imageEditAvailable: true,
+            pdfAvailable: true,
+            pdfBuild: "legacy",
+            fallbackUsed: true,
             privateNote: "must-not-be-stored",
           },
           categories: {},
@@ -248,6 +253,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(serializedBindings, /setupMs/);
   assert.match(serializedBindings, /upperReserve/);
   assert.match(serializedBindings, /completed-with-fallback/);
+  assert.match(serializedBindings, /legacy/);
   assert.match(serializedBindings, /mixedReserve/);
   assert.match(serializedBindings, /7\.0\.0-shadow\.1/);
   assert.match(serializedBindings, /systemIndex/);

@@ -90,6 +90,13 @@ foreground journeys, memory, storage, image, PDF, and video pressure that
 remain available. The fallback is recorded, and no browser-specific score
 offset or invented replacement measurement is applied.
 
+PDF and image processing are preflighted before either side of the paired
+comparison is measured. PDF.js starts with its modern build and falls back by
+capability to the project's legacy-compatible build when necessary. The
+selected component set is then frozen so unloaded and loaded observations
+perform identical work. A component that remains unavailable is reported and
+omitted from both sides rather than failing or biasing the pair.
+
 In internal 0-to-1000 units, the final calculation is:
 
 ```text

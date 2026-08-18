@@ -9,6 +9,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import legacyPdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
 import {
   median,
   percentile,
@@ -62,6 +63,7 @@ import {
   writingActionNames,
 } from "@/lib/office-workloads.mjs";
 import { buildBenchmarkPdf } from "@/lib/advanced-workloads.mjs";
+import { preflightOptionalReserveComponents } from "@/lib/reserve-component-preflight.mjs";
 
 type Phase = "home" | "prepare" | "run" | "result";
 type StageId =
@@ -314,11 +316,14 @@ type MixedReserveLevel = {
   longFrameRatio: number;
   worstFrameMs: number;
   videoDroppedRatio: number | null;
-  imageEditP95Ms: number;
+  imageEditP95Ms: number | null;
+  imageEditAvailable: boolean;
   memoryPressureMB: number;
   storagePressureMB: number;
   workerCount: number;
   pdfP95Ms: number | null;
+  pdfAvailable: boolean;
+  pdfBuild: "modern" | "legacy" | null;
   advancedAvailable: boolean;
   advancedBaselineP95Ms: number | null;
   advancedLoadedP95Ms: number | null;
@@ -336,8 +341,18 @@ type MixedReserveLevel = {
 type MixedReserveResult = MixedReserveLevel & {
   tested: true;
   paired: true;
+  fallbackUsed: boolean;
   levels: MixedReserveLevel[];
 };
+type ReservePhase =
+  | "not-started"
+  | "component-preflight"
+  | "advanced-baseline"
+  | "paired-baseline"
+  | "pressure-setup"
+  | "paired-loaded"
+  | "cleanup"
+  | "complete";
 type AdvancedWorkSummary = {
   medianMs: number;
   p95Ms: number;
@@ -372,6 +387,7 @@ type PdfBenchmarkDocument = {
       canvasContext: CanvasRenderingContext2D;
       viewport: { width: number; height: number };
     }): { promise: Promise<void> };
+    cleanup?(): void;
   }>;
 };
 type TierSummary = {
@@ -1704,10 +1720,12 @@ export function StillGoodApp() {
     cadenceMs,
     reportedMemoryGB,
     storageTierIndex,
+    onPhase,
   }: {
     cadenceMs: number;
     reportedMemoryGB: number | null;
     storageTierIndex: number;
+    onPhase: (phase: ReservePhase) => void;
   }) {
     const mixedTiers = {
       browsing: browsingTiers[3],
@@ -1724,21 +1742,37 @@ export function StillGoodApp() {
         mixedTiers.spreadsheets.size,
       ),
     };
+    onPhase("component-preflight");
     let pdfDocument: PdfBenchmarkDocument | null = null;
     let pdfLoadingTask: { destroy(): Promise<void> } | null = null;
-    try {
-      const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
-      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+    let pdfBuild: "modern" | "legacy" | null = null;
+    const clearPdf = async () => {
+      const loadingTask = pdfLoadingTask;
+      pdfLoadingTask = null;
+      pdfDocument = null;
+      pdfBuild = null;
+      await loadingTask?.destroy().catch(() => undefined);
+    };
+    const loadPdf = async (build: "modern" | "legacy") => {
+      const pdfjs = build === "modern"
+        ? await import("pdfjs-dist/build/pdf.mjs")
+        : await import("pdfjs-dist/legacy/build/pdf.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc =
+        build === "modern" ? pdfWorkerUrl : legacyPdfWorkerUrl;
       const loadingTask = pdfjs.getDocument({
         data: buildBenchmarkPdf({ pageCount: 32, linesPerPage: 40, seed: 16450 }),
-        isEvalSupported: false,
       });
       pdfLoadingTask = loadingTask;
       pdfDocument = (await loadingTask.promise) as PdfBenchmarkDocument;
+      pdfBuild = build;
+    };
+    try {
+      await loadPdf("modern");
     } catch {
-      // The reserve remains valid without PDF evidence, but reports it as unavailable.
-      pdfDocument = null;
+      await clearPdf();
     }
+
+    const executeReserve = async () => {
 
     const createAdvancedWorker = () => {
       try {
@@ -1784,30 +1818,57 @@ export function StillGoodApp() {
       const started = performance.now();
       const pageNumber = 1 + ((seed * 7) % pdfDocument.numPages);
       const page = await pdfDocument.getPage(pageNumber);
-      const textContent = await page.getTextContent();
-      const text = textContent.items.map((item) => item.str ?? "").join(" ");
-      const viewport = page.getViewport({ scale: 1.15 });
       const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(viewport.width);
-      canvas.height = Math.ceil(viewport.height);
-      const context = canvas.getContext("2d", { alpha: false });
-      if (!context) throw new Error("PDF rendering canvas unavailable");
-      await page.render({ canvas, canvasContext: context, viewport }).promise;
-      const workMs = performance.now() - started;
-      setVisualTick((value) => value + 1);
-      await nextPaint();
-      const durationMs = performance.now() - started;
-      return {
-        name: "Open, search, and render a large PDF",
-        durationMs,
-        workMs,
-        presentationMs: Math.max(0, durationMs - workMs),
-        checksum:
-          text.length +
-          (text.includes("SECOND-LIFE CHECKPOINT") ? 8191 : 0) +
-          pageNumber,
-      };
+      try {
+        const textContent = await page.getTextContent();
+        const text = textContent.items.map((item) => item.str ?? "").join(" ");
+        const viewport = page.getViewport({ scale: 1.15 });
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) throw new Error("PDF rendering canvas unavailable");
+        await page.render({ canvas, canvasContext: context, viewport }).promise;
+        const workMs = performance.now() - started;
+        setVisualTick((value) => value + 1);
+        await nextPaint();
+        const durationMs = performance.now() - started;
+        return {
+          name: "Open, search, and render a large PDF",
+          durationMs,
+          workMs,
+          presentationMs: Math.max(0, durationMs - workMs),
+          checksum:
+            text.length +
+            (text.includes("SECOND-LIFE CHECKPOINT") ? 8191 : 0) +
+            pageNumber,
+        };
+      } finally {
+        canvas.width = 0;
+        canvas.height = 0;
+        page.cleanup?.();
+      }
     };
+    const initialPreflight = await preflightOptionalReserveComponents({
+      image: () => measureImageEdit(16470),
+      pdf: pdfDocument ? () => measurePdfWork(16480) : null,
+    });
+    let imageEditAvailable = initialPreflight.available.image;
+    let pdfAvailable = initialPreflight.available.pdf;
+
+    if (!pdfAvailable) {
+      await clearPdf();
+      try {
+        await loadPdf("legacy");
+        const legacyPreflight = await preflightOptionalReserveComponents({
+          image: null,
+          pdf: () => measurePdfWork(16490),
+        });
+        pdfAvailable = legacyPreflight.available.pdf;
+      } catch {
+        pdfAvailable = false;
+      }
+      if (!pdfAvailable) await clearPdf();
+    }
     const runJourneys = async (cycles: number) => {
       const actions: TimedSample["actions"] = [];
       const imageDurations: number[] = [];
@@ -1820,13 +1881,17 @@ export function StillGoodApp() {
           await measureJourney("spreadsheets", mixedTiers.spreadsheets, 17300 + cycle, datasets.spreadsheets),
         ];
         journeys.forEach((journey) => actions.push(...journey.actions));
-        const imageAction = await measureImageEdit(17400 + cycle);
-        actions.push(imageAction);
-        imageDurations.push(imageAction.durationMs);
-        const pdfAction = await measurePdfWork(17500 + cycle);
-        if (pdfAction) {
-          actions.push(pdfAction);
-          pdfDurations.push(pdfAction.durationMs);
+        if (imageEditAvailable) {
+          const imageAction = await measureImageEdit(17400 + cycle);
+          actions.push(imageAction);
+          imageDurations.push(imageAction.durationMs);
+        }
+        if (pdfAvailable) {
+          const pdfAction = await measurePdfWork(17500 + cycle);
+          if (pdfAction) {
+            actions.push(pdfAction);
+            pdfDurations.push(pdfAction.durationMs);
+          }
         }
         await sleep(90);
       }
@@ -1837,7 +1902,9 @@ export function StillGoodApp() {
         durations,
         p95Ms: percentile(durations, 0.95),
         worstMs: Math.max(...durations, 0),
-        imageEditP95Ms: percentile(imageDurations, 0.95),
+        imageEditP95Ms: imageDurations.length
+          ? percentile(imageDurations, 0.95)
+          : null,
         pdfP95Ms: pdfDurations.length ? percentile(pdfDurations, 0.95) : null,
       };
     };
@@ -1851,6 +1918,7 @@ export function StillGoodApp() {
       const extended = id === "extended";
       const workerCount = extended ? 4 : 2;
       const advancedDurationMs = extended ? 10000 : 7000;
+      onPhase("advanced-baseline");
       setStatus(
         extended
           ? "Preparing the higher advanced-work baseline"
@@ -1877,6 +1945,7 @@ export function StillGoodApp() {
           ? "Measuring the higher level without overlapping work"
           : "Measuring the same actions without overlapping work",
       );
+      onPhase("paired-baseline");
       const baselineResult = await runJourneys(2);
       const memoryPressureMB = extended
         ? reportedMemoryGB === 4
@@ -1886,6 +1955,7 @@ export function StillGoodApp() {
           ? 384
           : 512;
       const storagePressureMB = extended ? 128 : 64;
+      onPhase("pressure-setup");
       const pressureWorkers = Array.from(
         { length: workerCount - 1 },
         (_, index) => {
@@ -1970,6 +2040,7 @@ export function StillGoodApp() {
           ? "Escalating to a higher reserve check"
           : "Comparing the same actions while several jobs overlap",
       );
+      onPhase("paired-loaded");
       requestAnimationFrame(monitor);
       const started = performance.now();
       let loaded: Awaited<ReturnType<typeof runJourneys>>;
@@ -2056,7 +2127,10 @@ export function StillGoodApp() {
         worstFrameMs: frameSummary.worstFrameMs,
         videoDroppedRatio: videoFrames > 0 ? videoDropped / videoFrames : null,
         imageEditP95Ms: loaded.imageEditP95Ms,
+        imageEditAvailable,
         pdfP95Ms: loaded.pdfP95Ms,
+        pdfAvailable,
+        pdfBuild,
         memoryPressureMB: memoryWorker ? memoryPressureMB : 0,
         storagePressureMB: storageMeasurement?.sizeMB ?? 0,
         workerCount: pressureWorkers.length + (advancedWorker ? 1 : 0),
@@ -2119,12 +2193,33 @@ export function StillGoodApp() {
         ...finalLevel,
         tested: true,
         paired: true,
+        fallbackUsed:
+          levels.some(
+            (level) =>
+              !level.advancedAvailable ||
+              !level.imageEditAvailable ||
+              !level.pdfAvailable ||
+              level.pdfBuild === "legacy",
+          ),
         durationMs: levels.reduce((sum, level) => sum + level.durationMs, 0),
         levels,
       } satisfies MixedReserveResult,
     };
-    await pdfLoadingTask?.destroy().catch(() => undefined);
     return output;
+    };
+
+    let completed = false;
+    try {
+      const output = await executeReserve();
+      completed = true;
+      return output;
+    } finally {
+      if (completed) onPhase("cleanup");
+      await clearPdf();
+      workersRef.current.forEach((worker) => worker.terminate());
+      workersRef.current = [];
+      if (completed) onPhase("complete");
+    }
   }
 
   async function measureRecovery() {
@@ -3034,6 +3129,7 @@ export function StillGoodApp() {
         triggered: upperReservePlan.needed,
         reason: upperReservePlan.reason,
         status: upperReservePlan.needed ? "started" : "not-qualified",
+        phase: "not-started" as ReservePhase,
         failureCode: null as string | null,
         scoreBefore: summary.score,
         gradeBefore: summary.grade,
@@ -3053,13 +3149,14 @@ export function StillGoodApp() {
             cadenceMs,
             reportedMemoryGB,
             storageTierIndex: opfsStorageTiers.length,
+            onPhase: (phase) => {
+              upperReserveRun.phase = phase;
+            },
           });
           mixedReserve = measured.result;
-          upperReserveRun.status = measured.result.levels.every(
-            (level) => level.advancedAvailable,
-          )
-            ? "completed"
-            : "completed-with-fallback";
+          upperReserveRun.status = measured.result.fallbackUsed
+            ? "completed-with-fallback"
+            : "completed";
         } catch (error) {
           mixedReserve = null;
           upperReserveRun.status = "failed";
