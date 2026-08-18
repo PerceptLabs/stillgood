@@ -112,6 +112,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
           },
         },
         raw: {
+          interruptionCount: 2,
           upperReserveRun: {
             triggered: true,
             status: "completed-with-fallback",
@@ -208,6 +209,7 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
   assert.equal(telemetry.shadow.publicScoreAffected, false);
   assert.equal(telemetry.evidence.memoryTiers[0].allocator, "webassembly");
   assert.equal(telemetry.evidence.browsingTiers[0].setupMs, 4200);
+  assert.equal(telemetry.integrity.interruptionCount, 2);
   assert.deepEqual(telemetry.outcome.upperReserve, {
     tested: true,
     score: 84,

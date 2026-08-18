@@ -204,7 +204,10 @@ terminate and reload the browser page under memory pressure before JavaScript
 receives a catchable allocation error. The bounded path still measures page
 commit, working-set sweeps, object churn, foreground delay, and recovery. It is
 reported as stability within a browser-safe range and does not invent a
-physical-memory ceiling or impose a capacity-based grade ceiling.
+physical-memory ceiling. A result on this path can reach A− from ordinary work.
+Entry into A or A+ additionally requires a successful mixed-work reserve stage,
+using a smaller retained-memory component alongside the same application,
+worker, storage, media, image, and available PDF work.
 
 Version 6.13 groups the evidence without changing Chromium's established
 calculation:

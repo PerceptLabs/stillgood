@@ -68,6 +68,21 @@ test("one weak core area blocks a misleading top-end extension", () => {
   assert.equal(plan.reason, "core-work-below-gate");
 });
 
+test("a safely bounded mobile memory probe can qualify for equivalent reserve work", () => {
+  const plan = planUpperReserve(
+    strongSummary({
+      memory: {
+        available: true,
+        capacityProbeCapped: true,
+        topGradeEligible: false,
+      },
+    }),
+  );
+
+  assert.equal(plan.needed, true);
+  assert.equal(plan.reason, "upper-range-qualified");
+});
+
 test("noisy runs are not made longer", () => {
   const plan = planUpperReserve(strongSummary({ confidence: "Medium" }));
   assert.equal(plan.needed, false);

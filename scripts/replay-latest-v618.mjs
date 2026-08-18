@@ -57,6 +57,7 @@ function replay(payload, reserveEvaluationComplete) {
     multitaskTiers: evidence.multitaskTiers ?? [],
     memoryTiers: evidence.memoryTiers ?? [],
     memorySupported: integrity.memorySupported,
+    memoryCapacityProbeCapped: integrity.memoryCapacityProbeCapped,
     reportedMemoryGB: memoryClass(payload.context?.reportedMemoryClass),
     storageTiers: evidence.storageTiers ?? [],
     strictStorageTiers: evidence.strictStorageTiers ?? [],

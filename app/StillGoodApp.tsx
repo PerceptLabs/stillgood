@@ -2007,12 +2007,12 @@ export function StillGoodApp() {
       const baselineResult = await runJourneys(2);
       const memoryPressureMB = extended
         ? memoryCapacityProbeCapped
-          ? 512
+          ? 384
           : reportedMemoryGB === 4
           ? 512
           : 768
         : memoryCapacityProbeCapped
-          ? 384
+          ? 256
           : reportedMemoryGB === 4
           ? 384
           : 512;

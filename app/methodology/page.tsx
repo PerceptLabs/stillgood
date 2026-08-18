@@ -448,9 +448,12 @@ export default function MethodologyPage() {
             steady stage becomes a browser-reserve class and controls
             eligibility for the highest grades when the full capacity path is
             safe to run. A safety-bounded mobile result describes stability in
-            the tested range without inventing either a physical-memory ceiling
-            or a score penalty. Allocation success by itself is not counted as
-            proof of physical memory.
+            the tested range without inventing a physical-memory ceiling. It can
+            reach the A range by completing an equivalent mixed-work reserve
+            check with a smaller retained-memory component. Until then, the
+            unverified capacity evidence is reported separately and the result
+            can reach A−. Allocation success by itself is not counted as proof
+            of physical memory.
           </p>
         </section>
 

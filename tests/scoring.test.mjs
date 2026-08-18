@@ -483,6 +483,72 @@ test("a safety-bounded mobile memory probe does not invent a physical-memory cei
   assert.equal(bounded.reserveLabel, "Stable in browser-safe range");
 });
 
+test("A-range capability requires safe reserve evidence when memory capacity is bounded", () => {
+  const metrics = fullMetrics([
+    [34, 36, 38],
+    [38, 40, 42],
+    [42, 44, 46],
+    [46, 48, 50],
+    [50, 52, 54],
+  ]);
+  metrics.memorySupported = true;
+  metrics.memoryCapacityProbeCapped = true;
+  metrics.memoryTiers = stableMemoryTiers([128, 256, 384, 512]);
+  metrics.graphicsTiers = metrics.graphicsTiers.map((tier) => ({
+    ...tier,
+    onTimeRatio: 1,
+    longFrameRatio: 0,
+  }));
+  metrics.videoTiers = metrics.videoTiers.map((tier) => ({
+    ...tier,
+    droppedRatio: 0,
+    stalls: 0,
+  }));
+  metrics.recoveryMs = 300;
+  metrics.reserveEvaluationComplete = true;
+  const withoutReserve = summarizeThoroughRun(metrics);
+
+  const withReserveMetrics = structuredClone(metrics);
+  withReserveMetrics.mixedReserve = {
+    tested: true,
+    paired: true,
+    levels: [{
+      id: "standard",
+      loadedP95Ms: 32,
+      loadedWorstMs: 58,
+      slowdownRatio: 1.18,
+      onTimeRatio: 0.99,
+      advancedAvailable: true,
+      advancedLoadedP95Ms: 180,
+      advancedSlowdownRatio: 1.2,
+      advancedStartupMs: 350,
+    }],
+  };
+  const withReserve = summarizeThoroughRun(withReserveMetrics);
+
+  assert.ok(withoutReserve.score <= 93);
+  assert.equal(withoutReserve.grade, "A-");
+  assert.equal(
+    withoutReserve.internalScoring.broadCapabilityEvidence.ceiling1000,
+    930,
+  );
+  assert.equal(
+    withoutReserve.internalScoring.broadCapabilityEvidence.reserveVerified,
+    false,
+  );
+  assert.equal(withReserve.upperReserve.tested, true);
+  assert.ok(withReserve.upperReserve.score >= 88);
+  assert.equal(
+    withReserve.internalScoring.broadCapabilityEvidence.applied,
+    false,
+  );
+  assert.equal(
+    withReserve.internalScoring.broadCapabilityEvidence.ceiling1000,
+    1000,
+  );
+  assert.ok(withReserve.score >= withoutReserve.score);
+});
+
 test("persistent storage scoring distinguishes quick and delayed durable saves", () => {
   const bulk = [
     { id: "1", label: "1 MB", writeMs: 40, readMs: 10 },
