@@ -1740,11 +1740,25 @@ export function StillGoodApp() {
       pdfDocument = null;
     }
 
-    const createAdvancedWorker = () =>
-      new Worker(
-        new URL("../lib/advanced-benchmark-worker.ts", import.meta.url),
-        { type: "module" },
-      );
+    const createAdvancedWorker = () => {
+      try {
+        return new Worker(
+          new URL("../lib/advanced-benchmark-worker.ts", import.meta.url),
+          { type: "module" },
+        );
+      } catch {
+        // Some otherwise-capable browsers can reject a bundled module worker.
+        // Advanced Wasm evidence is optional; the paired reserve check is not.
+        return null;
+      }
+    };
+    const createClassicWorker = () => {
+      try {
+        return new Worker("/benchmark-worker.js");
+      } catch {
+        return null;
+      }
+    };
     const runAdvancedWorker = (
       worker: Worker,
       level: "standard" | "extended",
@@ -1843,17 +1857,21 @@ export function StillGoodApp() {
           : "Preparing advanced web work for a paired comparison",
       );
       const advancedBaselineWorker = createAdvancedWorker();
-      workersRef.current.push(advancedBaselineWorker);
-      const advancedBaseline = await runAdvancedWorker(
-        advancedBaselineWorker,
-        id,
-        advancedDurationMs,
-        "baseline",
-      ).catch(() => null);
-      advancedBaselineWorker.terminate();
-      workersRef.current = workersRef.current.filter(
-        (worker) => worker !== advancedBaselineWorker,
-      );
+      if (advancedBaselineWorker) workersRef.current.push(advancedBaselineWorker);
+      const advancedBaseline = advancedBaselineWorker
+        ? await runAdvancedWorker(
+            advancedBaselineWorker,
+            id,
+            advancedDurationMs,
+            "baseline",
+          ).catch(() => null)
+        : null;
+      advancedBaselineWorker?.terminate();
+      if (advancedBaselineWorker) {
+        workersRef.current = workersRef.current.filter(
+          (worker) => worker !== advancedBaselineWorker,
+        );
+      }
       setStatus(
         extended
           ? "Measuring the higher level without overlapping work"
@@ -1868,24 +1886,28 @@ export function StillGoodApp() {
           ? 384
           : 512;
       const storagePressureMB = extended ? 128 : 64;
-      const pressureWorkers = Array.from({ length: workerCount - 1 }, (_, index) => {
-        const worker = new Worker("/benchmark-worker.js");
-        worker.postMessage({
-          type: "start",
-          seed: 16500 + index + (extended ? 100 : 0),
-          workUnits: extended ? 38 : 24,
-          durationMs: 35000,
-        });
-        return worker;
-      });
+      const pressureWorkers = Array.from(
+        { length: workerCount - 1 },
+        (_, index) => {
+          const worker = createClassicWorker();
+          if (!worker) return null;
+          worker.postMessage({
+            type: "start",
+            seed: 16500 + index + (extended ? 100 : 0),
+            workUnits: extended ? 38 : 24,
+            durationMs: 35000,
+          });
+          return worker;
+        },
+      ).filter((worker): worker is Worker => worker !== null);
       const advancedWorker = createAdvancedWorker();
-      const memoryWorker = new Worker("/benchmark-worker.js");
-      const storageWorker = new Worker("/benchmark-worker.js");
+      const memoryWorker = createClassicWorker();
+      const storageWorker = createClassicWorker();
       workersRef.current.push(
         ...pressureWorkers,
-        advancedWorker,
-        memoryWorker,
-        storageWorker,
+        ...[advancedWorker, memoryWorker, storageWorker].filter(
+          (worker): worker is Worker => worker !== null,
+        ),
       );
       const intervals: number[] = [];
       let monitoring = true;
@@ -1917,26 +1939,32 @@ export function StillGoodApp() {
         qualityBefore = video.getVideoPlaybackQuality?.();
         await video.play().catch(() => undefined);
       }
-      try {
-        await runMemoryTier(memoryWorker, memoryPressureMB, extended ? 1 : 0);
-      } catch {
-        // Other overlapping pressure remains valid when allocation is limited.
+      if (memoryWorker) {
+        try {
+          await runMemoryTier(memoryWorker, memoryPressureMB, extended ? 1 : 0);
+        } catch {
+          // Other overlapping pressure remains valid when allocation is limited.
+        }
       }
       await sleep(250);
       // Start persistent I/O immediately before the paired loaded journeys so
       // fast storage cannot finish while the memory working set is prepared.
-      const storagePromise = runOpfsStorageTier(
-        storageWorker,
-        storagePressureMB,
-        extended ? 384 : 256,
-        storageTierIndex + (extended ? 1 : 0),
-      ).catch(() => null);
-      const advancedPromise = runAdvancedWorker(
-        advancedWorker,
-        id,
-        advancedDurationMs,
-        "loaded",
-      ).catch(() => null);
+      const storagePromise = storageWorker
+        ? runOpfsStorageTier(
+            storageWorker,
+            storagePressureMB,
+            extended ? 384 : 256,
+            storageTierIndex + (extended ? 1 : 0),
+          ).catch(() => null)
+        : Promise.resolve(null);
+      const advancedPromise = advancedWorker
+        ? runAdvancedWorker(
+            advancedWorker,
+            id,
+            advancedDurationMs,
+            "loaded",
+          ).catch(() => null)
+        : Promise.resolve(null);
       setStatus(
         extended
           ? "Escalating to a higher reserve check"
@@ -1959,21 +1987,23 @@ export function StillGoodApp() {
           worker.postMessage({ type: "cancel" });
           worker.terminate();
         });
-        advancedWorker.terminate();
+        advancedWorker?.terminate();
       }
       const storageMeasurement = await storagePromise;
-      try {
-        await requestWorkerResult(
-          memoryWorker,
-          { type: "memory-release", requestId: `mixed-release-${Date.now()}` },
-          "memory-released",
-          3000,
-        );
-      } catch {
-        // Termination below releases the temporary working set.
+      if (memoryWorker) {
+        try {
+          await requestWorkerResult(
+            memoryWorker,
+            { type: "memory-release", requestId: `mixed-release-${Date.now()}` },
+            "memory-released",
+            3000,
+          );
+        } catch {
+          // Termination below releases the temporary working set.
+        }
       }
-      memoryWorker.terminate();
-      storageWorker.terminate();
+      memoryWorker?.terminate();
+      storageWorker?.terminate();
       workersRef.current = workersRef.current.filter(
         (worker) =>
           !pressureWorkers.includes(worker) &&
@@ -2027,9 +2057,9 @@ export function StillGoodApp() {
         videoDroppedRatio: videoFrames > 0 ? videoDropped / videoFrames : null,
         imageEditP95Ms: loaded.imageEditP95Ms,
         pdfP95Ms: loaded.pdfP95Ms,
-        memoryPressureMB,
+        memoryPressureMB: memoryWorker ? memoryPressureMB : 0,
         storagePressureMB: storageMeasurement?.sizeMB ?? 0,
-        workerCount,
+        workerCount: pressureWorkers.length + (advancedWorker ? 1 : 0),
         advancedAvailable:
           advancedBaselineP95Ms !== null && advancedLoadedP95Ms !== null,
         advancedBaselineP95Ms,
@@ -3003,6 +3033,8 @@ export function StillGoodApp() {
       const upperReserveRun = {
         triggered: upperReservePlan.needed,
         reason: upperReservePlan.reason,
+        status: upperReservePlan.needed ? "started" : "not-qualified",
+        failureCode: null as string | null,
         scoreBefore: summary.score,
         gradeBefore: summary.grade,
         scoreAfter: summary.score,
@@ -3023,8 +3055,22 @@ export function StillGoodApp() {
             storageTierIndex: opfsStorageTiers.length,
           });
           mixedReserve = measured.result;
-        } catch {
+          upperReserveRun.status = measured.result.levels.every(
+            (level) => level.advancedAvailable,
+          )
+            ? "completed"
+            : "completed-with-fallback";
+        } catch (error) {
           mixedReserve = null;
+          upperReserveRun.status = "failed";
+          const message = error instanceof Error ? error.message : String(error);
+          upperReserveRun.failureCode = /worker/i.test(message)
+            ? "worker-runtime"
+            : /timed out/i.test(message)
+              ? "timeout"
+              : /storage|file|opfs/i.test(message)
+                ? "storage-runtime"
+                : "unknown-runtime";
         }
         if (cancelledRef.current) return;
         setStatus("Checking how quickly normal response returns");

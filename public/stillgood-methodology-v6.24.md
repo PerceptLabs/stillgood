@@ -84,6 +84,12 @@ to another 20% of the remaining distance. A missing, unsupported, interrupted,
 or weak reserve contributes zero and never subtracts from the established
 everyday result.
 
+The advanced module worker is optional evidence rather than a browser gate. If
+it cannot start, the paired reserve stage continues with the compatible worker,
+foreground journeys, memory, storage, image, PDF, and video pressure that
+remain available. The fallback is recorded, and no browser-specific score
+offset or invented replacement measurement is applied.
+
 In internal 0-to-1000 units, the final calculation is:
 
 ```text

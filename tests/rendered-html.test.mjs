@@ -144,6 +144,12 @@ test("anonymous telemetry stores only the server allowlist", async () => {
               { id: "private-component", score: 100 },
             ],
           },
+          reserveExecution: {
+            attempted: true,
+            status: "completed-with-fallback",
+            failureCode: null,
+            privateError: "must-not-be-stored",
+          },
           mixedReserve: {
             tested: true,
             baselineP95Ms: 38,
@@ -241,6 +247,7 @@ test("anonymous telemetry stores only the server allowlist", async () => {
   assert.match(serializedBindings, /scoreBefore/);
   assert.match(serializedBindings, /setupMs/);
   assert.match(serializedBindings, /upperReserve/);
+  assert.match(serializedBindings, /completed-with-fallback/);
   assert.match(serializedBindings, /mixedReserve/);
   assert.match(serializedBindings, /7\.0\.0-shadow\.1/);
   assert.match(serializedBindings, /systemIndex/);
@@ -262,6 +269,7 @@ test("server-renders the public methodology whitepaper", async () => {
   assert.match(html, /no post-score browser normalization/);
   assert.match(html, /Everyday capability and performance reserve/);
   assert.match(html, /Mixed-workload reserve confirmation/);
+  assert.match(html, /optional evidence, not a browser gate/);
   assert.match(html, /Cold stalls and steady behavior/);
   assert.match(html, /smooth ceiling/);
   assert.match(html, /Memory hint and measured reserve/);

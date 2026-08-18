@@ -389,6 +389,7 @@ function sanitizeSubmission(payload: unknown) {
   const responsiveness = objectValue(outcome.responsiveness);
   const headroom = objectValue(outcome.headroom);
   const upperReserve = objectValue(outcome.upperReserve);
+  const reserveExecution = objectValue(outcome.reserveExecution);
   const mixedReserve = objectValue(outcome.mixedReserve);
   const boundaryConfirmation = objectValue(outcome.boundaryConfirmation);
   const categories = objectValue(outcome.categories);
@@ -503,6 +504,30 @@ function sanitizeSubmission(payload: unknown) {
               ];
             })
           : [],
+      },
+      reserveExecution: {
+        attempted: Boolean(reserveExecution.attempted),
+        status: constrainedString(
+          reserveExecution.status,
+          [
+            "unknown",
+            "not-qualified",
+            "started",
+            "completed",
+            "completed-with-fallback",
+            "failed",
+          ],
+          "unknown",
+        ),
+        failureCode: optionalConstrainedString(
+          reserveExecution.failureCode,
+          [
+            "worker-runtime",
+            "timeout",
+            "storage-runtime",
+            "unknown-runtime",
+          ],
+        ),
       },
       mixedReserve: {
         tested: Boolean(mixedReserve.tested),

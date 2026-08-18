@@ -112,6 +112,12 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
           },
         },
         raw: {
+          upperReserveRun: {
+            triggered: true,
+            status: "completed-with-fallback",
+            failureCode: null,
+            privateError: "must-not-survive",
+          },
           mixedReserve: {
             tested: true,
             durationMs: 12040,
@@ -201,6 +207,11 @@ test("anonymous telemetry excludes exact identity and full browser strings", () 
     score: 84,
     gradeCeiling: 96,
     components: [{ id: "multitasking", score: 79 }],
+  });
+  assert.deepEqual(telemetry.outcome.reserveExecution, {
+    attempted: true,
+    status: "completed-with-fallback",
+    failureCode: null,
   });
   assert.deepEqual(telemetry.outcome.boundaryConfirmation, {
     triggered: true,

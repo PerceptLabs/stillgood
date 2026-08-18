@@ -386,6 +386,14 @@ export default function MethodologyPage() {
             and cannot raise the ordinary browsing, office, media, memory, or
             storage scores. A larger variant runs only at the second reserve level.
           </p>
+          <p>
+            The advanced module worker is optional evidence, not a browser gate.
+            If a browser cannot start that worker, StillGood continues the same
+            paired foreground journeys with the compatible worker, memory,
+            storage, image, PDF, and video pressure that remains available. The
+            result records the fallback; no browser receives an offset or an
+            invented estimate for the missing component.
+          </p>
           <h3>Cold stalls and steady behavior</h3>
           <p>
             Canvas, WebAssembly, IndexedDB, and persistent-file paths receive
