@@ -27,7 +27,10 @@ import {
   planUpperReserve,
   shouldRunExtendedReserve,
 } from "@/lib/upper-reserve.mjs";
-import { compatibilityAdapterProfile } from "@/lib/benchmark-compatibility.mjs";
+import {
+  compatibilityAdapterProfile,
+  planMemoryPressureLevels,
+} from "@/lib/benchmark-compatibility.mjs";
 import { browserEvidenceProfile } from "@/lib/browser-evidence-policy.mjs";
 import { buildAnonymousTelemetry } from "@/lib/anonymous-telemetry.mjs";
 import {
@@ -1727,11 +1730,13 @@ export function StillGoodApp() {
   async function runMixedReserveStage({
     cadenceMs,
     reportedMemoryGB,
+    memoryCapacityProbeCapped,
     storageTierIndex,
     onPhase,
   }: {
     cadenceMs: number;
     reportedMemoryGB: number | null;
+    memoryCapacityProbeCapped: boolean;
     storageTierIndex: number;
     onPhase: (phase: ReservePhase) => void;
   }) {
@@ -2001,10 +2006,14 @@ export function StillGoodApp() {
       onPhase("paired-baseline");
       const baselineResult = await runJourneys(2);
       const memoryPressureMB = extended
-        ? reportedMemoryGB === 4
+        ? memoryCapacityProbeCapped
+          ? 512
+          : reportedMemoryGB === 4
           ? 512
           : 768
-        : reportedMemoryGB === 4
+        : memoryCapacityProbeCapped
+          ? 384
+          : reportedMemoryGB === 4
           ? 384
           : 512;
       const storagePressureMB = extended ? 128 : 64;
@@ -2981,6 +2990,18 @@ export function StillGoodApp() {
             ? 4
             : 8
         : null;
+      const memoryPlan = planMemoryPressureLevels({
+        reportedMemoryGB,
+        formFactor: detectFormFactor(),
+      });
+      const memoryCapacityProbeCapped = memoryPlan.capacityProbeCapped;
+      const testVideo = videoRef.current;
+      if (testVideo) {
+        testVideo.pause();
+        testVideo.removeAttribute("src");
+        testVideo.load();
+        await nextPaint();
+      }
       const memoryWorker = new Worker("/benchmark-worker.js");
       workersRef.current.push(memoryWorker);
       try {
@@ -2990,12 +3011,7 @@ export function StillGoodApp() {
           "memory-initialized",
           3000,
         );
-        const memoryLevels =
-          reportedMemoryGB === 2
-            ? [64, 128, 256, 384]
-            : reportedMemoryGB === 4
-              ? [128, 256, 512, 768]
-              : [128, 256, 512, 1024, 1280, 1536];
+        const memoryLevels = memoryPlan.levels;
         let baselineProbeP95Ms: number | null = null;
         for (const [index, targetMB] of memoryLevels.entries()) {
           setStatus(`Keeping ${targetMB} MB active while checking responsiveness`);
@@ -3163,6 +3179,7 @@ export function StillGoodApp() {
         multitaskTiers,
         memoryTiers,
         memorySupported,
+        memoryCapacityProbeCapped,
         reportedMemoryGB,
         storageTiers,
         strictStorageTiers,
@@ -3207,6 +3224,7 @@ export function StillGoodApp() {
           const measured = await runMixedReserveStage({
             cadenceMs,
             reportedMemoryGB,
+            memoryCapacityProbeCapped,
             storageTierIndex: opfsStorageTiers.length,
             onPhase: (phase) => {
               upperReserveRun.phase = phase;
@@ -3376,6 +3394,11 @@ export function StillGoodApp() {
           multitaskTiers,
           memoryTiers,
           memorySupported,
+          memoryCapacityProbeCapped,
+          memoryPressurePlan: {
+            levelsMB: memoryPlan.levels,
+            reason: memoryPlan.reason,
+          },
           reportedMemoryGB,
           storageTiers,
           strictStorageTiers,

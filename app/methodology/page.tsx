@@ -434,7 +434,11 @@ export default function MethodologyPage() {
             When available, the Device Memory API supplies only a coarse,
             privacy-limited 2, 4, or 8+ GB class. StillGood uses that quick hint
             as a lower-memory guardrail, never as an exact inventory. Firefox
-            and other browsers that omit the hint use the measured path alone.
+            and computer browsers that omit the hint use the measured path alone.
+            A mobile browser that omits the hint uses a bounded 512 MB working
+            set because some mobile operating systems can terminate and reload
+            an entire page before an allocation failure can be reported to the
+            benchmark.
           </p>
           <p>
             The measured path retains WebAssembly linear-memory blocks in
@@ -442,8 +446,11 @@ export default function MethodologyPage() {
             creates object-heavy inbox and table records that must later be
             reclaimed. Foreground probes continue throughout. The highest
             steady stage becomes a browser-reserve class and controls
-            eligibility for the highest grades. Allocation success by itself
-            is not counted as proof of physical memory.
+            eligibility for the highest grades when the full capacity path is
+            safe to run. A safety-bounded mobile result describes stability in
+            the tested range without inventing either a physical-memory ceiling
+            or a score penalty. Allocation success by itself is not counted as
+            proof of physical memory.
           </p>
         </section>
 

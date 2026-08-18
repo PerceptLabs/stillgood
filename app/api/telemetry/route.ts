@@ -671,6 +671,7 @@ function sanitizeSubmission(payload: unknown) {
       longTaskSupported: Boolean(integrity.longTaskSupported),
       longAnimationFrameSupported: Boolean(integrity.longAnimationFrameSupported),
       memorySupported: Boolean(integrity.memorySupported),
+      memoryCapacityProbeCapped: Boolean(integrity.memoryCapacityProbeCapped),
       storageAvailable: Boolean(integrity.storageAvailable),
       strictStorageAvailable: Boolean(integrity.strictStorageAvailable),
     },

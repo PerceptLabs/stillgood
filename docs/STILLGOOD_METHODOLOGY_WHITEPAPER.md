@@ -198,6 +198,14 @@ result, but fast behavior does not inflate the base score. Additional caps
 cover weak core activities, poor everyday graphics or video, inconsistent
 response, limited reserve, and slow large-file saves.
 
+When a mobile browser does not expose the coarse Device Memory hint, retained
+memory is bounded to a 512 MB working set. Some mobile operating systems can
+terminate and reload the browser page under memory pressure before JavaScript
+receives a catchable allocation error. The bounded path still measures page
+commit, working-set sweeps, object churn, foreground delay, and recovery. It is
+reported as stability within a browser-safe range and does not invent a
+physical-memory ceiling or impose a capacity-based grade ceiling.
+
 Version 6.13 groups the evidence without changing Chromium's established
 calculation:
 

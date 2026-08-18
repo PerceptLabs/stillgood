@@ -469,6 +469,20 @@ test("coarse memory hints and measured reserve jointly control top-grade eligibi
   assert.equal(highReserve.gradeCeiling, 100);
 });
 
+test("a safety-bounded mobile memory probe does not invent a physical-memory ceiling", () => {
+  const bounded = summarizeMemory(
+    stableMemoryTiers([128, 256, 384, 512]),
+    true,
+    null,
+    { capacityProbeCapped: true },
+  );
+
+  assert.equal(bounded.capacityProbeCapped, true);
+  assert.equal(bounded.gradeCeiling, 100);
+  assert.equal(bounded.topGradeEligible, false);
+  assert.equal(bounded.reserveLabel, "Stable in browser-safe range");
+});
+
 test("persistent storage scoring distinguishes quick and delayed durable saves", () => {
   const bulk = [
     { id: "1", label: "1 MB", writeMs: 40, readMs: 10 },

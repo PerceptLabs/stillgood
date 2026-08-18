@@ -20,6 +20,7 @@ import {
 import {
   compatibilityAdapterProfile,
   createTextSortRanker,
+  planMemoryPressureLevels,
 } from "../lib/benchmark-compatibility.mjs";
 
 test("browsing fixture covers articles, search, shopping, and busy pages", () => {
@@ -145,4 +146,26 @@ test("compatibility adapters use capabilities rather than browser identity", asy
     "utf8",
   );
   assert.doesNotMatch(source, /userAgent|Firefox|Chrom(?:e|ium)|Safari|Gecko/i);
+});
+
+test("memory pressure policy bounds mobile browsers when the memory hint is absent", () => {
+  const mobileUnknown = planMemoryPressureLevels({
+    reportedMemoryGB: null,
+    formFactor: "mobile",
+  });
+  const computerUnknown = planMemoryPressureLevels({
+    reportedMemoryGB: null,
+    formFactor: "computer",
+  });
+  const mobileReported = planMemoryPressureLevels({
+    reportedMemoryGB: 8,
+    formFactor: "mobile",
+  });
+
+  assert.deepEqual(mobileUnknown.levels, [128, 256, 384, 512]);
+  assert.equal(mobileUnknown.capacityProbeCapped, true);
+  assert.equal(Math.max(...computerUnknown.levels), 1536);
+  assert.equal(computerUnknown.capacityProbeCapped, false);
+  assert.equal(Math.max(...mobileReported.levels), 1536);
+  assert.equal(mobileReported.capacityProbeCapped, false);
 });
