@@ -528,7 +528,7 @@ test("A-range capability requires safe reserve evidence when memory capacity is 
   const withReserve = summarizeThoroughRun(withReserveMetrics);
 
   assert.ok(withoutReserve.score <= 88);
-  assert.equal(withoutReserve.grade, "B+");
+  assert.equal(withoutReserve.grade, "B");
   assert.equal(
     withoutReserve.internalScoring.broadCapabilityEvidence.ceiling1000,
     880,
@@ -680,18 +680,21 @@ test("a cold persistent-file stall is retained without replacing steady scoring"
 });
 
 test("grade bands provide useful extra strata", () => {
-  assert.equal(gradeForScore(98).grade, "A+");
+  assert.equal(gradeForScore(100).grade, "A+");
+  assert.equal(gradeForScore(99).grade, "A+");
+  assert.equal(gradeForScore(98).grade, "A");
   assert.equal(gradeForScore(97).grade, "A");
-  assert.equal(gradeForScore(95).grade, "A");
-  assert.equal(gradeForScore(94).grade, "A");
-  assert.equal(gradeForScore(93).grade, "A-");
-  assert.equal(gradeForScore(90).grade, "A-");
-  assert.equal(gradeForScore(89).grade, "B+");
-  assert.equal(gradeForScore(86).grade, "B+");
+  assert.equal(gradeForScore(96).grade, "A-");
+  assert.equal(gradeForScore(94).grade, "A-");
+  assert.equal(gradeForScore(93).grade, "B+");
+  assert.equal(gradeForScore(90).grade, "B+");
+  assert.equal(gradeForScore(89).grade, "B");
   assert.equal(gradeForScore(85).grade, "B");
-  assert.equal(gradeForScore(82).grade, "B");
+  assert.equal(gradeForScore(84).grade, "B-");
+  assert.equal(gradeForScore(82).grade, "B-");
   assert.equal(gradeForScore(81).grade, "B-");
-  assert.equal(gradeForScore(78).grade, "B-");
+  assert.equal(gradeForScore(80).grade, "B-");
+  assert.equal(gradeForScore(78).grade, "C+");
   assert.equal(gradeForScore(77).grade, "C+");
   assert.equal(gradeForScore(75).grade, "C+");
   assert.equal(gradeForScore(74).grade, "C+");

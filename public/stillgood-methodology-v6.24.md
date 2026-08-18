@@ -1,6 +1,6 @@
-# StillGood methodology v6.24.1
+# StillGood methodology v6.24.2
 
-**Benchmark profile:** `6.24.1-expanded-top-range`
+**Benchmark profile:** `6.24.2-capability-grade-bands`
 **Result schema:** `stillgood-result.v6.25`  
 **Published:** August 2026  
 **Status:** experimental, physical-device calibration in progress
@@ -138,7 +138,7 @@ result, not an average modern computer.
 
 ### Experimental v7 shadow scorer
 
-StillGood is evaluating a separate reference-based scorer alongside v6.24.1. It
+StillGood is evaluating a separate reference-based scorer alongside v6.24.2. It
 keeps unbounded reference-to-measured performance ratios, estimates comfortable
 workload capacity, and reports the identical standard pressure stage separately.
 An index of 1000 is a reference anchor rather than a ceiling.
@@ -163,16 +163,23 @@ hardware age is never an input. It prevents an excellent older workstation
 from occupying nearly all the remaining scale merely because ordinary browser
 work is already comfortable.
 
+Version 6.24.2 keeps those numeric scores unchanged and re-spaces the letter
+grades around practical capability. A B explicitly means comfortable everyday
+use with limited reserve; B+ identifies a strong second-life computer; A-
+requires fast everyday behavior; and A is reserved for unusually deep measured
+reserve. The grade is a plain-language capability class, while the number
+preserves differences within that class.
+
 ## Public grades
 
 | Score | Grade | Interpretation |
 |---:|:---:|---|
-| 98-100 | A+ | Modern-fast |
-| 94-97 | A | Fast |
-| 90-93 | A- | Very capable |
-| 86-89 | B+ | Strong second-life |
-| 82-85 | B | Comfortable second-life |
-| 78-81 | B- | Useful second-life |
+| 99-100 | A+ | Exceptional speed and reserve |
+| 97-98 | A | Fast with deep reserve |
+| 94-96 | A- | Fast for everyday work |
+| 90-93 | B+ | Strong second-life capability |
+| 85-89 | B | Comfortable for everyday work |
+| 80-84 | B- | Useful with some limits |
 | 74-77 | C+ | Capable light-use |
 | 68-73 | C | Light-use |
 | 58-67 | C- | Focused-use |

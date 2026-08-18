@@ -56,12 +56,12 @@ const modules = [
 ];
 
 const gradeBands = [
-  ["98–100", "A+", "Exceptionally fast and flexible"],
-  ["94–97", "A", "Fast and flexible"],
-  ["90–93", "A−", "Fast for everyday work"],
-  ["86–89", "B+", "Comfortable and capable"],
-  ["82–85", "B", "Comfortable for everyday work"],
-  ["78–81", "B−", "Useful with some limits"],
+  ["99–100", "A+", "Exceptional speed and reserve"],
+  ["97–98", "A", "Fast with deep reserve"],
+  ["94–96", "A−", "Fast for everyday work"],
+  ["90–93", "B+", "Strong second-life capability"],
+  ["85–89", "B", "Comfortable for everyday work"],
+  ["80–84", "B−", "Useful with some limits"],
   ["74–77", "C+", "Good for lighter work"],
   ["68–73", "C", "Best for light everyday work"],
   ["58–67", "C−", "Best for focused tasks"],
@@ -93,7 +93,7 @@ export default function MethodologyPage() {
 
       <article className="methodology-paper">
         <header className="methodology-hero">
-          <p className="kicker">Methodology whitepaper · benchmark v6.24.1</p>
+          <p className="kicker">Methodology whitepaper · benchmark v6.24.2</p>
           <h1>Measuring what a computer is still good for</h1>
           <p>
             StillGood is a browser-based system-usability benchmark for older,
@@ -103,7 +103,7 @@ export default function MethodologyPage() {
             unexplained speed number.
           </p>
           <div className="methodology-meta">
-            <span>Profile 6.24.1</span>
+            <span>Profile 6.24.2</span>
             <span>Published August 2026</span>
             <a href="/stillgood-methodology-v6.24.md" download>
               Download Markdown
@@ -518,6 +518,15 @@ export default function MethodologyPage() {
             differences in upper-end capability visible. Hardware age is never
             an input.
           </p>
+          <p>
+            Version 6.24.2 keeps those numeric scores unchanged and re-spaces
+            the letter grades around practical capability. A B now explicitly
+            means comfortable everyday use with limited reserve; B+ identifies
+            a strong second-life computer; A− requires fast everyday behavior;
+            and A is reserved for unusually deep measured reserve. The grade is
+            a plain-language capability class, while the number preserves
+            differences within that class.
+          </p>
           <h3>Why a new scorer is running in shadow</h3>
           <p>
             A hidden 0-to-1000 value inside a bounded score preserves rounding
@@ -777,7 +786,7 @@ export default function MethodologyPage() {
 
         <footer className="methodology-footer">
           <div>
-            <strong>StillGood methodology v6.24.1</strong>
+            <strong>StillGood methodology v6.24.2</strong>
             <span>
               Designed to support informed second-life hardware decisions.
             </span>

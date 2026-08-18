@@ -16,15 +16,15 @@ function result(score, overrides = {}) {
 }
 
 test("a clean result within one point of a grade boundary is confirmed", () => {
-  const plan = planBoundaryConfirmation(result(87));
+  const plan = planBoundaryConfirmation(result(86));
   assert.equal(plan.needed, true);
-  assert.equal(plan.gradeBoundary, 86);
+  assert.equal(plan.gradeBoundary, 85);
   assert.deepEqual(plan.categories.slice(0, 2), ["writing", "browsing"]);
 });
 
 test("a result away from grade and capability boundaries finishes normally", () => {
   const plan = planBoundaryConfirmation(
-    result(84, {
+    result(82, {
       browsing: { score: 88, medianCv: 0.08 },
       email: { score: 91, medianCv: 0.06 },
       writing: { score: 81, medianCv: 0.1 },
@@ -37,7 +37,7 @@ test("a result away from grade and capability boundaries finishes normally", () 
 
 test("a capability boundary can trigger confirmation without a grade boundary", () => {
   const plan = planBoundaryConfirmation(
-    result(84, {
+    result(82, {
       browsing: { score: 86, medianCv: 0.08 },
       email: { score: 91, medianCv: 0.06 },
       writing: { score: 81, medianCv: 0.1 },
