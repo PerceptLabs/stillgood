@@ -1,6 +1,6 @@
-# StillGood methodology v6.24
+# StillGood methodology v6.24.1
 
-**Benchmark profile:** `6.24.0-calibrated-top-range`  
+**Benchmark profile:** `6.24.1-expanded-top-range`
 **Result schema:** `stillgood-result.v6.25`  
 **Published:** August 2026  
 **Status:** experimental, physical-device calibration in progress
@@ -138,7 +138,7 @@ result, not an average modern computer.
 
 ### Experimental v7 shadow scorer
 
-StillGood is evaluating a separate reference-based scorer alongside v6.24. It
+StillGood is evaluating a separate reference-based scorer alongside v6.24.1. It
 keeps unbounded reference-to-measured performance ratios, estimates comfortable
 workload capacity, and reports the identical standard pressure stage separately.
 An index of 1000 is a reference anchor rather than a ceiling.
@@ -151,11 +151,11 @@ published in [the v7 shadow scoring design note](/stillgood-shadow-scoring-v7.md
 
 ### Calibrated upper range
 
-Version 6.24 leaves internal results through 900 unchanged. Above that point,
-explicit monotonic anchors reserve increasing room for exceptional systems:
-940 maps to 930, 980 maps to 960, 990 maps to 980, and a perfect 1000 remains
-1000. Values between anchors are linearly interpolated before the public score
-is rounded.
+Version 6.24.1 leaves internal results through 850 unchanged. Above that point,
+explicit monotonic anchors open more room between strong and exceptional
+systems: 900 maps to 880, 950 maps to 920, 970 maps to 950, 985 maps to 980,
+995 maps to 992, and a perfect 1000 remains 1000. Values between anchors are
+linearly interpolated before the public score is rounded.
 
 This calibration changes only the public upper range. It does not alter any
 category measurement, reserve observation, safeguard, or device ordering, and

@@ -23,11 +23,12 @@ import {
 
 test("top-end calibration preserves ordinary scores and reserves exceptional headroom", () => {
   assert.equal(calibrateTopEndScore1000(680), 680);
-  assert.equal(calibrateTopEndScore1000(900), 900);
-  assert.equal(calibrateTopEndScore1000(940), 930);
-  assert.equal(calibrateTopEndScore1000(950), 938);
-  assert.equal(calibrateTopEndScore1000(980), 960);
-  assert.equal(calibrateTopEndScore1000(990), 980);
+  assert.equal(calibrateTopEndScore1000(850), 850);
+  assert.equal(calibrateTopEndScore1000(900), 880);
+  assert.equal(calibrateTopEndScore1000(950), 920);
+  assert.equal(calibrateTopEndScore1000(970), 950);
+  assert.equal(calibrateTopEndScore1000(985), 980);
+  assert.equal(calibrateTopEndScore1000(990), 986);
   assert.equal(calibrateTopEndScore1000(1000), 1000);
 });
 
@@ -526,11 +527,11 @@ test("A-range capability requires safe reserve evidence when memory capacity is 
   };
   const withReserve = summarizeThoroughRun(withReserveMetrics);
 
-  assert.ok(withoutReserve.score <= 93);
-  assert.equal(withoutReserve.grade, "A-");
+  assert.ok(withoutReserve.score <= 88);
+  assert.equal(withoutReserve.grade, "B+");
   assert.equal(
     withoutReserve.internalScoring.broadCapabilityEvidence.ceiling1000,
-    930,
+    880,
   );
   assert.equal(
     withoutReserve.internalScoring.broadCapabilityEvidence.reserveVerified,
@@ -753,7 +754,7 @@ test("the final public score is derived from the hidden evidence matrix", () => 
   assert.equal(result.internalScoring.scale, 1000);
   assert.equal(
     result.internalScoring.aggregation,
-    "normalized-weighted-geometric-with-calibrated-top-range-v3",
+    "normalized-weighted-geometric-with-calibrated-top-range-v4",
   );
   assert.equal(result.internalScoring.publicScore, result.score);
   assert.ok(Math.abs(result.internalScoring.final / 10 - result.score) <= 0.5);

@@ -3316,7 +3316,7 @@ export function StillGoodApp() {
       const completedBrowser = browserLabel();
       const completedPlatform = navigator.platform || "Platform not reported";
       const completedProcessors = navigator.hardwareConcurrency || null;
-      const completedProfileVersion = "6.24.0-calibrated-top-range";
+      const completedProfileVersion = "6.24.1-expanded-top-range";
       const shadowScoring = summarizeShadowV7(buildSummaryMetrics(true));
       const previousLocalRuns = await listLocalRuns().catch(() => savedRuns);
       const recentRunRange = summarizeRecentRunRange(
